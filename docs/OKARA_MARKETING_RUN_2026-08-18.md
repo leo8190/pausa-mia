@@ -27,7 +27,9 @@ URL: https://leo8190.github.io/pausa-mia/
 1. Crear un proyecto Okara separado para Pausa Mía, sin sobrescribir Casi Ahí, o
    usar el texto aprobado en un canal orgánico independiente.
 2. Añadir una medición anónima y explícita antes de contar visitas.
-3. Pedir confirmación justo antes de publicar el primer post o enviar el primer
+3. El primer post quedó preparado en Reddit r/SideProject, con el enlace público y
+   parámetros de origen; la publicación no fue enviada.
+4. Pedir confirmación justo antes de publicar el primer post o enviar el primer
    mensaje en una red social.
 
-Estado: `PUBLICADO; OKARA SEPARADO PENDIENTE; 0/10 VISITAS HUMANAS VERIFICADAS`.
+Estado: `PUBLICADO; POST PREPARADO; OKARA SEPARADO Y MEDICIÓN PENDIENTES; 0/10 VISITAS HUMANAS VERIFICADAS`.
