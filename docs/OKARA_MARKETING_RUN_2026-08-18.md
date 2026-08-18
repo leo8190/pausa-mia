@@ -28,9 +28,9 @@ URL: https://leo8190.github.io/pausa-mia/
    usar el texto aprobado en un canal orgánico independiente.
 2. Contar como evidencia manual una respuesta pública de cada tester, sin pedir
    datos privados; añadir analítica anónima sólo si luego autorizamos una cuenta.
-3. El primer post quedó preparado en Reddit r/SideProject, con el enlace público y
-   parámetros de origen; la publicación no fue enviada.
+3. El primer post fue publicado en Reddit r/SideProject, con el enlace público y
+   parámetros de origen: https://www.reddit.com/r/SideProject/comments/1vs64xo/pausa_mía_personalized_guided_meditation/
 4. Pedir confirmación justo antes de publicar el primer post o enviar el primer
    mensaje en una red social.
 
-Estado: `PUBLICADO; POST PREPARADO; OKARA SEPARADO Y MEDICIÓN PENDIENTES; 0/10 VISITAS HUMANAS VERIFICADAS`.
+Estado: `PUBLICADO; POST EN REDDIT; OKARA SEPARADO PENDIENTE; 0/10 VISITAS HUMANAS VERIFICADAS`.
