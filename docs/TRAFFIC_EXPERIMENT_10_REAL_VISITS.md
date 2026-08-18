@@ -41,8 +41,9 @@ diez visitas humanas nuevas.
    guion para una prueba moderada.
 2. La publicación pública ya fue autorizada y ejecutada en GitHub Pages.
 3. Mantener el alojamiento gratuito con HTTPS y la URL estable indicada arriba.
-4. Agregar medición mínima y anónima de `landing_view`, sin texto personal ni
-   identificadores publicitarios.
+4. Usar una medición mínima: confirmación manual de cada tester en el hilo, sin
+   texto personal ni identificadores publicitarios, o agregar analítica anónima
+   cuando exista una cuenta autorizada.
 5. Autorizar y ejecutar un canal concreto de promoción orgánica.
 
 ## Primera campaña recomendada
@@ -80,5 +81,7 @@ individuales. Ninguna sustituye una URL pública y un canal humano autorizado.
 ## Criterio de éxito
 
 Registrar `10 visitantes humanos nuevos verificados`, junto con la fecha, origen
-general y conteo agregado. No afirmar demanda, validación comercial ni ingresos por
-alcanzar este número: sólo demuestra que diez personas llegaron a la página.
+general y conteo agregado. En la primera campaña, una respuesta pública de tester que
+describa una impresión sin datos privados será la evidencia manual mínima de visita.
+No afirmar demanda, validación comercial ni ingresos por alcanzar este número: sólo
+demuestra que diez personas llegaron a la página.
