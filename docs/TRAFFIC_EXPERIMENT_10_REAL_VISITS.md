@@ -1,6 +1,6 @@
 # Experimento de tráfico — 10 visitas reales
 
-Estado: `BLOQUEADO ANTES DE PUBLICAR`.
+Estado: `PUBLICADO; TRÁFICO HUMANO TODAVÍA NO VERIFICADO`.
 
 ## Objetivo verificable
 
@@ -17,27 +17,33 @@ No cuentan:
 
 ## Estado actual comprobado
 
-- La aplicación sólo funciona en `localhost:5173`.
-- No existe una dirección pública ni configuración de despliegue.
-- No existe analítica para distinguir personas nuevas de recargas o bots.
+- URL pública: https://leo8190.github.io/pausa-mia/
+- GitHub Pages quedó habilitado mediante el workflow de publicación; la ejecución
+  `32198079064` terminó con compilación y despliegue exitosos.
+- La URL pública, el HTML, el JavaScript y el CSS respondieron `HTTP 200` en la
+  verificación independiente.
+- No existe todavía analítica para distinguir personas nuevas de recargas o bots;
+  las verificaciones propias no se cuentan como visitas humanas.
 - Cursor terminó la segunda corrección editorial en el workspace visible.
 - Verificación independiente posterior: `format:check`, `lint`, `vitest` y `build`
   pasan; 12 archivos de prueba y 97 tests quedaron verdes.
 - La revisión editorial humana/independiente de calidad contemplativa todavía no se
   ejecutó, por lo que esto no equivale a aprobación para usuarios reales.
-- El repositorio aún dice explícitamente `Sin publicación ni despliegue autorizado`.
+- El sitio sólo contiene el prototipo local de generación y no tiene OAuth, claves,
+  diario remoto ni publicación automática de datos personales.
 
-Por estas razones, hoy no es posible demostrar diez visitas nuevas.
+Por estas razones, la publicación está lista, pero todavía no es posible demostrar
+diez visitas humanas nuevas.
 
 ## Requisitos antes de adquirir tráfico
 
 1. Completar la revisión editorial independiente y, si corresponde, aprobar el
    guion para una prueba moderada.
-2. Autorizar expresamente una publicación pública del prototipo.
-3. Elegir alojamiento gratuito con HTTPS y una URL estable.
+2. La publicación pública ya fue autorizada y ejecutada en GitHub Pages.
+3. Mantener el alojamiento gratuito con HTTPS y la URL estable indicada arriba.
 4. Agregar medición mínima y anónima de `landing_view`, sin texto personal ni
    identificadores publicitarios.
-5. Autorizar un canal concreto de promoción orgánica.
+5. Autorizar y ejecutar un canal concreto de promoción orgánica.
 
 ## Primera campaña recomendada
 
@@ -59,15 +65,17 @@ hasta definir el canal exacto y comprobar que acepta autopromoción.
 
 ## Herramienta de marketing
 
-La coincidencia más probable con “Adonkara” es `AdKaora`: una red publicitaria y
-plataforma para anunciantes y editores, con formatos display, vídeo y rich media.
-Su página pública no muestra un precio de entrada ni garantiza diez visitas; por eso
-no se contratará ni se cargará crédito para este experimento sin presupuesto,
-segmentación y autorización explícitos.
+El nombre correcto indicado por Leonardo es `Okara.ai`. La cuenta actualmente
+autenticada ya tiene un CMO creado para **Casi Ahí**, y Okara no ofreció una opción
+visible para crear un segundo proyecto con la misma cuenta gratuita. No se modificó
+ese proyecto para evitar mezclar productos. Okara se usará para Pausa Mía sólo cuando
+exista un proyecto separado o un canal explícito que no altere Casi Ahí.
 
-Alternativas revisadas: `AdCreative.ai` puede ayudar con creatividades y `HubSpot
-Campaign Assistant` con copys de campaña. Ninguna sustituye una URL pública y un
-canal humano autorizado.
+La oferta gratuita de Okara es suficiente para análisis y estrategia; los planes
+avanzados aparecen desde `US$99/mes`, pero no se contrató ni se cargó crédito.
+
+Alternativas revisadas: una publicación orgánica en Meetup, Reddit o invitaciones
+individuales. Ninguna sustituye una URL pública y un canal humano autorizado.
 
 ## Criterio de éxito
 
