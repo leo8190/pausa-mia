@@ -1,0 +1,33 @@
+# Dependencias
+node_modules/
+
+# Compilación y caché de TypeScript
+dist/
+*.tsbuildinfo
+
+# Secretos y configuración local (.env.example sí se versiona)
+.env
+.env.*
+!.env.example
+
+# Artefactos de audio pesados: se generan localmente y no se publican
+*.aac
+*.aiff
+*.flac
+*.m4a
+*.mp3
+*.ogg
+*.opus
+*.wav
+*.webm
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Registros
+*.log
+npm-debug.log*
+yarn-error.log*
