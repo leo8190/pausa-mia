@@ -14,10 +14,12 @@ URL: https://leo8190.github.io/pausa-mia/
 - No se publicó, conectó ninguna cuenta social ni se contrató un plan pago.
 - La cuenta muestra 1 crédito; no se recargó porque el canal correcto para Pausa Mía
   todavía no existe en esa cuenta.
-- La capacidad de múltiples proyectos no quedó confirmada: la página pública de
-  precios sólo muestra `Desde US$99/mes`, mientras una página oficial de comparación
-  menciona `US$249/mes` para proyectos ilimitados. No se debe comprar hasta verificar
-  el checkout y el alcance exacto del plan en la cuenta.
+- Verificación directa del modal de upgrade de la cuenta (sin iniciar checkout):
+  mensual `AI CMO Lite US$129/mes` y `AI CMO Pro US$249/mes`; anual `Lite US$107,50/mes`
+  y `Pro US$207,50/mes`, con dos meses gratis indicados.
+- Ambos planes muestran literalmente `1 AI CMO per website`. Por lo tanto, un plan
+  pago no confirma dos proyectos bajo la misma suscripción; Pausa Mía necesitaría una
+  suscripción/CMO propia o una confirmación comercial de Okara.
 
 ## Copia aprobada para un primer canal orgánico
 

@@ -74,10 +74,11 @@ visible para crear un segundo proyecto con la misma cuenta gratuita. No se modif
 ese proyecto para evitar mezclar productos. Okara se usará para Pausa Mía sólo cuando
 exista un proyecto separado o un canal explícito que no altere Casi Ahí.
 
-La oferta gratuita de Okara es suficiente para análisis y estrategia. La página de
-precios muestra planes avanzados desde `US$99/mes`, pero otra página oficial menciona
-`US$249/mes` para proyectos ilimitados; la capacidad de separar Pausa Mía de Casi Ahí
-no está confirmada y no se contrató ni se cargó crédito.
+La oferta gratuita de Okara es suficiente para análisis y estrategia. En el modal de
+upgrade de la cuenta se verificó: mensual Lite `US$129`, Pro `US$249`; anual Lite
+`US$107,50/mes`, Pro `US$207,50/mes`, con dos meses gratis. Ambos dicen `1 AI CMO per
+website`, así que no se debe asumir que pagar habilita Pausa Mía dentro del CMO de
+Casi Ahí. No se contrató ni se cargó crédito.
 
 Alternativas revisadas: una publicación orgánica en Meetup, Reddit o invitaciones
 individuales. Ninguna sustituye una URL pública y un canal humano autorizado.
