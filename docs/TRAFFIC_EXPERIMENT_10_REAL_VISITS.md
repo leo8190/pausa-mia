@@ -74,8 +74,10 @@ visible para crear un segundo proyecto con la misma cuenta gratuita. No se modif
 ese proyecto para evitar mezclar productos. Okara se usará para Pausa Mía sólo cuando
 exista un proyecto separado o un canal explícito que no altere Casi Ahí.
 
-La oferta gratuita de Okara es suficiente para análisis y estrategia; los planes
-avanzados aparecen desde `US$99/mes`, pero no se contrató ni se cargó crédito.
+La oferta gratuita de Okara es suficiente para análisis y estrategia. La página de
+precios muestra planes avanzados desde `US$99/mes`, pero otra página oficial menciona
+`US$249/mes` para proyectos ilimitados; la capacidad de separar Pausa Mía de Casi Ahí
+no está confirmada y no se contrató ni se cargó crédito.
 
 Alternativas revisadas: una publicación orgánica en Meetup, Reddit o invitaciones
 individuales. Ninguna sustituye una URL pública y un canal humano autorizado.

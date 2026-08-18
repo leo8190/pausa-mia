@@ -14,6 +14,10 @@ URL: https://leo8190.github.io/pausa-mia/
 - No se publicó, conectó ninguna cuenta social ni se contrató un plan pago.
 - La cuenta muestra 1 crédito; no se recargó porque el canal correcto para Pausa Mía
   todavía no existe en esa cuenta.
+- La capacidad de múltiples proyectos no quedó confirmada: la página pública de
+  precios sólo muestra `Desde US$99/mes`, mientras una página oficial de comparación
+  menciona `US$249/mes` para proyectos ilimitados. No se debe comprar hasta verificar
+  el checkout y el alcance exacto del plan en la cuenta.
 
 ## Copia aprobada para un primer canal orgánico
 
