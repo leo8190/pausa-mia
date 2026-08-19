@@ -8,6 +8,7 @@ import type { VoiceServiceConfig } from './config.js';
 import { applyCors } from './cors.js';
 import { jsonError, validateText } from './limits.js';
 import { synthesizeWav, TtsError } from './piper.js';
+import { InMemoryTtsRateLimiter, resolveClientId } from './rate-limit.js';
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -47,8 +48,9 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
 }
 
 export function createVoiceServer(config: VoiceServiceConfig): Server {
+  const ttsRateLimiter = new InMemoryTtsRateLimiter(config.ttsRateLimitPerMinute);
   return createServer((req, res) => {
-    void handleRequest(req, res, config);
+    void handleRequest(req, res, config, ttsRateLimiter);
   });
 }
 
@@ -56,6 +58,7 @@ async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
   config: VoiceServiceConfig,
+  ttsRateLimiter: InMemoryTtsRateLimiter,
 ): Promise<void> {
   try {
     const corsOk = applyCors(req, res, config);
@@ -82,6 +85,18 @@ async function handleRequest(
     }
 
     if (req.method === 'POST' && url.pathname === '/v1/tts') {
+      const clientId = resolveClientId(req);
+      const rateLimit = ttsRateLimiter.check(clientId);
+      if (!rateLimit.ok) {
+        res.setHeader('Retry-After', String(rateLimit.retryAfterSeconds));
+        sendJson(
+          res,
+          429,
+          jsonError('rate_limited', 'Demasiadas solicitudes. Intentá nuevamente en breve.'),
+        );
+        return;
+      }
+
       const body = await readJsonBody(req);
       const textField =
         body && typeof body === 'object' && 'text' in body

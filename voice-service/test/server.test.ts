@@ -128,4 +128,103 @@ describe('voice-service HTTP', () => {
     server.close();
     await once(server, 'close');
   });
+
+  it('can require Origin for CORS in production mode', async () => {
+    const config = loadConfig({
+      PORT: '0',
+      ARG_TTS_BACKEND: 'mock',
+      ARG_ALLOWED_ORIGINS: 'http://localhost:5173',
+      ARG_REQUIRE_ORIGIN: 'true',
+      ARG_MAX_TEXT_CHARS: '800',
+    });
+    const server = createVoiceServer(config);
+    server.listen(0);
+    await once(server, 'listening');
+    const { port } = server.address() as AddressInfo;
+    const base = `http://127.0.0.1:${port}`;
+
+    const missingOrigin = await fetch(`${base}/v1/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text: 'Respirá.' }),
+    });
+    assert.equal(missingOrigin.status, 403);
+    const missingOriginBody = (await missingOrigin.json()) as { code: string };
+    assert.equal(missingOriginBody.code, 'cors_denied');
+
+    const withOrigin = await fetch(`${base}/v1/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'http://localhost:5173',
+      },
+      body: JSON.stringify({ text: 'Respirá.' }),
+    });
+    assert.equal(withOrigin.status, 200);
+
+    server.close();
+    await once(server, 'close');
+  });
+
+  it('rate limits POST /v1/tts per client and returns Retry-After', async () => {
+    const config = loadConfig({
+      PORT: '0',
+      ARG_TTS_BACKEND: 'mock',
+      ARG_ALLOWED_ORIGINS: 'http://localhost:5173',
+      ARG_TTS_RATE_LIMIT_PER_MINUTE: '2',
+      ARG_MAX_TEXT_CHARS: '800',
+    });
+    const server = createVoiceServer(config);
+    server.listen(0);
+    await once(server, 'listening');
+    const { port } = server.address() as AddressInfo;
+    const base = `http://127.0.0.1:${port}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      Origin: 'http://localhost:5173',
+      'fly-client-ip': '203.0.113.10',
+    };
+
+    const req1 = await fetch(`${base}/v1/tts`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ text: 'Respirá 1.' }),
+    });
+    assert.equal(req1.status, 200);
+
+    const req2 = await fetch(`${base}/v1/tts`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ text: 'Respirá 2.' }),
+    });
+    assert.equal(req2.status, 200);
+
+    const limited = await fetch(`${base}/v1/tts`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ text: 'Respirá 3.' }),
+    });
+    assert.equal(limited.status, 429);
+    const retryAfterRaw = limited.headers.get('retry-after');
+    assert.ok(retryAfterRaw);
+    assert.ok(Number.parseInt(retryAfterRaw ?? '0', 10) >= 1);
+    const limitedBody = (await limited.json()) as { code: string };
+    assert.equal(limitedBody.code, 'rate_limited');
+
+    const health = await fetch(`${base}/health`);
+    assert.equal(health.status, 200);
+
+    const preflight = await fetch(`${base}/v1/tts`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:5173',
+      },
+    });
+    assert.equal(preflight.status, 204);
+
+    server.close();
+    await once(server, 'close');
+  });
 });

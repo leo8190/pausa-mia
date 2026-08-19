@@ -23,10 +23,14 @@ Ver `.env.example`.
 
 - `ARG_ALLOWED_ORIGINS` — lista coma-separada de orígenes CORS (p. ej. el Vite
   local). Sin coincidencia → 403.
+- `ARG_REQUIRE_ORIGIN` — `true` exige header `Origin` (sin `Origin` → 403). Default
+  `false` para desarrollo/tests locales.
 - `ARG_TTS_BACKEND` — `mock` (WAV silencioso determinístico, sin modelo) o
   `piper` (binario real + modelo).
 - `PIPER_BIN`, `PIPER_MODEL_PATH`, `PIPER_CONFIG_PATH` — sólo con `piper`.
 - `ARG_MAX_TEXT_CHARS` — límite por request (default 800; alineado al frontend).
+- `ARG_TTS_RATE_LIMIT_PER_MINUTE` — límite por cliente para `POST /v1/tts`
+  (ventana de 1 minuto, default 30). Exceso → `429` + `Retry-After`.
 
 Build de imagen (no es runtime): `HF_REVISION` (default `main`) pinnea el
 commit de [`rhasspy/piper-voices`](https://huggingface.co/rhasspy/piper-voices).
@@ -120,8 +124,11 @@ sólo con autorización explícita y tras revisar la factura estimada de Fly.
 ## Límites y salud
 
 - Texto máx. `ARG_MAX_TEXT_CHARS` (default 800) y cuerpo HTTP ≤ 16 KiB.
-- CORS: sólo orígenes en `ARG_ALLOWED_ORIGINS` (sin Origin, p. ej. `curl`, se
-  permite para pruebas locales).
+- CORS: sólo orígenes en `ARG_ALLOWED_ORIGINS`. Con `ARG_REQUIRE_ORIGIN=true`,
+  requests sin `Origin` también se rechazan con 403.
+- Rate limit en memoria para `POST /v1/tts` por cliente (`fly-client-ip`,
+  `x-forwarded-for`, fallback `remoteAddress`) con `ARG_TTS_RATE_LIMIT_PER_MINUTE`
+  (default 30/min). No aplica a `GET /health` ni a `OPTIONS`.
 - `GET /health` — `{ ok, backend, maxTextChars }` sin síntesis.
 - Backend `mock`: WAV silencioso determinístico (tests / sin modelo).
 - Backend `piper`: CLI `piper` + `es_AR-daniela-high` (en Docker, ya en `/models`).

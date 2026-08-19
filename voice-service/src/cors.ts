@@ -8,7 +8,7 @@ export function applyCors(
 ): boolean {
   const origin = req.headers.origin;
   if (!origin) {
-    return true;
+    return !config.requireOrigin;
   }
   if (config.allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
