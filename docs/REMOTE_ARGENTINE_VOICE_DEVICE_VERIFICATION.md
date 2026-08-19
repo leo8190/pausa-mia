@@ -32,6 +32,7 @@ despliega ni modifica secretos.
 | Desktop        | macOS              | Safari     |                    | ☐                 | ☐                  |                                                                                                  |            |       |
 | Desktop        | Windows            | Edge       |                    | ☐                 | ☐                  |                                                                                                  |            |       |
 | In-app Browser | Chromium integrado | Chromium   | N/A no físico      | ✅                | ✅                 | Sitio público; WAV Piper real verificado tras consentimiento; controles y estado remoto visibles | 2026-08-19 | Codex |
+| Matriz automatizada | macOS arm64 runtime | Chromium 151 / Firefox 153 / WebKit 26.5 | N/A no físico | N/A | ✅ UI/consentimiento | Smoke público hasta Reproducción: es-AR visible, consentimiento remoto desmarcado y oferta remota visible en los tres motores; no prueba hardware físico ni síntesis en cada motor | 2026-08-19 | Codex |
 
 ## Checklist por dispositivo
 
