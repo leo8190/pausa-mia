@@ -94,6 +94,12 @@ describe('useArgentineVoicePlayer — remoto', () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(URL.createObjectURL).toHaveBeenCalled();
+    const playSpy = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+    const playedAudio = playSpy.mock.contexts.at(-1) as HTMLAudioElement | undefined;
+    expect(playedAudio).toBeDefined();
+    expect(playedAudio?.preload).toBe('auto');
+    expect(playedAudio?.getAttribute('playsinline')).toBe('true');
+    expect(playedAudio?.getAttribute('webkit-playsinline')).toBe('true');
 
     act(() => {
       result.current.stop();

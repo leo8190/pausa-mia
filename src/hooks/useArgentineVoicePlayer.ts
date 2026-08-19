@@ -79,6 +79,20 @@ function isAbortLike(err: unknown): boolean {
   return err instanceof Error && err.name === 'AbortError';
 }
 
+/**
+ * Flags seguros para compatibilidad móvil/desktop al reproducir audio generado
+ * programáticamente (incluye Safari/iOS con reproducción inline).
+ */
+function configureAudioElementForCompatibility(audio: HTMLAudioElement): void {
+  // Mantiene al navegador listo para reproducir sin diferir la carga del blob.
+  audio.preload = 'auto';
+  // Reproducción inline en navegadores que soportan este hint programático.
+  (audio as HTMLMediaElement & { playsInline?: boolean }).playsInline = true;
+  audio.setAttribute('playsinline', 'true');
+  // Compatibilidad con Safari/WebKit legacy.
+  audio.setAttribute('webkit-playsinline', 'true');
+}
+
 const initialState = (mode: ArgentineVoiceMode): ArgentineVoicePlayerState => ({
   status: 'idle',
   progress: null,
@@ -306,7 +320,9 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         teardownAudio();
         const url = URL.createObjectURL(blob);
         objectUrlRef.current = url;
-        const audio = new Audio(url);
+        const audio = new Audio();
+        configureAudioElementForCompatibility(audio);
+        audio.src = url;
         audio.controls = true;
         audio.setAttribute(
           'aria-label',
