@@ -1,6 +1,6 @@
 // Adaptador de motores de voz.
 //
-// Hay dos motores posibles:
+// Hay tres motores posibles:
 // 1. `web-speech`: la Web Speech API del navegador. Funciona en la mayoría de
 //    navegadores/dispositivos modernos, pero la lista de voces (y si existe
 //    una voz es-AR real) depende totalmente del sistema operativo instalado.
@@ -12,7 +12,11 @@
 //    inferencia real vive en `piperEngine.ts`; este archivo resuelve URLs,
 //    detecta soporte del navegador, descarga con progreso y cancelación, y
 //    expone un único punto de síntesis que nunca degrada a otra variante en
-//    silencio.
+//    silencio. Reproduce el WAV resultante con HTMLAudioElement (no requiere
+//    AudioContext).
+// 3. `remote-wav-es-ar`: opt-in a un endpoint propio que devuelve audio/wav.
+//    La detección de soporte es sólo de reproducción local (HTMLAudioElement);
+//    nunca se hace un request automático para “probar disponibilidad”.
 //
 // Sobre el mirror `diffusionstudio/piper-voices` (el que usa internamente
 // `@mintplex-labs/piper-tts-web`): se verificó (`HEAD`/API de Hugging Face) el
@@ -35,10 +39,11 @@ import {
   type Progress,
   type ProgressCallback,
 } from './piperEngine';
+import { isRemoteArgentineTtsConfigured } from './remoteVoiceService';
 
 export type { Progress };
 
-export type VoiceEngineId = 'web-speech' | 'neural-piper-es-ar';
+export type VoiceEngineId = 'web-speech' | 'neural-piper-es-ar' | 'remote-wav-es-ar';
 
 export interface VoiceEngineStatus {
   id: VoiceEngineId;
@@ -52,6 +57,8 @@ export interface VoiceEngineStatus {
    * Verdadero sólo si, en esta sesión de navegador, la inferencia produjo
    * realmente un `Blob` de audio (ver `markNeuralVoiceVerified`). Una URL que
    * responde a `HEAD` NO alcanza para marcar este motor como disponible.
+   * El motor remoto nunca se marca disponible por tener endpoint: requiere
+   * consentimiento y síntesis real.
    */
   available: boolean;
   /** Explicación honesta en español para mostrar en la interfaz. */
@@ -69,20 +76,45 @@ export function checkWebSpeechEngineSupport(): boolean {
 }
 
 /**
- * Capacidades del navegador necesarias para ejecutar un runtime WASM/ONNX de
- * síntesis de voz (Piper u otro) enteramente en el cliente.
+ * Capacidades del navegador necesarias para Piper local: el modelo se descarga
+ * con fetch, se cachea, se decodifica el JSON de config y se ejecuta vía
+ * WebAssembly/ONNX. La salida es un WAV reproducido con HTMLAudioElement;
+ * AudioContext no interviene en inferencia ni en reproducción, así que no es
+ * un requisito.
  */
 export function checkNeuralEngineBrowserSupport(): boolean {
   if (!hasWindow()) return false;
   const hasWebAssembly = typeof WebAssembly !== 'undefined';
-  const audioCtor =
-    (window as unknown as { AudioContext?: unknown; webkitAudioContext?: unknown })
-      .AudioContext ??
-    (window as unknown as { webkitAudioContext?: unknown }).webkitAudioContext;
-  const hasAudioContext = typeof audioCtor !== 'undefined';
   const hasCaches = 'caches' in window;
   const hasFetch = typeof fetch !== 'undefined';
-  return hasWebAssembly && hasAudioContext && hasCaches && hasFetch;
+  const hasTextDecoder = typeof TextDecoder !== 'undefined';
+  const hasHtmlAudio =
+    typeof HTMLAudioElement !== 'undefined' || typeof Audio !== 'undefined';
+  return hasWebAssembly && hasCaches && hasFetch && hasTextDecoder && hasHtmlAudio;
+}
+
+/**
+ * Detección separada (y testeable) de reproducción de WAV remoto vía
+ * HTMLAudioElement. No hace requests al endpoint: sólo mira APIs del
+ * navegador. Un `canPlayType` vacío no se trata como fallo duro (Safari a
+ * veces reporta vacío para audio/wav aunque luego reproduzca el blob).
+ */
+export function checkRemoteWavPlaybackSupport(): boolean {
+  if (!hasWindow()) return false;
+  if (typeof Audio === 'undefined' && typeof HTMLAudioElement === 'undefined') {
+    return false;
+  }
+  try {
+    const probe =
+      typeof Audio !== 'undefined' ? new Audio() : document.createElement('audio');
+    if (typeof probe.canPlayType !== 'function') return true;
+    const wav = probe.canPlayType('audio/wav') || probe.canPlayType('audio/x-wav');
+    // CanPlayTypeResult es "" | "maybe" | "probably". Vacío = desconocido (p. ej.
+    // Safari); no lo tratamos como incompatibilidad dura.
+    return wav === '' || wav === 'maybe' || wav === 'probably';
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -212,7 +244,7 @@ export async function prepareNeuralVoice(
 ): Promise<NeuralVoicePrepareResult> {
   if (!checkNeuralEngineBrowserSupport()) {
     throw new Error(
-      'Este navegador no soporta WebAssembly, AudioContext o Cache Storage, necesarios para la voz argentina neuronal.',
+      'Este navegador no soporta WebAssembly, Cache Storage, TextDecoder o reproducción WAV (HTMLAudioElement), necesarios para la voz argentina neuronal local.',
     );
   }
 
@@ -297,6 +329,8 @@ export function resetArgentineVoiceSessionForTests(): void {
 export async function getVoiceEngineStatuses(): Promise<VoiceEngineStatus[]> {
   const webSpeechSupported = checkWebSpeechEngineSupport();
   const neuralBrowserSupported = checkNeuralEngineBrowserSupport();
+  const remotePlaybackSupported = checkRemoteWavPlaybackSupport();
+  const remoteConfigured = isRemoteArgentineTtsConfigured();
 
   const webSpeechStatus: VoiceEngineStatus = {
     id: 'web-speech',
@@ -314,7 +348,7 @@ export async function getVoiceEngineStatuses(): Promise<VoiceEngineStatus[]> {
   let neuralReason: string;
   if (!neuralBrowserSupported) {
     neuralReason =
-      'No compatible: tu navegador no soporta WebAssembly, AudioContext o Cache Storage, requeridos para ejecutar una voz neuronal en el cliente. Probá con un navegador moderno (Chrome, Edge, Safari o Firefox actualizados).';
+      'No compatible: tu navegador no soporta WebAssembly, Cache Storage, TextDecoder o reproducción WAV (HTMLAudioElement), requeridos para Piper local. Probá con un navegador moderno (Chrome, Edge, Safari o Firefox actualizados).';
   } else if (verifiedInSession) {
     neuralReason =
       'Verificada en esta sesión: la síntesis produjo audio real con el modelo es_AR-daniela-high.';
@@ -333,7 +367,32 @@ export async function getVoiceEngineStatuses(): Promise<VoiceEngineStatus[]> {
     reason: neuralReason,
   };
 
-  return [webSpeechStatus, neuralStatus];
+  let remoteReason: string;
+  if (!remotePlaybackSupported) {
+    remoteReason =
+      'No compatible: este navegador no puede reproducir WAV con HTMLAudioElement.';
+  } else if (!remoteConfigured) {
+    remoteReason =
+      'Sin endpoint: definí VITE_ARGENTINE_TTS_ENDPOINT para habilitar la ruta remota opt-in. No se hace ninguna petición automática.';
+  } else {
+    remoteReason =
+      'Endpoint configurado; requiere consentimiento y síntesis. No se verifica disponibilidad con requests automáticos.';
+  }
+
+  const remoteStatus: VoiceEngineStatus = {
+    id: 'remote-wav-es-ar',
+    name: 'Voz argentina remota (WAV vía endpoint propio)',
+    description:
+      'Opt-in: un servidor propio sintetiza el texto del guion y devuelve audio/wav. Sólo se activa tras consentimiento explícito; no envía diario, perfil ni fuentes.',
+    supported: remotePlaybackSupported,
+    configured: remoteConfigured,
+    // Nunca "disponible" sólo por tener endpoint: eso implicaría una
+    // verificación que no ocurrió (no hay HEAD/ping automático).
+    available: false,
+    reason: remoteReason,
+  };
+
+  return [webSpeechStatus, neuralStatus, remoteStatus];
 }
 
 export { loadPiperPhonemizeFactory };

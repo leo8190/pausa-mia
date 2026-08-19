@@ -6,6 +6,10 @@
 // Modo `remote`: POST del texto del segmento a VITE_ARGENTINE_TTS_ENDPOINT.
 // El modo remoto nunca se activa solo: lo elige la UI con consentimiento explícito.
 // Cambiar de modo cancela la síntesis en curso y descarta audio/estado previos.
+//
+// Si `audio.play()` falla por política de autoplay (NotAllowedError), no se deja
+// la sesión en error inutilizable: se expone el WAV con controles nativos y un
+// reintento explícito para que la persona inicie la reproducción con un gesto.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ScriptSegment } from '../types';
 import { synthesizeArgentineVoice, type Progress } from '../lib/voiceEngine';
@@ -20,7 +24,14 @@ import { registerSpeechCancel } from '../lib/speechController';
 export type ArgentineVoiceMode = 'local' | 'remote';
 
 export type ArgentineVoiceStatus =
-  'idle' | 'preparing' | 'ready' | 'playing' | 'paused' | 'stopped' | 'error';
+  | 'idle'
+  | 'preparing'
+  | 'ready'
+  | 'playing'
+  | 'paused'
+  | 'stopped'
+  | 'error'
+  | 'needs-native-play';
 
 export interface ArgentineVoicePlayerState {
   status: ArgentineVoiceStatus;
@@ -28,6 +39,20 @@ export interface ArgentineVoicePlayerState {
   error: string | null;
   currentSegmentIndex: number;
   mode: ArgentineVoiceMode;
+  /** Object URL del WAV listo cuando hace falta el control nativo (autoplay bloqueado). */
+  nativeAudioUrl: string | null;
+}
+
+/** Detecta bloqueo de autoplay / gesto de usuario (Safari/iOS y políticas similares). */
+export function isAutoplayPolicyError(err: unknown): boolean {
+  if (typeof DOMException !== 'undefined' && err instanceof DOMException) {
+    if (err.name === 'NotAllowedError') return true;
+  }
+  if (err instanceof Error) {
+    if (err.name === 'NotAllowedError') return true;
+    return /notallowed|user.?gesture|autoplay/i.test(err.message);
+  }
+  return false;
 }
 
 function toErrorMessage(err: unknown): string {
@@ -43,14 +68,19 @@ function isAbortLike(err: unknown): boolean {
   return err instanceof Error && err.name === 'AbortError';
 }
 
+const initialState = (mode: ArgentineVoiceMode): ArgentineVoicePlayerState => ({
+  status: 'idle',
+  progress: null,
+  error: null,
+  currentSegmentIndex: 0,
+  mode,
+  nativeAudioUrl: null,
+});
+
 export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
-  const [state, setState] = useState<ArgentineVoicePlayerState>({
-    status: 'idle',
-    progress: null,
-    error: null,
-    currentSegmentIndex: 0,
-    mode,
-  });
+  const [state, setState] = useState<ArgentineVoicePlayerState>(() =>
+    initialState(mode),
+  );
 
   const modeRef = useRef(mode);
   const segmentsRef = useRef<ScriptSegment[]>([]);
@@ -63,6 +93,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   const pauseStartTimeRef = useRef(0);
   const pendingNextIndexRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const playSegmentRef = useRef<(index: number) => Promise<void>>(async () => {});
 
   const releaseObjectUrl = useCallback(() => {
     if (objectUrlRef.current) {
@@ -89,6 +120,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     if (audioRef.current) {
       audioRef.current.onended = null;
       audioRef.current.onerror = null;
+      audioRef.current.onplay = null;
       audioRef.current.pause();
       audioRef.current = null;
     }
@@ -112,13 +144,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     clearPauseTimer();
     abortInFlight();
     teardownAudio();
-    setState({
-      status: 'idle',
-      progress: null,
-      error: null,
-      currentSegmentIndex: 0,
-      mode,
-    });
+    setState(initialState(mode));
   }, [mode, abortInFlight, clearPauseTimer, teardownAudio]);
 
   /**
@@ -139,6 +165,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       error: null,
       currentSegmentIndex: 0,
       mode: requestMode,
+      nativeAudioUrl: null,
     });
 
     try {
@@ -154,6 +181,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           status: 'ready',
           error: null,
           mode: requestMode,
+          nativeAudioUrl: null,
         }));
         return true;
       }
@@ -172,6 +200,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         status: 'ready',
         error: null,
         mode: requestMode,
+        nativeAudioUrl: null,
       }));
       return true;
     } catch (err) {
@@ -181,6 +210,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         status: 'error',
         error: toErrorMessage(err),
         mode: requestMode,
+        nativeAudioUrl: null,
       }));
       return false;
     } finally {
@@ -211,6 +241,21 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     [abortInFlight, mode],
   );
 
+  const scheduleNextSegment = useCallback(
+    (index: number) => {
+      if (stoppedRef.current || modeRef.current !== mode) return;
+      betweenSegmentsRef.current = true;
+      pendingNextIndexRef.current = index + 1;
+      pauseStartTimeRef.current = Date.now();
+      const segments = segmentsRef.current;
+      pauseTimerRef.current = setTimeout(() => {
+        betweenSegmentsRef.current = false;
+        void playSegmentRef.current(index + 1);
+      }, segments[index]?.pauseAfterMs ?? 0);
+    },
+    [mode],
+  );
+
   const playSegment = useCallback(
     async (index: number) => {
       if (stoppedRef.current) return;
@@ -221,6 +266,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           ...prev,
           status: 'stopped',
           currentSegmentIndex: segments.length,
+          nativeAudioUrl: null,
         }));
         return;
       }
@@ -232,6 +278,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         currentSegmentIndex: index,
         error: null,
         mode,
+        nativeAudioUrl: null,
       }));
 
       try {
@@ -246,19 +293,14 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
 
         audio.onended = () => {
           if (stoppedRef.current || modeRef.current !== mode) return;
-          betweenSegmentsRef.current = true;
-          pendingNextIndexRef.current = index + 1;
-          pauseStartTimeRef.current = Date.now();
-          pauseTimerRef.current = setTimeout(() => {
-            betweenSegmentsRef.current = false;
-            void playSegment(index + 1);
-          }, segments[index].pauseAfterMs);
+          scheduleNextSegment(index);
         };
         audio.onerror = () => {
           if (stoppedRef.current || modeRef.current !== mode) return;
           setState((prev) => ({
             ...prev,
             status: 'error',
+            nativeAudioUrl: null,
             error:
               mode === 'remote'
                 ? 'No se pudo reproducir el audio WAV del servicio remoto.'
@@ -266,7 +308,40 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           }));
         };
 
-        await audio.play();
+        try {
+          await audio.play();
+          setState((prev) => ({
+            ...prev,
+            status: 'playing',
+            nativeAudioUrl: null,
+          }));
+        } catch (playErr) {
+          if (stoppedRef.current || modeRef.current !== mode || isAbortLike(playErr)) {
+            return;
+          }
+          if (isAutoplayPolicyError(playErr)) {
+            // Conservar el audio listo; la UI muestra <audio controls> / reintento.
+            audio.controls = true;
+            audio.onplay = () => {
+              if (stoppedRef.current || modeRef.current !== mode) return;
+              setState((prev) => ({
+                ...prev,
+                status: 'playing',
+                nativeAudioUrl: null,
+              }));
+            };
+            setState((prev) => ({
+              ...prev,
+              status: 'needs-native-play',
+              error: null,
+              nativeAudioUrl: url,
+              currentSegmentIndex: index,
+              mode,
+            }));
+            return;
+          }
+          throw playErr;
+        }
       } catch (err) {
         if (stoppedRef.current || modeRef.current !== mode || isAbortLike(err)) {
           return;
@@ -275,11 +350,14 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           ...prev,
           status: 'error',
           error: toErrorMessage(err),
+          nativeAudioUrl: null,
         }));
       }
     },
-    [mode, synthesizeSegment, teardownAudio],
+    [mode, scheduleNextSegment, synthesizeSegment, teardownAudio],
   );
+
+  playSegmentRef.current = playSegment;
 
   const play = useCallback(
     (segments: ScriptSegment[]) => {
@@ -296,6 +374,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
             status: 'error',
             error: toErrorMessage(err),
             mode,
+            nativeAudioUrl: null,
           }));
           return;
         }
@@ -327,12 +406,56 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         betweenSegmentsRef.current = false;
         void playSegment(pendingNextIndexRef.current);
       }, remainingPauseMsRef.current);
-      setState((prev) => ({ ...prev, status: 'playing' }));
-    } else if (audioRef.current) {
-      void audioRef.current.play();
-      setState((prev) => ({ ...prev, status: 'playing' }));
+      setState((prev) => ({ ...prev, status: 'playing', nativeAudioUrl: null }));
+      return;
     }
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    void audio
+      .play()
+      .then(() => {
+        setState((prev) => ({
+          ...prev,
+          status: 'playing',
+          nativeAudioUrl: null,
+        }));
+      })
+      .catch((err: unknown) => {
+        if (isAutoplayPolicyError(err) && objectUrlRef.current) {
+          audio.controls = true;
+          setState((prev) => ({
+            ...prev,
+            status: 'needs-native-play',
+            error: null,
+            nativeAudioUrl: objectUrlRef.current,
+          }));
+          return;
+        }
+        if (!isAbortLike(err)) {
+          setState((prev) => ({
+            ...prev,
+            status: 'error',
+            error: toErrorMessage(err),
+            nativeAudioUrl: null,
+          }));
+        }
+      });
   }, [playSegment]);
+
+  /**
+   * Monta el HTMLAudioElement programático dentro de un host visible para
+   * ofrecer controles nativos tras un bloqueo de autoplay.
+   */
+  const mountNativeAudioElement = useCallback((host: HTMLElement | null) => {
+    const audio = audioRef.current;
+    if (!host || !audio) return;
+    audio.controls = true;
+    if (audio.parentElement !== host) {
+      host.replaceChildren(audio);
+    }
+  }, []);
 
   const stop = useCallback(() => {
     stoppedRef.current = true;
@@ -340,7 +463,11 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     clearPauseTimer();
     abortInFlight();
     teardownAudio();
-    setState((prev) => ({ ...prev, status: 'stopped' }));
+    setState((prev) => ({
+      ...prev,
+      status: 'stopped',
+      nativeAudioUrl: null,
+    }));
   }, [abortInFlight, clearPauseTimer, teardownAudio]);
 
   const restart = useCallback(() => {
@@ -369,5 +496,6 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     resume,
     stop,
     restart,
+    mountNativeAudioElement,
   };
 }

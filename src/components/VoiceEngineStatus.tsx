@@ -1,10 +1,26 @@
 import { useEffect, useState } from 'react';
 import { getVoiceEngineStatuses, type VoiceEngineStatus } from '../lib/voiceEngine';
 
+function statusBadgeLabel(status: VoiceEngineStatus): string {
+  if (status.available) return 'Disponible';
+  if (status.id === 'remote-wav-es-ar' && status.configured && status.supported) {
+    return 'Opt-in';
+  }
+  if (status.configured && status.supported) return 'Sin verificar';
+  return 'No disponible';
+}
+
+function statusBadgeClass(status: VoiceEngineStatus): string {
+  if (status.available) return 'is-available';
+  if (status.configured && status.supported) return 'is-configured';
+  return 'is-unavailable';
+}
+
 /**
  * Muestra honestamente qué motores de voz existen y si están disponibles en
  * este dispositivo/navegador concreto. Nunca afirma que un motor funciona
- * cuando no pudo verificarse.
+ * cuando no pudo verificarse. El remoto configurado se muestra como motor
+ * propio (opt-in), sin fingir una verificación por red.
  */
 export function VoiceEngineStatusPanel({
   refreshKey,
@@ -33,10 +49,8 @@ export function VoiceEngineStatusPanel({
       <ul className="voice-engine-list">
         {statuses.map((status) => (
           <li className="voice-engine-item" key={status.id}>
-            <span
-              className={`voice-engine-badge ${status.available ? 'is-available' : 'is-unavailable'}`}
-            >
-              {status.available ? 'Disponible' : 'No disponible'}
+            <span className={`voice-engine-badge ${statusBadgeClass(status)}`}>
+              {statusBadgeLabel(status)}
             </span>
             <span className="voice-engine-body">
               <strong>{status.name}</strong>
