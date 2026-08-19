@@ -53,7 +53,7 @@ npm audit --omit=dev
 1. **Bienvenida y límites** — bienestar general, no terapia; sin persistencia por defecto.
 2. **Consentimiento** — casillas no preseleccionadas; procesamiento sólo con permiso explícito.
 3. **Check-in** — momento, estado, intención, experiencia, estilo, duración (3/5/10), voz.
-4. **Contexto opcional** — diario manual (hoy/ayer/anteayer), importación local texto/JSON.
+4. **Contexto opcional** — diario manual (hoy/ayer/anteayer), importación local múltiple de texto/JSON/CSV y arrastrar/soltar.
 5. **Resumen editable** — quitar cualquier dato; elegir motor local o IA.
 6. **Consentimiento IA** — si se elige IA, mostrar campos exactos a transmitir.
 7. **Generación** — motor local por reglas o IA vía servidor local con fallback.
@@ -71,7 +71,8 @@ npm audit --omit=dev
 src/
 ├── components/          # Pasos del flujo UI
 ├── hooks/               # useSession, useSpeechPlayer (Web Speech, es-neutro),
-│                        # useArgentineVoicePlayer (voz neuronal es-AR local o remota)
+│                        # useArgentineVoicePlayer (voz neuronal es-AR local o remota),
+│                        # useLocalFileDrop (arrastrar/soltar sin subir archivos)
 ├── lib/
 │   ├── aiTransmissionPayload.ts # Payload mínimo único para vista previa y envío IA
 │   ├── checkInSummary.ts        # Valores de resumen sin dependencia circular
@@ -86,6 +87,7 @@ src/
 │   ├── voiceEngine.ts        # Descarga/caché del modelo es-AR y punto único de síntesis
 │   ├── piperEngine.ts        # Inferencia Piper real (fonemizador + ONNX Runtime Web + WAV)
 │   ├── remoteVoiceService.ts # Cliente POST /v1/tts (vacío en local; Fly en Pages)
+│   ├── onlineConnector.ts    # Estado honesto: OAuth no activo sin flujo implementado
 │   ├── speechController.ts   # Cancelación global de audio
 │   └── session.ts            # Estado de sesión en memoria
 ├── types/
@@ -203,9 +205,11 @@ interfaz como en las pruebas (`voiceService.test.ts`).
 
 El paso de contexto permite agregar, con selección independiente, archivos locales
 exportados por la persona: perfil de Google, calendario de Google, diario/notas y
-exportaciones de Instagram, Facebook, X, LinkedIn o TikTok. Se interpretan en el
-navegador, se pueden quitar antes de generar y no se envían a servidores. Los botones
-de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectadas.
+exportaciones de Instagram, Facebook, X, LinkedIn o TikTok. Se pueden elegir varios
+archivos, soltarlos en la zona de importación y, cuando corresponde, leer CSV. Se
+interpretan en el navegador, se pueden quitar antes de generar y no se envían a
+servidores. Los botones de conexión directa permanecen deshabilitados: no hay OAuth ni
+cuentas conectadas.
 
 ## Pausa de seguridad — Argentina
 
@@ -227,7 +231,7 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
 | ---------------------- | ------------------------------------------------------------------------ |
 | `npm run format:check` | ✅                                                                       |
 | `npm run lint`         | ✅                                                                       |
-| `npm test`             | ✅ 172 tests (unitarias + flujo React + servidor mockeado; sin API real) |
+| `npm test`             | ✅ 180 tests (unitarias + flujo React + servidor mockeado; sin API real) |
 | `npm run build`        | ✅                                                                       |
 | `voice-service` tests  | ✅ 3 tests (`ARG_TTS_BACKEND=mock`, sin modelo ni deploy)                |
 | `npm audit --omit=dev` | (no re-ejecutado en este handoff)                                        |
@@ -271,7 +275,7 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
   directamente, sin pasar por Piper.
 - Ruta remota: `remoteVoiceService.ts` + modo `remote` en `useArgentineVoicePlayer`
   (HTMLAudioElement + object URLs); si el autoplay es bloqueado, expone controles
-  nativos visibles. El chequeo remoto no hace requests automáticos y sólo muestra
+  nativos visibles, además de acciones para abrir o descargar el WAV. El chequeo remoto no hace requests automáticos y sólo muestra
   `Opt-in` cuando el endpoint está configurado. Servicio de referencia en
   `voice-service/` (tests con backend `mock`; Piper real documentado, modelo no
   versionado). Verificación por dispositivo:

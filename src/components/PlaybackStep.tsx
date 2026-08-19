@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSpeechPlayer } from '../hooks/useSpeechPlayer';
-import { useArgentineVoicePlayer } from '../hooks/useArgentineVoicePlayer';
+import {
+  useArgentineVoicePlayer,
+  argentineWavDownloadName,
+} from '../hooks/useArgentineVoicePlayer';
 import type { SessionApi } from '../hooks/useSession';
 import {
   checkNeuralEngineBrowserSupport,
@@ -52,6 +55,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     restart: restartNeural,
     mountNativeAudioElement,
   } = useArgentineVoicePlayer(argentineMode);
+  const neuralAudioUrl = neuralState.nativeAudioUrl;
 
   const useNeuralEngine = wantsArgentineNeural && !useDeviceFallback;
 
@@ -349,6 +353,28 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                   Reproducir con controles del dispositivo
                 </button>
               </div>
+              {neuralAudioUrl && (
+                <div
+                  className="native-audio-actions"
+                  aria-label="Opciones del archivo de audio"
+                >
+                  <a
+                    className="btn btn-secondary btn-small"
+                    href={neuralAudioUrl}
+                    download={argentineWavDownloadName(neuralState.currentSegmentIndex)}
+                  >
+                    Descargar WAV
+                  </a>
+                  <a
+                    className="btn btn-ghost btn-small"
+                    href={neuralAudioUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Abrir audio
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
@@ -435,6 +461,28 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 {needsNativePlay &&
                   `Audio listo — usá el control nativo (segmento ${neuralState.currentSegmentIndex + 1} de ${script.segments.length})`}
               </p>
+              {neuralAudioUrl && !needsNativePlay && (
+                <div
+                  className="native-audio-actions"
+                  aria-label="Guardar el segmento actual"
+                >
+                  <a
+                    className="btn btn-secondary btn-small"
+                    href={neuralAudioUrl}
+                    download={argentineWavDownloadName(neuralState.currentSegmentIndex)}
+                  >
+                    Descargar segmento actual
+                  </a>
+                  <a
+                    className="btn btn-ghost btn-small"
+                    href={neuralAudioUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Abrir audio
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>

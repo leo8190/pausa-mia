@@ -28,14 +28,14 @@ Estados: `IMPLEMENTADO`, `PARCIAL`, `PREPARADO`, `NO IMPLEMENTADO`, `NO VERIFICA
 | Comparación de voces, precios y calidad                                                       | `VOICE_OPTIONS_2026-08-18.md`, muestras locales y protocolo ciego                                                                                                | `PREPARADO`                           | Prueba premium requiere autorización y posiblemente gasto                               |
 | Estrategia de monetización                                                                    | Oferta, precios experimentales, competencia, embudo y landing preparados                                                                                         | `PREPARADO`                           | No existe checkout ni pago real                                                         |
 | Estrategia de marketing                                                                       | Segmento, mensaje, adquisición orgánica y publicidad segura documentados                                                                                         | `PREPARADO`                           | No publicado; validar producto antes de adquirir tráfico                                |
-| Prototipo utilizable                                                                          | Flujo completo compila, pasa 172 pruebas, incluye diagnóstico local por dispositivo y fue recorrido en navegador integrado/Chrome                                | `PARCIAL`                             | Prueba física en dispositivos, borrado visual, revisión profesional y prueba humana     |
+| Prototipo utilizable                                                                          | Flujo completo compila, pasa 180 pruebas, incluye diagnóstico local por dispositivo, importación múltiple/CSV, fallback WAV descargable y fue recorrido en navegador integrado/Chrome | `PARCIAL`                             | Prueba física en dispositivos, borrado visual, revisión profesional y prueba humana     |
 | Validación con usuarios                                                                       | Protocolo moderado preparado                                                                                                                                     | `NO IMPLEMENTADO`                     | Cinco pruebas consentidas; no usar datos íntimos reales antes del cierre técnico        |
 | Monetización demostrada                                                                       | Ningún checkout ni cobro ejecutado                                                                                                                               | `NO IMPLEMENTADO`                     | `PAGADO` exige dinero acreditado y autorización previa                                  |
 
 ## Camino crítico
 
 1. Completado: Cursor termina la corrección de privacidad sin debilitar los gates.
-2. Completado: formato, análisis, 172 pruebas, compilación y auditoría quedan verdes.
+2. Completado: formato, análisis, 180 pruebas, compilación y auditoría quedan verdes.
 3. Completado: el caso sintético original confirma ausencia de frase y secuencias.
 4. Completado: revisión visual en escritorio y `390 × 844`, incluida la
    reproducción, pausa, continuación y detención.
