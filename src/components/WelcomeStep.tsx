@@ -7,6 +7,18 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
       title="Meditación a Medida"
       lead="Una pausa guiada creada con lo que elegís compartir hoy, en tu variante de español."
       cardClassName="step-card--welcome"
+      hero={
+        <div className="welcome-hero">
+          <div className="welcome-hero-mark" aria-hidden="true">
+            <span className="welcome-hero-bar" />
+            <span className="welcome-hero-bar" />
+          </div>
+          <p className="welcome-hero-brand">Pausa Mía</p>
+          <p className="welcome-hero-benefit">
+            Una sesión breve, serena y privada — sin cuentas ni conexiones.
+          </p>
+        </div>
+      }
       actions={
         <>
           <button
@@ -19,14 +31,23 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
           <DeleteSessionButton sessionApi={sessionApi} />
         </>
       }
+      afterActions={
+        <div className="welcome-legal">
+          <p>
+            Ofrece <strong>bienestar general</strong>: no es terapia, psicología ni
+            tratamiento, y no promete curar ni resolver condiciones de salud.
+          </p>
+          <p>
+            La primera sesión <strong>no guarda ni conecta</strong> nada. Todo se
+            procesa en tu navegador y se descarta al recargar, salvo que elijas guardar
+            preferencias.
+          </p>
+          <p>
+            <strong>Solo para mayores de 18 años.</strong>
+          </p>
+        </div>
+      }
     >
-      <div className="welcome-hero" aria-hidden="true">
-        <p className="welcome-hero-kicker">Tu pausa, a tu medida</p>
-        <p className="welcome-hero-benefit">
-          Una sesión breve, serena y privada — sin cuentas ni conexiones.
-        </p>
-      </div>
-
       <ul className="welcome-signals" aria-label="Señales de privacidad y uso">
         <li className="welcome-signal">
           <span className="welcome-signal-mark" aria-hidden="true" />
@@ -50,23 +71,6 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
           </p>
         </li>
       </ul>
-
-      <div className="welcome-legal">
-        <p>
-          Esta herramienta ofrece <strong>bienestar general</strong>, no terapia,
-          psicología ni tratamiento. No promete curar, reducir ni resolver condiciones
-          de salud.
-        </p>
-        <p>
-          La primera sesión <strong>no guarda ni conecta</strong> información. Todo se
-          procesa en tu navegador y se descarta al recargar, salvo que elijas guardar
-          preferencias más adelante.
-        </p>
-        <p>
-          <strong>Solo para mayores de 18 años.</strong> Podés omitir cualquier dato
-          sensible.
-        </p>
-      </div>
     </StepLayout>
   );
 }

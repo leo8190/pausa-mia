@@ -32,7 +32,7 @@ export function SafetyStep({ sessionApi }: { sessionApi: SessionApi }) {
       }
     >
       <div className="safety-card">
-        <h2>Importante</h2>
+        <h3>Importante</h3>
         <p>{SAFETY_MESSAGE}</p>
         <ul className="safety-actions">
           {SAFETY_ACTIONS.map((action) => (

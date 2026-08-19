@@ -5,6 +5,7 @@
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .app-header {
@@ -70,6 +71,19 @@
     var(--color-accent) 100%
   );
   box-shadow: 0 3px 10px rgba(47, 92, 79, 0.35);
+  animation: brand-breathe 4.8s var(--ease-out) infinite;
+}
+
+@keyframes brand-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.9);
+    opacity: 0.82;
+  }
 }
 
 .brand-text {
@@ -81,11 +95,12 @@
 
 .brand-title {
   font-family: var(--font-display);
-  font-size: clamp(1.15rem, 1rem + 0.7vw, 1.35rem);
+  font-size: clamp(1.4rem, 1.2rem + 0.85vw, 1.8rem);
   font-weight: 650;
   letter-spacing: -0.02em;
   margin: 0;
   color: var(--color-primary-darker);
+  overflow-wrap: anywhere;
 }
 
 .brand-subtitle {
@@ -131,6 +146,7 @@
   color: var(--color-text-muted);
   font-weight: 550;
   letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
 }
 
 /* ---------- Step card ---------- */
@@ -138,6 +154,7 @@
 .step-container {
   width: 100%;
   max-width: var(--max-width);
+  min-width: 0;
   animation: step-in var(--motion-slow) var(--ease-out);
 }
 
@@ -153,6 +170,8 @@
 }
 
 .step-card {
+  --card-pad-y: var(--space-md);
+  --card-pad-x: var(--space-md);
   position: relative;
   background: linear-gradient(
       165deg,
@@ -163,8 +182,9 @@
     padding-box;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-md);
+  padding: var(--card-pad-y) var(--card-pad-x);
   box-shadow: var(--shadow-md), var(--shadow-inset);
+  min-width: 0;
   transition:
     box-shadow var(--motion-base) var(--ease),
     border-color var(--motion-base) var(--ease),
@@ -201,6 +221,34 @@
 
 .step-card--welcome {
   overflow: hidden;
+  padding: 0;
+}
+
+.step-card--welcome h2 {
+  padding: var(--card-pad-y) var(--card-pad-x) 0;
+  margin-bottom: 0.45rem;
+}
+
+.step-card--welcome .step-lead,
+.step-card--welcome .step-body,
+.step-card--welcome .step-actions,
+.step-card--welcome .step-after-actions {
+  padding-inline: var(--card-pad-x);
+}
+
+.step-card--welcome .step-actions {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-xs);
+  padding-bottom: 0;
+}
+
+.step-card--welcome .step-after-actions {
+  margin-top: var(--space-sm);
+  padding-bottom: var(--card-pad-y);
+}
+
+.step-card--playback:has(.player-dock) {
+  padding-bottom: calc(var(--card-pad-y) + var(--player-dock-offset));
 }
 
 .step-body {
@@ -213,6 +261,7 @@
   font-size: 1rem;
   max-width: 48ch;
   margin-bottom: 1.15rem;
+  overflow-wrap: anywhere;
 }
 
 .step-actions {
@@ -300,7 +349,7 @@
 .welcome-signals {
   list-style: none;
   padding: 0;
-  margin: 0 0 var(--space-md);
+  margin: 0;
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.55rem;
@@ -343,11 +392,19 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--color-border);
 }
 
 .welcome-legal p {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.welcome-legal strong {
   color: var(--color-text);
+  font-weight: 650;
 }
 
 /* ---------- Buttons ---------- */
@@ -1439,6 +1496,15 @@ fieldset.field {
 
   .welcome-hero {
     padding: 1.1rem 0.95rem;
+    margin-bottom: var(--space-sm);
+  }
+
+  .welcome-signal {
+    padding: 0.65rem 0.8rem;
+  }
+
+  .step-card--welcome .step-actions {
+    margin-top: var(--space-xs);
   }
 
   .btn {

@@ -28,8 +28,8 @@ export function DeletedStep({ sessionApi }: { sessionApi: SessionApi }) {
       </p>
       {!empty && (
         <p className="field-hint">
-          Nota: algunos campos podrían no haberse limpiado completamente. Recarga la
-          página para asegurar un estado vacío.
+          Nota: algunos campos podrían no haberse limpiado por completo. Recargá la
+          página para dejar la sesión vacía.
         </p>
       )}
     </StepLayout>

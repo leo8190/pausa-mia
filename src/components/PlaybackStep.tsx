@@ -108,7 +108,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             ? 'Voz argentina remota (WAV servido por tu endpoint). El guion se envía sólo tras tu consentimiento.'
             : 'Voz argentina neuronal real (es_AR-daniela-high), generada en tu navegador.'
         }
-        cardClassName={isPlaying ? 'step-card--active' : undefined}
+        cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
         actions={
           <>
             <button
@@ -132,9 +132,6 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           </>
         }
       >
-        <VoiceEngineStatusPanel refreshKey={neuralState.status} />
-        <DeviceCompatibilityPanel />
-
         {useRemoteArgentine && (
           <div className="fallback-notice" role="status">
             Estás usando la voz argentina remota. Sólo se envía el texto del guion (sin
@@ -325,39 +322,42 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             ))}
           </div>
 
-          {canPlayback && (
-            <div className="player-dock">
-              {needsNativePlay && (
-                <div
-                  className="native-audio-fallback"
-                  role="region"
-                  aria-label="Reproducción con controles del dispositivo"
+          {needsNativePlay && (
+            <div
+              className="native-audio-fallback"
+              role="region"
+              aria-label="Reproducción con controles del dispositivo"
+            >
+              <p className="field-hint" role="status">
+                Tu navegador bloqueó el inicio automático del audio. Usá el reproductor
+                nativo o el botón de abajo para iniciar el WAV. Pausar, Continuar,
+                Detener y Reiniciar siguen disponibles.
+              </p>
+              <div
+                className="native-audio-host"
+                ref={(host) => {
+                  mountNativeAudioElement(host);
+                }}
+              />
+              <div className="player-controls">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={resumeNeural}
+                  aria-label="Reproducir con controles del dispositivo"
                 >
-                  <p className="field-hint" role="status">
-                    Tu navegador bloqueó el inicio automático del audio (política de
-                    autoplay). Usá el reproductor nativo o el botón de abajo para
-                    iniciar el WAV con un gesto explícito. Pausar, Continuar, Detener y
-                    Reiniciar siguen disponibles.
-                  </p>
-                  <div
-                    className="native-audio-host"
-                    ref={(host) => {
-                      mountNativeAudioElement(host);
-                    }}
-                  />
-                  <div className="player-controls">
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={resumeNeural}
-                      aria-label="Reproducir con controles del dispositivo"
-                    >
-                      Reproducir con controles del dispositivo
-                    </button>
-                  </div>
-                </div>
-              )}
+                  Reproducir con controles del dispositivo
+                </button>
+              </div>
+            </div>
+          )}
 
+          {canPlayback && (
+            <div
+              className="player-dock"
+              role="region"
+              aria-label="Reproductor de la sesión"
+            >
               <div
                 className="player-controls"
                 role="group"
@@ -438,6 +438,9 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             </div>
           )}
         </div>
+
+        <VoiceEngineStatusPanel refreshKey={neuralState.status} />
+        <DeviceCompatibilityPanel />
       </StepLayout>
     );
   }
@@ -449,7 +452,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     <StepLayout
       title="Reproducción"
       lead="Audio generado con la voz disponible en tu dispositivo (Web Speech API)."
-      cardClassName={isPlaying ? 'step-card--active' : undefined}
+      cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
       actions={
         <>
           <button
@@ -494,13 +497,10 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
       {!voicesReady && (
         <p className="field-hint">
-          No se detectaron voces de síntesis. Puedes leer el guion en la pantalla
+          No se detectaron voces de síntesis. Podés leer el guion en la pantalla
           anterior.
         </p>
       )}
-
-      <VoiceEngineStatusPanel />
-      <DeviceCompatibilityPanel />
 
       <div className="player-stage">
         <div
@@ -518,7 +518,11 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           ))}
         </div>
 
-        <div className="player-dock">
+        <div
+          className="player-dock"
+          role="region"
+          aria-label="Reproductor de la sesión"
+        >
           <div
             className="player-controls"
             role="group"
@@ -589,6 +593,9 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           </p>
         </div>
       </div>
+
+      <VoiceEngineStatusPanel />
+      <DeviceCompatibilityPanel />
     </StepLayout>
   );
 }

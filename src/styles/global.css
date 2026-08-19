@@ -19,8 +19,8 @@
   --color-primary-soft: rgba(47, 92, 79, 0.11);
   --color-primary-soft-strong: rgba(47, 92, 79, 0.22);
   --color-text: #1c2623;
-  --color-text-muted: #53605b;
-  --color-text-subtle: #74807a;
+  --color-text-muted: #44524d;
+  --color-text-subtle: #5a6661;
   --color-border: #d7e0db;
   --color-border-strong: #b7c5be;
   --color-accent: #8a9b6e;
@@ -66,6 +66,7 @@
     'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
   --max-width: 600px;
   --touch-target: 44px;
+  --player-dock-offset: calc(12.25rem + env(safe-area-inset-bottom, 0px));
 
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -80,6 +81,8 @@ html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 body {
@@ -103,6 +106,8 @@ body {
   background-attachment: fixed;
   color: var(--color-text);
   line-height: 1.65;
+  overflow-x: clip;
+  max-width: 100%;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -125,12 +130,12 @@ h4 {
 }
 
 h1 {
-  font-size: clamp(1.35rem, 1.15rem + 0.85vw, 1.7rem);
+  font-size: clamp(1.45rem, 1.25rem + 0.9vw, 1.85rem);
   margin: 0;
 }
 
 h2 {
-  font-size: clamp(1.35rem, 1.15rem + 1vw, 1.85rem);
+  font-size: clamp(1.22rem, 1.08rem + 0.55vw, 1.55rem);
   margin: 0 0 0.65rem;
 }
 
@@ -153,6 +158,29 @@ p {
 a {
   color: var(--color-primary-dark);
   text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--color-primary-darker);
+}
+
+code {
+  font-size: 0.85em;
+  word-break: break-word;
+}
+
+img,
+svg,
+video,
+canvas,
+audio,
+iframe {
+  max-width: 100%;
+}
+
+::placeholder {
+  color: var(--color-text-subtle);
+  opacity: 1;
 }
 
 ul,
@@ -188,6 +216,15 @@ ol {
   outline: 2px solid var(--color-primary-dark);
   outline-offset: 3px;
   border-radius: 6px;
+}
+
+button,
+input,
+select,
+textarea,
+summary,
+[role='button'] {
+  touch-action: manipulation;
 }
 
 .sr-only {

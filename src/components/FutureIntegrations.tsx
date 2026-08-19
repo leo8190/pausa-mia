@@ -116,7 +116,7 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
                 <label
                   className={`btn btn-secondary btn-small addable-source-file-label${
                     state.loading ? ' is-loading' : ''
-                  }`}
+                  }${state.error ? ' has-error' : ''}`}
                 >
                   {state.loading ? 'Leyendo archivo…' : 'Elegir archivo local'}
                   <input
@@ -127,6 +127,7 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
                     accept={source.accept}
                     className="addable-source-file-input"
                     disabled={state.loading}
+                    aria-invalid={state.error ? true : undefined}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) handleFile(source.type, file);
