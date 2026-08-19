@@ -48,6 +48,9 @@ diez visitas humanas nuevas.
    sus filtros. No se considera una campaña distribuida ni evidencia de que el mensaje
    haya fallado:
    https://www.reddit.com/r/SideProject/comments/1vs64xo/pausa_mía_personalized_guided_meditation/
+6. Se preparó un segundo post para `r/sideprojects` con la etiqueta `Showcase:
+   Prerelease`, pero quedó sin enviar porque falta la confirmación inmediata del
+   titular para la publicación externa. No se lo cuenta como canal activo.
 
 ## Primera campaña recomendada
 
