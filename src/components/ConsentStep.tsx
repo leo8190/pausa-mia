@@ -14,10 +14,18 @@ export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             type="button"
             className="btn btn-primary"
             disabled={!sessionApi.isConsentValid}
+            aria-describedby={
+              sessionApi.isConsentValid ? undefined : 'consent-continue-hint'
+            }
             onClick={() => sessionApi.setStep('checkin')}
           >
             Continuar al check-in
           </button>
+          {!sessionApi.isConsentValid && (
+            <p id="consent-continue-hint" className="field-hint">
+              Marcá el permiso de sesión para continuar.
+            </p>
+          )}
           <button
             type="button"
             className="btn btn-secondary"

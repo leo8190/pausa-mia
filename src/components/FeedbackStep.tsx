@@ -23,12 +23,15 @@ export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
       }
     >
       <div className="field">
-        <label>¿Cómo fue esta pausa? (1 a 5)</label>
-        <div className="rating-group" role="group" aria-label="Valoración">
+        <label id="rating-label" htmlFor="rating-1">
+          ¿Cómo fue esta pausa? (1 a 5)
+        </label>
+        <div className="rating-group" role="group" aria-labelledby="rating-label">
           {[1, 2, 3, 4, 5].map((n) => (
             <button
               type="button"
               key={n}
+              id={`rating-${n}`}
               className={`rating-btn${rating === n ? ' selected' : ''}`}
               onClick={() => sessionApi.setRating(n)}
               aria-label={`${n} de 5`}
@@ -66,42 +69,36 @@ export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
         </div>
       </div>
 
-      <div className="field">
-        <label>¿Cuál opción elegirías? (hipótesis, sin checkout)</label>
+      <fieldset className="field">
+        <legend>¿Cuál opción elegirías? (hipótesis, sin cobro)</legend>
         <div className="price-options">
           {(Object.keys(PRICE_OPTIONS) as PriceOption[]).map((key) => {
             const opt = PRICE_OPTIONS[key];
             return (
-              <div
+              <label
                 key={key}
                 className={`price-option${selectedPrice === key ? ' selected' : ''}`}
-                onClick={() => sessionApi.setSelectedPrice(key)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    sessionApi.setSelectedPrice(key);
-                  }
-                }}
               >
                 <input
                   type="radio"
                   name="price"
                   checked={selectedPrice === key}
                   onChange={() => sessionApi.setSelectedPrice(key)}
-                  aria-label={opt.label}
                 />
-                <span className="price-amount">{opt.amount}</span> — {opt.label}
-                <p className="field-hint">{opt.description}</p>
-              </div>
+                <span className="price-option-body">
+                  <span className="price-amount">{opt.amount}</span>
+                  <span className="price-label"> — {opt.label}</span>
+                  <span className="field-hint">{opt.description}</span>
+                </span>
+              </label>
             );
           })}
         </div>
         <p className="field-hint">
-          Estas opciones son hipótesis de precio. No se cobra ni se promete acceso hasta
-          autorización explícita.
+          Son hipótesis de precio. No se cobra ni se promete acceso hasta autorización
+          explícita.
         </p>
-      </div>
+      </fieldset>
 
       <p className="field-hint">
         Las fuentes que podés agregar (perfil, calendario, diario, redes) se encuentran

@@ -69,8 +69,9 @@ export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
       </p>
 
       <div className="field">
-        <label>Importar archivo local (texto o JSON)</label>
+        <label htmlFor="context-import">Importar archivo local (texto o JSON)</label>
         <input
+          id="context-import"
           ref={fileInputRef}
           type="file"
           accept=".txt,.json,.md"
@@ -79,7 +80,6 @@ export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
             if (file) handleImport(file);
             e.target.value = '';
           }}
-          aria-label="Importar archivo de contexto"
         />
         <p className="field-hint">
           Solo se lee el archivo que elegís. Máximo {CONTEXT_SOURCE_MAX_LENGTH}{' '}

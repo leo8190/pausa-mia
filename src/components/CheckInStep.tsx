@@ -25,10 +25,18 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
             type="button"
             className="btn btn-primary"
             disabled={!sessionApi.isCheckInComplete}
+            aria-describedby={
+              sessionApi.isCheckInComplete ? undefined : 'checkin-incomplete-hint'
+            }
             onClick={() => sessionApi.setStep('context')}
           >
             Ver contexto y resumen
           </button>
+          {!sessionApi.isCheckInComplete && (
+            <p id="checkin-incomplete-hint" className="field-hint">
+              Completá momento, estado, intención, experiencia y estilo para seguir.
+            </p>
+          )}
           <button
             type="button"
             className="btn btn-secondary"
@@ -45,6 +53,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
         <input
           id="name"
           type="text"
+          autoComplete="nickname"
           value={checkIn.name}
           onChange={(e) => sessionApi.updateCheckIn({ name: e.target.value })}
           maxLength={50}
@@ -126,15 +135,18 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
         </div>
         {checkIn.perceivedState === 'otro' && (
           <div className="field field--tight">
+            <label className="sr-only" htmlFor="perceived-state-other">
+              Descripción del estado percibido
+            </label>
             <input
+              id="perceived-state-other"
               type="text"
               value={checkIn.perceivedStateOther}
               onChange={(e) =>
                 sessionApi.updateCheckIn({ perceivedStateOther: e.target.value })
               }
-              placeholder="Describe brevemente"
+              placeholder="Describí brevemente"
               maxLength={100}
-              aria-label="Descripción del estado percibido"
             />
           </div>
         )}

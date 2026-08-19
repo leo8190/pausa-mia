@@ -35,10 +35,18 @@ export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             type="button"
             className="btn btn-primary"
             disabled={!consent.aiTransmission}
+            aria-describedby={
+              consent.aiTransmission ? undefined : 'ai-consent-continue-hint'
+            }
             onClick={() => sessionApi.confirmAiGenerate()}
           >
             Transmitir y generar con IA
           </button>
+          {!consent.aiTransmission && (
+            <p id="ai-consent-continue-hint" className="field-hint">
+              Marcá el permiso de transmisión para continuar.
+            </p>
+          )}
           <button
             type="button"
             className="btn btn-secondary"

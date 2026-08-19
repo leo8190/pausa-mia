@@ -10,7 +10,7 @@ export function ReviewStep({ sessionApi }: { sessionApi: SessionApi }) {
   return (
     <StepLayout
       title="Revisión del guion"
-      lead="Lee el texto completo antes de reproducirlo."
+      lead="Leé el texto completo antes de reproducirlo."
       actions={
         <>
           <button
@@ -31,21 +31,20 @@ export function ReviewStep({ sessionApi }: { sessionApi: SessionApi }) {
         </>
       }
     >
-      <p>
-        <strong>{script.title}</strong>
-      </p>
-      <p className="field-hint">
-        Intención: {script.intentionLabel} · Duración objetivo: {script.targetDuration}{' '}
-        min · Duración estimada: {script.estimatedMinutes} min (±
-        {DURATION_TOLERANCE_MINUTES})
-      </p>
-      <p className="engine-badge" role="status">
-        Motor: {ENGINE_LABELS[script.engine]}
-        {scriptFallbackUsed && ' (fallback local aplicado)'}
-      </p>
-      {script.usedDetails.length > 0 && (
-        <p className="field-hint">Detalles usados: {script.usedDetails.join(', ')}</p>
-      )}
+      <div className="script-meta">
+        <h3 className="script-title">{script.title}</h3>
+        <p className="field-hint">
+          Intención: {script.intentionLabel} · Objetivo: {script.targetDuration} min ·
+          Estimada: {script.estimatedMinutes} min (±{DURATION_TOLERANCE_MINUTES})
+        </p>
+        <p className="engine-badge" role="status">
+          Motor: {ENGINE_LABELS[script.engine]}
+          {scriptFallbackUsed && ' (fallback local aplicado)'}
+        </p>
+        {script.usedDetails.length > 0 && (
+          <p className="field-hint">Detalles usados: {script.usedDetails.join(', ')}</p>
+        )}
+      </div>
       <div className="script-preview" role="region" aria-label="Texto del guion">
         {script.segments.map((seg, i) => (
           <p className="script-segment" key={i}>
