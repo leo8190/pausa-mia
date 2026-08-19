@@ -213,7 +213,7 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
 | ---------------------- | ------------------------------------------------------------------------ |
 | `npm run format:check` | ✅                                                                       |
 | `npm run lint`         | ✅                                                                       |
-| `npm test`             | ✅ 151 tests (unitarias + flujo React + servidor mockeado; sin API real) |
+| `npm test`             | ✅ 152 tests (unitarias + flujo React + servidor mockeado; sin API real) |
 | `npm run build`        | ✅                                                                       |
 | `voice-service` tests  | ✅ 3 tests (`ARG_TTS_BACKEND=mock`, sin modelo ni deploy)                |
 | `npm audit --omit=dev` | (no re-ejecutado en este handoff)                                        |
@@ -286,17 +286,18 @@ sigue pendiente de revisión humana ciega según `docs/SCRIPT_QUALITY_RUBRIC.md`
 ## Publicación estática — Pausa Mía
 
 Estado: **publicado y verificado** en
-https://leo8190.github.io/pausa-mia/. GitHub Pages publica sólo el frontend estático;
-el servicio remoto de voz de `voice-service/` todavía requiere un despliegue separado.
+https://leo8190.github.io/pausa-mia/. GitHub Pages publica sólo el frontend estático.
+El TTS argentino remoto activo es `https://pausa-mia-voz-ar.fly.dev` (inyectado en
+el build; texto del guion sólo tras consentimiento; Fly con autostop/costo).
 
 Lo que quedó listo para publicar el sitio **Pausa Mía** en GitHub Pages:
 
-| Archivo                       | Función                                                                       |
-| ----------------------------- | ----------------------------------------------------------------------------- |
-| `vite.config.ts`              | `base` configurable vía `VITE_BASE_PATH`, con `/pausa-mia/` por defecto       |
-| `.gitignore`                  | Excluye `node_modules`, `dist`, `.env`, `*.tsbuildinfo` y artefactos de audio |
-| `public/.nojekyll`            | Evita que GitHub Pages procese el sitio con Jekyll                            |
-| `.github/workflows/pages.yml` | `npm ci` → `npm run build` → `upload-pages-artifact` → `deploy-pages`         |
+| Archivo                       | Función                                                                                               |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `vite.config.ts`              | `base` configurable vía `VITE_BASE_PATH`, con `/pausa-mia/` por defecto                               |
+| `.gitignore`                  | Excluye `node_modules`, `dist`, `.env`, `*.tsbuildinfo` y artefactos de audio                         |
+| `public/.nojekyll`            | Evita que GitHub Pages procese el sitio con Jekyll                                                    |
+| `.github/workflows/pages.yml` | `npm ci` → `npm run build` (con `VITE_BASE_PATH` y `VITE_ARGENTINE_TTS_ENDPOINT`) → artifact → deploy |
 
 ### Base path
 
@@ -324,7 +325,9 @@ En el workflow, el valor se puede sobrescribir con una variable de repositorio
   usa el **motor local por reglas**. La voz argentina Piper sí puede descargarse bajo
   demanda desde el repositorio público del modelo, únicamente después de que la
   persona lo solicita.
-- No se agregan OAuth, claves, cuentas, pagos ni analítica: el sitio no envía datos a terceros.
+- No se agregan OAuth, claves, cuentas, pagos ni analítica. El único envío
+  opcional a un tercero es el texto del guion al TTS remoto de Fly, y sólo tras
+  consentimiento explícito.
 - Los artefactos de audio de `artifacts/` quedan ignorados por Git y no viajan al build.
 
 ### Publicación verificada
@@ -359,9 +362,9 @@ verificó después de una ejecución exitosa de GitHub Actions.
   `docs/REMOTE_ARGENTINE_VOICE_DEVICE_VERIFICATION.md`.
 - El detector de seguridad es conservador por frases, no evalúa riesgo clínico.
 - El modo IA requiere servidor local y proveedor configurado; no se incluyen claves. Sigue experimental hasta una prueba real autorizada.
-- No hay checkout, cuentas, OAuth real ni envío de datos a terceros en modo demo. La
-  ruta remota sólo se habilita cuando se configura `VITE_ARGENTINE_TTS_ENDPOINT` y la
-  persona marca el consentimiento explícito.
+- No hay checkout, cuentas, OAuth real ni envío de diario/perfil. El sitio publicado
+  apunta a `https://pausa-mia-voz-ar.fly.dev` y sólo envía texto del guion tras
+  consentimiento (nunca en silencio; sólo si Piper local falla o no es compatible).
 - OAuth (Google, redes) se muestra desactivado como función futura.
 
 ## Límites del producto
@@ -374,5 +377,6 @@ verificó después de una ejecución exitosa de GitHub Actions.
 ## Licencia
 
 Prototipo de León Developments en fase de prueba pública controlada. No se despliegan
-claves, servidor IA, OAuth, datos del diario ni cuentas. La voz remota es un servicio
-opcional separado y no queda activa hasta configurar su endpoint.
+claves, servidor IA, OAuth, datos del diario ni cuentas. La voz remota del sitio
+publicado usa `https://pausa-mia-voz-ar.fly.dev` (autostop/costo en Fly) y exige
+consentimiento; en local el endpoint sigue vacío salvo `.env`.
