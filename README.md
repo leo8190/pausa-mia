@@ -85,7 +85,7 @@ src/
 │   ├── voiceService.ts       # Selección de voz Web Speech (sin falsos es-AR)
 │   ├── voiceEngine.ts        # Descarga/caché del modelo es-AR y punto único de síntesis
 │   ├── piperEngine.ts        # Inferencia Piper real (fonemizador + ONNX Runtime Web + WAV)
-│   ├── remoteVoiceService.ts # Cliente opcional POST /v1/tts (endpoint vacío por defecto)
+│   ├── remoteVoiceService.ts # Cliente POST /v1/tts (vacío en local; Fly en Pages)
 │   ├── speechController.ts   # Cancelación global de audio
 │   └── session.ts            # Estado de sesión en memoria
 ├── types/
@@ -95,7 +95,7 @@ server/
 ├── core.mjs             # Validadores puros importables sin escuchar puerto
 └── index.mjs            # Servidor local OpenAI-compatible (clave solo aquí)
 
-voice-service/           # Servicio deployable opcional Piper es-AR (no desplegado aquí)
+voice-service/           # Servicio Piper es-AR; instancia pública en Fly (autostop)
 ```
 
 ## Modos de generación
@@ -117,7 +117,7 @@ de **voz** posibles, evaluados y mostrados en `CheckInStep` y `PlaybackStep` med
 | ------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Web Speech API**              | Disponible según navegador/SO                                | Usa las voces instaladas en el dispositivo. Es el único motor para español neutro y el fallback confirmado para es-AR.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | **Neuronal es-AR (Piper/ONNX)** | Real; requiere un gesto explícito ("Preparar voz argentina") | Ejecuta `es_AR-daniela-high` (`rhasspy/piper-voices`, archivos del modelo publicados bajo MIT; revisar también el `MODEL_CARD` y las atribuciones del dataset) enteramente en el navegador: fonemizador Piper (WASM/espeak-ng) + inferencia ONNX Runtime Web + conversión PCM→WAV (`piperEngine.ts`). El modelo (≈114 MB) y su config se descargan sólo al presionar el botón, con progreso visible, y quedan en `Cache Storage` para sesiones futuras. Sobreescribible con `VITE_PIPER_ES_AR_VOICE_URL`/`VITE_PIPER_ES_AR_VOICE_CONFIG_URL` para servir el modelo desde un host propio. |
-| **Remoto es-AR (opcional)**     | Desactivado sin endpoint; nunca automático                   | Si Piper local no es compatible o falla, la UI ofrece "Usar voz argentina remota" sólo tras marcar un consentimiento visible (no preseleccionado). El cliente (`remoteVoiceService.ts`) hace `POST { text }` a `VITE_ARGENTINE_TTS_ENDPOINT/v1/tts` y reproduce el `audio/wav` con `HTMLAudioElement`. Sin endpoint configurado se explica que falta el servicio; no se envía nada. El servicio de referencia está en `voice-service/` (Piper `es_AR-daniela-high`; modelo no versionado).                                                                                               |
+| **Remoto es-AR (opcional)**     | Activo en el sitio publicado; nunca automático               | Si Piper local no es compatible o falla, la UI ofrece "Usar voz argentina remota" sólo tras marcar un consentimiento visible (no preseleccionado). El cliente (`remoteVoiceService.ts`) hace `POST { text }` a `VITE_ARGENTINE_TTS_ENDPOINT/v1/tts` y reproduce el `audio/wav` con `HTMLAudioElement`. El build de Pages usa `https://pausa-mia-voz-ar.fly.dev`. Sin endpoint (dev local) se explica que falta el servicio; no se envía nada. El servicio de referencia está en `voice-service/` (Piper `es_AR-daniela-high`; modelo no versionado). Fly tiene autostop y costo.         |
 
 `voiceEngine.getVoiceEngineStatuses()` verifica de forma honesta, en cada dispositivo:
 
@@ -136,7 +136,20 @@ botón "Usar voz del dispositivo (no es argentina)" y —por separado— la ofer
 remota con consentimiento. Web Speech y el remoto **nunca** se activan
 automáticamente.
 
-### Voz remota local (opcional)
+### Voz remota (sitio publicado y local)
+
+El sitio publicado incrusta
+`VITE_ARGENTINE_TTS_ENDPOINT=https://pausa-mia-voz-ar.fly.dev` en el build de
+Pages (`.github/workflows/pages.yml`). Sigue siendo sólo frontend: la UI exige
+consentimiento explícito (casilla desmarcada) y ofrece la ruta remota únicamente
+si Piper local no es compatible o falla. El servicio recibe sólo el texto del
+segmento (`POST /v1/tts`); no diario, perfil ni fuentes.
+
+Esa instancia Fly usa autostop (`min_machines_running = 0`): el primer request
+puede tardar por cold start y hay costo de máquina/egress. Este repo no despliega
+ni modifica secretos de Fly.
+
+Para desarrollo local (sin tocar el endpoint público):
 
 ```bash
 # Terminal 1 — servicio (mock sin modelo, o piper con modelo descargado)
@@ -149,12 +162,10 @@ VITE_ARGENTINE_TTS_ENDPOINT=http://127.0.0.1:8787
 npm run dev
 ```
 
-Tras desplegar tu propio servicio (ver `voice-service/README.md` y
-`fly.toml.example`; este repo no despliega), apuntá
-`VITE_ARGENTINE_TTS_ENDPOINT` a esa base URL (sin barra final) y reconstruí el
-frontend. Guía de prueba por dispositivo:
+Guía de prueba por dispositivo:
 `docs/REMOTE_ARGENTINE_VOICE_DEVICE_VERIFICATION.md` (matriz vacía; no asumir
-cobertura sin probar).
+cobertura sin probar). Receta de imagen: `voice-service/README.md` y
+`fly.toml.example`.
 
 Independientemente del motor, `voiceService.selectVoice` nunca etiqueta una voz
 distinta de `es-AR`/`es_AR` como argentina: si sólo hay `es-MX` u otra variante, el

@@ -2,7 +2,9 @@ name: Publicar Pausa Mía en GitHub Pages
 
 # Publica únicamente el sitio estático de dist/. El servidor local de IA, las
 # claves y el modo IA quedan fuera del artefacto: el sitio publicado usa sólo el
-# motor local por reglas.
+# motor local por reglas. VITE_ARGENTINE_TTS_ENDPOINT se incrusta en el frontend
+# (no es un secreto); la UI sigue exigiendo consentimiento y sólo ofrece remoto
+# tras fallo o incompatibilidad de Piper local.
 on:
   push:
     branches: [main]
@@ -42,6 +44,8 @@ jobs:
         env:
           # Debe coincidir con el nombre del repositorio publicado.
           VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/pausa-mia/' }}
+          # Endpoint público verificado (Fly). Sólo frontend; sin secretos.
+          VITE_ARGENTINE_TTS_ENDPOINT: https://pausa-mia-voz-ar.fly.dev
 
       - name: Subir artefacto de Pages
         uses: actions/upload-pages-artifact@v3
