@@ -154,6 +154,12 @@ describe('voice-service HTTP', () => {
     const missingOriginBody = (await missingOrigin.json()) as { code: string };
     assert.equal(missingOriginBody.code, 'cors_denied');
 
+    const health = await fetch(`${base}/health`);
+    assert.equal(health.status, 200);
+
+    const preflight = await fetch(`${base}/v1/tts`, { method: 'OPTIONS' });
+    assert.equal(preflight.status, 204);
+
     const withOrigin = await fetch(`${base}/v1/tts`, {
       method: 'POST',
       headers: {

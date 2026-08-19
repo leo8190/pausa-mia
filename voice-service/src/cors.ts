@@ -8,7 +8,12 @@ export function applyCors(
 ): boolean {
   const origin = req.headers.origin;
   if (!origin) {
-    return !config.requireOrigin;
+    // La protección estricta aplica al endpoint que procesa texto. Health y
+    // preflight deben seguir funcionando sin Origin para los health checks y
+    // herramientas de infraestructura.
+    const isTtsRequest =
+      req.method === 'POST' && (req.url ?? '').split('?', 1)[0] === '/v1/tts';
+    return !config.requireOrigin || !isTtsRequest;
   }
   if (config.allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
