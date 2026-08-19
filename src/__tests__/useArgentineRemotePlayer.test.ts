@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useArgentineVoicePlayer } from '../hooks/useArgentineVoicePlayer';
+import {
+  useArgentineVoicePlayer,
+  type ArgentineVoiceMode,
+} from '../hooks/useArgentineVoicePlayer';
 import * as voiceEngine from '../lib/voiceEngine';
 import * as remoteVoice from '../lib/remoteVoiceService';
 
@@ -75,5 +78,41 @@ describe('useArgentineVoicePlayer — remoto', () => {
     });
     expect(result.current.state.status).toBe('stopped');
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:remote-mock');
+  });
+
+  it('changing from local to remote ignores a late local prepare', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    let resolveLocal: ((blob: Blob) => void) | undefined;
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveLocal = resolve;
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ mode }: { mode: ArgentineVoiceMode }) => useArgentineVoicePlayer(mode),
+      { initialProps: { mode: 'local' as ArgentineVoiceMode } },
+    );
+
+    act(() => {
+      void result.current.prepare();
+    });
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('preparing');
+    });
+
+    rerender({ mode: 'remote' });
+    await waitFor(() => {
+      expect(result.current.state.mode).toBe('remote');
+      expect(result.current.state.status).toBe('idle');
+    });
+
+    await act(async () => {
+      resolveLocal?.(new Blob([new Uint8Array([1])], { type: 'audio/x-wav' }));
+    });
+
+    expect(result.current.state.status).toBe('idle');
+    expect(result.current.state.mode).toBe('remote');
   });
 });

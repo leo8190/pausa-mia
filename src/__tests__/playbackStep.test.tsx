@@ -139,44 +139,108 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     });
   });
 
-  it('offers remote voice only after local failure, with consent unchecked and button disabled', async () => {
+  it('shows the remote alternative when the endpoint is configured, even if local Piper is idle', async () => {
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
-    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
-      new Error('El modelo no se pudo descargar.'),
-    );
 
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: /usar voz argentina remota/i }),
+        screen.getByText(/motores de voz en este dispositivo/i),
       ).toBeInTheDocument();
     });
+    expect(
+      screen.getByRole('button', { name: /preparar voz argentina/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/evita descargar el modelo local/i)).toBeInTheDocument();
+    expect(screen.getByText(/wav estándar/i)).toBeInTheDocument();
 
+    const remoteButton = screen.getByRole('button', {
+      name: /usar voz argentina remota/i,
+    });
     const consent = screen.getByRole('checkbox', {
       name: /acepto enviar sólo el texto del guion/i,
     });
     expect(consent).not.toBeChecked();
-    expect(
-      screen.getByRole('button', { name: /usar voz argentina remota/i }),
-    ).toBeDisabled();
+    expect(remoteButton).toBeDisabled();
+  });
 
-    fireEvent.click(consent);
-    expect(
-      screen.getByRole('button', { name: /usar voz argentina remota/i }),
-    ).toBeEnabled();
+  it('requires remote consent before switching, then prepares remote playback controls', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' }),
+    );
 
-    fireEvent.click(screen.getByRole('button', { name: /usar voz argentina remota/i }));
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+
+    const remoteButton = screen.getByRole('button', {
+      name: /usar voz argentina remota/i,
+    });
+    expect(remoteButton).toBeDisabled();
+
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /acepto enviar sólo el texto del guion/i,
+      }),
+    );
+    expect(remoteButton).toBeEnabled();
+    fireEvent.click(remoteButton);
 
     await waitFor(() => {
       expect(
         screen.getByText(/estás usando la voz argentina remota/i),
       ).toBeInTheDocument();
     });
+    expect(screen.getByText(/sin diario, perfil ni fuentes/i)).toBeInTheDocument();
+    expect(localSpy).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /pausar/i }));
+    expect(screen.getByRole('button', { name: /^continuar$/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /detener/i }));
+    expect(screen.getByText(/detenido/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /reiniciar/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
+    });
+    expect(remoteVoice.synthesizeRemoteArgentineVoice).toHaveBeenCalled();
+    expect(localSpy).not.toHaveBeenCalled();
   });
 
-  it('explains missing remote endpoint instead of enabling silent remote use', async () => {
+  it('hides the missing-endpoint message while local Piper is idle', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(false);
+
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/motores de voz en este dispositivo/i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole('button', { name: /preparar voz argentina/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/falta configurar el servicio remoto/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /usar voz argentina remota/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('explains missing remote endpoint only after local failure', async () => {
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(false);
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
       new Error('fallo local'),
@@ -192,6 +256,45 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     });
     expect(
       screen.queryByRole('button', { name: /usar voz argentina remota/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('switching to remote cancels a local prepare and ignores a late local ready', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    let resolveLocal: ((blob: Blob) => void) | undefined;
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveLocal = resolve;
+        }),
+    );
+
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
+    expect(screen.getByText(/preparando voz argentina/i)).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /acepto enviar sólo el texto del guion/i,
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /usar voz argentina remota/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/estás usando la voz argentina remota/i),
+      ).toBeInTheDocument();
+    });
+
+    resolveLocal?.(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/x-wav' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole('button', { name: /^reproducir voz argentina$/i }),
     ).not.toBeInTheDocument();
   });
 });

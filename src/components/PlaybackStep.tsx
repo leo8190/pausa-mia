@@ -94,7 +94,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         : null;
 
     const showRemoteOffer =
-      !useRemoteArgentine && (!neuralBrowserSupported || hasError);
+      !useRemoteArgentine && (remoteConfigured || !neuralBrowserSupported || hasError);
 
     return (
       <StepLayout
@@ -138,7 +138,6 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               type="button"
               className="btn btn-secondary btn-inline"
               onClick={() => {
-                stopNeural();
                 setUseRemoteArgentine(false);
                 setRemoteConsent(false);
               }}
@@ -257,8 +256,10 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             aria-label="Voz argentina remota opcional"
           >
             <p className="field-hint">
-              Opción remota (no automática): un servidor propio puede sintetizar el
-              mismo modelo Piper y devolver un WAV reproducible en este dispositivo.
+              Alternativa remota (opt-in, no automática): evita descargar el modelo
+              local (aprox. {ES_AR_VOICE_APPROX_SIZE_MB} MB) y usa audio WAV estándar.
+              Un servidor propio sintetiza el mismo modelo Piper. Nunca se activa sola
+              ni cambia el motor en silencio.
             </p>
             {!remoteConfigured ? (
               <p className="fallback-notice" role="status">
@@ -291,7 +292,6 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                     className="btn btn-primary"
                     disabled={!remoteConsent}
                     onClick={() => {
-                      stopNeural();
                       setUseRemoteArgentine(true);
                     }}
                   >
@@ -303,100 +303,102 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           </div>
         )}
 
-        <div
-          className="script-preview"
-          role="region"
-          aria-label="Guion en reproducción"
-        >
-          {script.segments.map((seg, i) => (
-            <p
-              className={`script-segment${neuralState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
-              key={i}
-            >
-              {seg.text}
-            </p>
-          ))}
-        </div>
-
-        {canPlayback && (
+        <div className="player-stage">
           <div
-            className="player-controls"
-            role="group"
-            aria-label={
-              useRemoteArgentine
-                ? 'Controles de reproducción de voz argentina remota'
-                : 'Controles de reproducción de voz argentina'
-            }
+            className="script-preview"
+            role="region"
+            aria-label="Guion en reproducción"
           >
-            {!isPlaying && !isPaused && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => playNeural(script.segments)}
+            {script.segments.map((seg, i) => (
+              <p
+                className={`script-segment${neuralState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
+                key={i}
+              >
+                {seg.text}
+              </p>
+            ))}
+          </div>
+
+          {canPlayback && (
+            <div className="player-dock">
+              <div
+                className="player-controls"
+                role="group"
                 aria-label={
                   useRemoteArgentine
-                    ? 'Reproducir voz argentina remota'
-                    : 'Reproducir voz argentina'
+                    ? 'Controles de reproducción de voz argentina remota'
+                    : 'Controles de reproducción de voz argentina'
                 }
               >
-                {useRemoteArgentine
-                  ? 'Reproducir voz argentina remota'
-                  : 'Reproducir voz argentina'}
-              </button>
-            )}
-            {isPlaying && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={pauseNeural}
-                aria-label="Pausar"
-              >
-                Pausar
-              </button>
-            )}
-            {isPaused && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={resumeNeural}
-                aria-label="Continuar"
-              >
-                Continuar
-              </button>
-            )}
-            {(isPlaying || isPaused) && (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={stopNeural}
-                aria-label="Detener"
-              >
-                Detener
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={restartNeural}
-              aria-label="Reiniciar"
-            >
-              Reiniciar
-            </button>
-          </div>
-        )}
+                {!isPlaying && !isPaused && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => playNeural(script.segments)}
+                    aria-label={
+                      useRemoteArgentine
+                        ? 'Reproducir voz argentina remota'
+                        : 'Reproducir voz argentina'
+                    }
+                  >
+                    {useRemoteArgentine
+                      ? 'Reproducir voz argentina remota'
+                      : 'Reproducir voz argentina'}
+                  </button>
+                )}
+                {isPlaying && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={pauseNeural}
+                    aria-label="Pausar"
+                  >
+                    Pausar
+                  </button>
+                )}
+                {isPaused && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={resumeNeural}
+                    aria-label="Continuar"
+                  >
+                    Continuar
+                  </button>
+                )}
+                {(isPlaying || isPaused) && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={stopNeural}
+                    aria-label="Detener"
+                  >
+                    Detener
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={restartNeural}
+                  aria-label="Reiniciar"
+                >
+                  Reiniciar
+                </button>
+              </div>
 
-        {canPlayback && (
-          <p
-            className={`player-status${isPlaying ? ' player-status--playing' : ''}`}
-            role="status"
-          >
-            Estado: {isReady && 'Listo'}
-            {isPlaying &&
-              `Reproduciendo segmento ${neuralState.currentSegmentIndex + 1} de ${script.segments.length}`}
-            {isPaused && 'Pausado'}
-            {isStoppedAfterPlay && 'Detenido'}
-          </p>
-        )}
+              <p
+                className={`player-status${isPlaying ? ' player-status--playing' : ''}${isReady && !isPlaying && !isPaused && !isStoppedAfterPlay ? ' player-status--ready' : ''}`}
+                role="status"
+              >
+                Estado: {isReady && 'Listo'}
+                {isPlaying &&
+                  `Reproduciendo segmento ${neuralState.currentSegmentIndex + 1} de ${script.segments.length}`}
+                {isPaused && 'Pausado'}
+                {isStoppedAfterPlay && 'Detenido'}
+              </p>
+            </div>
+          )}
+        </div>
       </StepLayout>
     );
   }
@@ -460,85 +462,93 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
       <VoiceEngineStatusPanel />
 
-      <div className="script-preview" role="region" aria-label="Guion en reproducción">
-        {script.segments.map((seg, i) => (
-          <p
-            className={`script-segment${playerState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
-            key={i}
-          >
-            {seg.text}
-          </p>
-        ))}
-      </div>
-
-      <div
-        className="player-controls"
-        role="group"
-        aria-label="Controles de reproducción"
-      >
-        {!isPlaying && !isPaused && (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={() => playWebSpeech(script.segments)}
-            aria-label="Reproducir"
-          >
-            Reproducir
-          </button>
-        )}
-        {isPlaying && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={pauseWebSpeech}
-            aria-label="Pausar"
-          >
-            Pausar
-          </button>
-        )}
-        {isPaused && (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={resumeWebSpeech}
-            aria-label="Continuar"
-          >
-            Continuar
-          </button>
-        )}
-        {(isPlaying || isPaused) && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={stopWebSpeech}
-            aria-label="Detener"
-          >
-            Detener
-          </button>
-        )}
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={() => {
-            stopWebSpeech();
-            restartWebSpeech();
-          }}
-          aria-label="Reiniciar"
+      <div className="player-stage">
+        <div
+          className="script-preview"
+          role="region"
+          aria-label="Guion en reproducción"
         >
-          Reiniciar
-        </button>
-      </div>
+          {script.segments.map((seg, i) => (
+            <p
+              className={`script-segment${playerState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
+              key={i}
+            >
+              {seg.text}
+            </p>
+          ))}
+        </div>
 
-      <p
-        className={`player-status${isPlaying ? ' player-status--playing' : ''}`}
-        role="status"
-      >
-        Estado: {playerState.status === 'idle' && 'Listo'}
-        {playerState.status === 'playing' &&
-          `Reproduciendo segmento ${playerState.currentSegmentIndex + 1} de ${script.segments.length}`}
-        {playerState.status === 'paused' && 'Pausado'}
-        {playerState.status === 'stopped' && 'Detenido'}
-      </p>
+        <div className="player-dock">
+          <div
+            className="player-controls"
+            role="group"
+            aria-label="Controles de reproducción"
+          >
+            {!isPlaying && !isPaused && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => playWebSpeech(script.segments)}
+                aria-label="Reproducir"
+              >
+                Reproducir
+              </button>
+            )}
+            {isPlaying && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={pauseWebSpeech}
+                aria-label="Pausar"
+              >
+                Pausar
+              </button>
+            )}
+            {isPaused && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={resumeWebSpeech}
+                aria-label="Continuar"
+              >
+                Continuar
+              </button>
+            )}
+            {(isPlaying || isPaused) && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={stopWebSpeech}
+                aria-label="Detener"
+              >
+                Detener
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                stopWebSpeech();
+                restartWebSpeech();
+              }}
+              aria-label="Reiniciar"
+            >
+              Reiniciar
+            </button>
+          </div>
+
+          <p
+            className={`player-status${isPlaying ? ' player-status--playing' : ''}${playerState.status === 'idle' ? ' player-status--ready' : ''}`}
+            role="status"
+          >
+            Estado: {playerState.status === 'idle' && 'Listo'}
+            {playerState.status === 'playing' &&
+              `Reproduciendo segmento ${playerState.currentSegmentIndex + 1} de ${script.segments.length}`}
+            {playerState.status === 'paused' && 'Pausado'}
+            {playerState.status === 'stopped' && 'Detenido'}
+          </p>
+        </div>
+      </div>
     </StepLayout>
   );
 }

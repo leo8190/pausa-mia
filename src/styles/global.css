@@ -5,35 +5,37 @@
 }
 
 :root {
-  /* Paleta serena y premium: verde salvia profundo + arena cálida como acento. */
-  --color-bg: #f4f1e9;
-  --color-bg-glow-1: rgba(79, 116, 102, 0.16);
-  --color-bg-glow-2: rgba(196, 168, 130, 0.16);
-  --color-bg-glow-3: rgba(63, 92, 122, 0.08);
-  --color-surface: #ffffff;
-  --color-surface-muted: #f7f5ee;
-  --color-surface-raised: #fffefb;
-  --color-primary: #4f7466;
-  --color-primary-dark: #33544a;
-  --color-primary-darker: #24443b;
-  --color-primary-soft: rgba(79, 116, 102, 0.12);
-  --color-primary-soft-strong: rgba(79, 116, 102, 0.24);
-  --color-text: #1f2624;
-  --color-text-muted: #5b6560;
-  --color-text-subtle: #7b847e;
-  --color-border: #e2e6de;
-  --color-border-strong: #c7d0c8;
-  --color-accent: #b6935f;
-  --color-accent-dark: #8f6e40;
-  --color-accent-soft: rgba(182, 147, 95, 0.16);
-  --color-danger: #9a4b45;
-  --color-danger-bg: #fbf0ee;
-  --color-danger-border: #e7c6c1;
-  --color-success: #3f7a52;
-  --color-success-bg: #eef6ef;
-  --color-success-border: #c9e2cc;
-  --color-warning-bg: #fdf4e3;
-  --color-warning-border: #ecdcae;
+  /* Niebla salvia + bosque: cálido y confiable, lejos del cream/terracota genérico. */
+  --color-bg: #e7eeea;
+  --color-bg-glow-1: rgba(47, 92, 79, 0.14);
+  --color-bg-glow-2: rgba(120, 148, 138, 0.18);
+  --color-bg-glow-3: rgba(58, 86, 110, 0.09);
+  --color-surface: #fbfcfb;
+  --color-surface-muted: #f1f5f2;
+  --color-surface-raised: #ffffff;
+  --color-primary: #2f5c4f;
+  --color-primary-dark: #244840;
+  --color-primary-darker: #1a342e;
+  --color-primary-soft: rgba(47, 92, 79, 0.11);
+  --color-primary-soft-strong: rgba(47, 92, 79, 0.22);
+  --color-text: #1c2623;
+  --color-text-muted: #53605b;
+  --color-text-subtle: #74807a;
+  --color-border: #d7e0db;
+  --color-border-strong: #b7c5be;
+  --color-accent: #8a9b6e;
+  --color-accent-dark: #6a7a52;
+  --color-accent-soft: rgba(138, 155, 110, 0.18);
+  --color-danger: #8f4540;
+  --color-danger-bg: #f8eeec;
+  --color-danger-border: #e4c4bf;
+  --color-success: #35724a;
+  --color-success-bg: #eaf5ed;
+  --color-success-border: #c3deca;
+  --color-warning-bg: #f7f1e4;
+  --color-warning-border: #e4d5b4;
+  --color-info-bg: #eaf1f4;
+  --color-info-border: #c5d5de;
 
   --space-3xs: 0.25rem;
   --space-2xs: 0.5rem;
@@ -47,20 +49,21 @@
   --radius-sm: 12px;
   --radius-md: 18px;
   --radius-lg: 26px;
-  --radius-xl: 32px;
+  --radius-xl: 34px;
   --radius-pill: 999px;
 
-  --shadow-xs: 0 1px 2px rgba(23, 32, 28, 0.05);
-  --shadow-sm: 0 2px 6px rgba(23, 32, 28, 0.06);
-  --shadow-md: 0 10px 28px -6px rgba(23, 32, 28, 0.14);
-  --shadow-lg: 0 28px 60px -12px rgba(23, 32, 28, 0.22);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --shadow-xs: 0 1px 2px rgba(18, 32, 28, 0.05);
+  --shadow-sm: 0 2px 8px rgba(18, 32, 28, 0.06);
+  --shadow-md: 0 12px 32px -10px rgba(18, 32, 28, 0.16);
+  --shadow-lg: 0 28px 64px -14px rgba(18, 32, 28, 0.24);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.72);
   --shadow-focus: 0 0 0 4px var(--color-primary-soft-strong);
 
   --font:
-    'Avenir Next', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, sans-serif;
-  --font-display: var(--font);
+    'Avenir Next', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system,
+    'Helvetica Neue', sans-serif;
+  --font-display:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
   --max-width: 600px;
   --touch-target: 44px;
 
@@ -85,25 +88,21 @@ body {
   min-height: 100dvh;
   font-family: var(--font);
   background:
+    radial-gradient(ellipse 75% 55% at 8% -8%, var(--color-bg-glow-1), transparent 62%),
     radial-gradient(
-      ellipse 70% 55% at 15% -10%,
-      var(--color-bg-glow-1),
-      transparent 60%
-    ),
-    radial-gradient(
-      ellipse 60% 50% at 105% 0%,
+      ellipse 55% 45% at 100% 2%,
       var(--color-bg-glow-2),
-      transparent 55%
+      transparent 58%
     ),
     radial-gradient(
-      ellipse 80% 60% at 50% 115%,
+      ellipse 70% 50% at 50% 110%,
       var(--color-bg-glow-3),
-      transparent 60%
+      transparent 58%
     ),
-    var(--color-bg);
+    linear-gradient(180deg, #f3f7f4 0%, var(--color-bg) 42%, #e3ebe6 100%);
   background-attachment: fixed;
   color: var(--color-text);
-  line-height: 1.6;
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -118,21 +117,21 @@ h1,
 h2,
 h3,
 h4 {
-  line-height: 1.22;
+  line-height: 1.2;
   font-weight: 650;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   color: var(--color-primary-darker);
   font-family: var(--font-display);
 }
 
 h1 {
-  font-size: clamp(1.3rem, 1.15rem + 0.7vw, 1.6rem);
+  font-size: clamp(1.35rem, 1.15rem + 0.85vw, 1.7rem);
   margin: 0;
 }
 
 h2 {
-  font-size: clamp(1.3rem, 1.1rem + 0.9vw, 1.7rem);
-  margin: 0 0 0.6rem;
+  font-size: clamp(1.35rem, 1.15rem + 1vw, 1.85rem);
+  margin: 0 0 0.65rem;
 }
 
 h3 {
@@ -143,6 +142,8 @@ h3 {
 h4 {
   font-size: 0.95rem;
   margin: 0 0 0.5rem;
+  font-family: var(--font);
+  letter-spacing: 0;
 }
 
 p {
@@ -164,7 +165,6 @@ ol {
   color: var(--color-primary-darker);
 }
 
-/* Scrollbar styling (progressive enhancement, no functional dependency) */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-strong) transparent;
@@ -209,13 +209,17 @@ ol {
   z-index: 100;
   background: var(--color-primary-dark);
   color: white;
-  padding: 0.6rem 1rem;
-  border-radius: 0 0 8px 0;
+  padding: 0.65rem 1.1rem;
+  border-radius: 0 0 10px 0;
   font-weight: 600;
+  min-height: var(--touch-target);
+  display: inline-flex;
+  align-items: center;
 }
 
 .skip-link:focus-visible {
-  left: 0;
+  left: max(0px, env(safe-area-inset-left));
+  top: max(0px, env(safe-area-inset-top));
   outline-offset: -2px;
   outline-color: white;
 }
@@ -232,5 +236,12 @@ ol {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  /* Producto pensado en claro; se declara light para evitar overrides del SO. */
+  :root {
+    color-scheme: light;
   }
 }

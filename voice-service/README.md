@@ -1,8 +1,9 @@
 # Servicio remoto opcional — voz argentina (Piper `es_AR-daniela-high`)
 
-Endpoint HTTP pequeño para sintetizar texto a `audio/wav` cuando el motor Piper
-**local en el navegador** no es compatible o falla. El frontend nunca lo usa en
-silencio: requiere `VITE_ARGENTINE_TTS_ENDPOINT` y un consentimiento explícito.
+Endpoint HTTP pequeño para sintetizar texto a `audio/wav`. El frontend lo ofrece
+como alternativa opt-in a descargar el modelo Piper local (WAV estándar). Nunca
+lo usa en silencio: requiere `VITE_ARGENTINE_TTS_ENDPOINT` y un consentimiento
+explícito.
 
 Este directorio **no despliega nada**. El modelo ONNX (~114 MB) no se versiona
 en Git; la imagen Docker lo descarga en el build.
@@ -90,9 +91,12 @@ En la raíz del prototipo:
 VITE_ARGENTINE_TTS_ENDPOINT=http://127.0.0.1:8787
 ```
 
-Reiniciá `npm run dev`. En `PlaybackStep` (es-AR), si Piper local falla o el
-navegador no soporta WASM/ONNX, aparecerá la opción remota con casilla de
-consentimiento **desmarcada**. Sólo entonces se envía el texto del guion.
+Reiniciá `npm run dev`. En `PlaybackStep` (es-AR), con el endpoint configurado,
+la alternativa remota aparece junto a Piper local (Piper primero; casilla de
+consentimiento **desmarcada**; el botón sigue deshabilitado hasta marcarla).
+Sin endpoint, el aviso de configuración faltante aparece sólo si Piper local
+falla o el navegador no soporta WASM/ONNX. Sólo tras consentimiento se envía
+el texto del guion.
 
 ## Docker / Fly.io
 

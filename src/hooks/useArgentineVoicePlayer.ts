@@ -4,14 +4,15 @@
 //
 // Modo `local` (por defecto): inferencia Piper/ONNX en el navegador.
 // Modo `remote`: POST del texto del segmento a VITE_ARGENTINE_TTS_ENDPOINT.
-// El modo remoto nunca se activa solo: lo elige la UI tras fallo/incompatibilidad
-// local y consentimiento explícito.
+// El modo remoto nunca se activa solo: lo elige la UI con consentimiento explícito.
+// Cambiar de modo cancela la síntesis en curso y descarta audio/estado previos.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ScriptSegment } from '../types';
 import { synthesizeArgentineVoice, type Progress } from '../lib/voiceEngine';
 import {
   assertRemoteSessionTextLimits,
   isRemoteArgentineTtsConfigured,
+  RemoteVoiceError,
   synthesizeRemoteArgentineVoice,
 } from '../lib/remoteVoiceService';
 import { registerSpeechCancel } from '../lib/speechController';
@@ -32,6 +33,14 @@ export interface ArgentineVoicePlayerState {
 function toErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+function isAbortLike(err: unknown): boolean {
+  if (typeof DOMException !== 'undefined' && err instanceof DOMException) {
+    if (err.name === 'AbortError') return true;
+  }
+  if (err instanceof RemoteVoiceError && err.code === 'aborted') return true;
+  return err instanceof Error && err.name === 'AbortError';
 }
 
 export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
@@ -117,59 +126,87 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
    * Remoto: verifica endpoint configurado; no envía el guion (ni frase de prueba).
    */
   const prepare = useCallback(async (): Promise<boolean> => {
+    const requestMode = mode;
     stoppedRef.current = false;
+    abortInFlight();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const isStale = () => controller.signal.aborted || modeRef.current !== requestMode;
+
     setState({
       status: 'preparing',
-      progress: mode === 'local' ? { loaded: 0, total: 0 } : null,
+      progress: requestMode === 'local' ? { loaded: 0, total: 0 } : null,
       error: null,
       currentSegmentIndex: 0,
-      mode,
+      mode: requestMode,
     });
 
     try {
-      if (mode === 'remote') {
+      if (requestMode === 'remote') {
         if (!isRemoteArgentineTtsConfigured()) {
           throw new Error(
             'No hay un endpoint remoto configurado (VITE_ARGENTINE_TTS_ENDPOINT).',
           );
         }
-        setState((prev) => ({ ...prev, status: 'ready', error: null, mode }));
+        if (isStale()) return false;
+        setState((prev) => ({
+          ...prev,
+          status: 'ready',
+          error: null,
+          mode: requestMode,
+        }));
         return true;
       }
 
-      await synthesizeArgentineVoice('Hola. Esta es la voz argentina.', (progress) =>
-        setState((prev) => ({ ...prev, progress })),
+      await synthesizeArgentineVoice(
+        'Hola. Esta es la voz argentina.',
+        (progress) => {
+          if (isStale()) return;
+          setState((prev) => ({ ...prev, progress }));
+        },
+        controller.signal,
       );
-      setState((prev) => ({ ...prev, status: 'ready', error: null, mode }));
+      if (isStale()) return false;
+      setState((prev) => ({
+        ...prev,
+        status: 'ready',
+        error: null,
+        mode: requestMode,
+      }));
       return true;
     } catch (err) {
+      if (isStale() || isAbortLike(err)) return false;
       setState((prev) => ({
         ...prev,
         status: 'error',
         error: toErrorMessage(err),
-        mode,
+        mode: requestMode,
       }));
       return false;
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
     }
-  }, [mode]);
+  }, [abortInFlight, mode]);
 
   const synthesizeSegment = useCallback(
     async (text: string): Promise<Blob> => {
-      if (mode === 'remote') {
-        abortInFlight();
-        const controller = new AbortController();
-        abortRef.current = controller;
-        try {
+      abortInFlight();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      try {
+        if (mode === 'remote') {
           return await synthesizeRemoteArgentineVoice(text, {
             signal: controller.signal,
           });
-        } finally {
-          if (abortRef.current === controller) {
-            abortRef.current = null;
-          }
+        }
+        return await synthesizeArgentineVoice(text, undefined, controller.signal);
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
         }
       }
-      return synthesizeArgentineVoice(text);
     },
     [abortInFlight, mode],
   );
@@ -199,7 +236,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
 
       try {
         const blob = await synthesizeSegment(segments[index].text);
-        if (stoppedRef.current) return;
+        if (stoppedRef.current || modeRef.current !== mode) return;
 
         teardownAudio();
         const url = URL.createObjectURL(blob);
@@ -208,7 +245,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         audioRef.current = audio;
 
         audio.onended = () => {
-          if (stoppedRef.current) return;
+          if (stoppedRef.current || modeRef.current !== mode) return;
           betweenSegmentsRef.current = true;
           pendingNextIndexRef.current = index + 1;
           pauseStartTimeRef.current = Date.now();
@@ -218,27 +255,27 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           }, segments[index].pauseAfterMs);
         };
         audio.onerror = () => {
-          if (!stoppedRef.current) {
-            setState((prev) => ({
-              ...prev,
-              status: 'error',
-              error:
-                mode === 'remote'
-                  ? 'No se pudo reproducir el audio WAV del servicio remoto.'
-                  : 'No se pudo reproducir el audio generado por la voz argentina.',
-            }));
-          }
+          if (stoppedRef.current || modeRef.current !== mode) return;
+          setState((prev) => ({
+            ...prev,
+            status: 'error',
+            error:
+              mode === 'remote'
+                ? 'No se pudo reproducir el audio WAV del servicio remoto.'
+                : 'No se pudo reproducir el audio generado por la voz argentina.',
+          }));
         };
 
         await audio.play();
       } catch (err) {
-        if (!stoppedRef.current) {
-          setState((prev) => ({
-            ...prev,
-            status: 'error',
-            error: toErrorMessage(err),
-          }));
+        if (stoppedRef.current || modeRef.current !== mode || isAbortLike(err)) {
+          return;
         }
+        setState((prev) => ({
+          ...prev,
+          status: 'error',
+          error: toErrorMessage(err),
+        }));
       }
     },
     [mode, synthesizeSegment, teardownAudio],

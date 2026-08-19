@@ -17,7 +17,8 @@ interface ImportMetaEnv {
    * Base URL opcional del servicio remoto de voz argentina (`POST /v1/tts`).
    * Vacío por defecto en local. El build de Pages usa
    * https://pausa-mia-voz-ar.fly.dev. Sólo se usa tras consentimiento explícito
-   * en la UI cuando Piper local no está disponible o falla.
+   * en la UI (visible en es-AR si el endpoint está configurado; sin endpoint,
+   * el aviso aparece sólo cuando Piper local no está disponible o falla).
    */
   readonly VITE_ARGENTINE_TTS_ENDPOINT?: string;
 }

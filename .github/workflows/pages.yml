@@ -3,8 +3,8 @@ name: Publicar Pausa Mía en GitHub Pages
 # Publica únicamente el sitio estático de dist/. El servidor local de IA, las
 # claves y el modo IA quedan fuera del artefacto: el sitio publicado usa sólo el
 # motor local por reglas. VITE_ARGENTINE_TTS_ENDPOINT se incrusta en el frontend
-# (no es un secreto); la UI sigue exigiendo consentimiento y sólo ofrece remoto
-# tras fallo o incompatibilidad de Piper local.
+# (no es un secreto); la UI sigue exigiendo consentimiento y muestra remoto
+# en es-AR cuando el endpoint está configurado, sin fallback automático.
 on:
   push:
     branches: [main]
