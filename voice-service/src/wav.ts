@@ -1,15 +1,9 @@
 /**
- * Genera un WAV PCM mono 16-bit silencioso de duración fija (determinístico).
- * Útil para tests y para ARG_TTS_BACKEND=mock sin modelo Piper.
+ * Empaqueta PCM mono 16-bit little-endian en un WAV RIFF.
+ * Usado por el backend mock y por Piper con --output_raw.
  */
-export function buildSilentWav(options?: {
-  sampleRate?: number;
-  durationMs?: number;
-}): Buffer {
-  const sampleRate = options?.sampleRate ?? 22050;
-  const durationMs = options?.durationMs ?? 200;
-  const numSamples = Math.max(1, Math.floor((sampleRate * durationMs) / 1000));
-  const dataSize = numSamples * 2;
+export function wrapPcm16MonoToWav(pcm: Buffer, sampleRate: number): Buffer {
+  const dataSize = pcm.length;
   const buffer = Buffer.alloc(44 + dataSize);
 
   buffer.write('RIFF', 0);
@@ -25,7 +19,21 @@ export function buildSilentWav(options?: {
   buffer.writeUInt16LE(16, 34);
   buffer.write('data', 36);
   buffer.writeUInt32LE(dataSize, 40);
-  // samples already zeroed
+  pcm.copy(buffer, 44);
 
   return buffer;
+}
+
+/**
+ * Genera un WAV PCM mono 16-bit silencioso de duración fija (determinístico).
+ * Útil para tests y para ARG_TTS_BACKEND=mock sin modelo Piper.
+ */
+export function buildSilentWav(options?: {
+  sampleRate?: number;
+  durationMs?: number;
+}): Buffer {
+  const sampleRate = options?.sampleRate ?? 22050;
+  const durationMs = options?.durationMs ?? 200;
+  const numSamples = Math.max(1, Math.floor((sampleRate * durationMs) / 1000));
+  return wrapPcm16MonoToWav(Buffer.alloc(numSamples * 2), sampleRate);
 }
