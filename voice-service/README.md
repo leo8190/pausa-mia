@@ -94,7 +94,12 @@ Reiniciá `npm run dev`. En `PlaybackStep` (es-AR), si Piper local falla o el
 navegador no soporta WASM/ONNX, aparecerá la opción remota con casilla de
 consentimiento **desmarcada**. Sólo entonces se envía el texto del guion.
 
-## Docker / Fly.io (ejemplo, no desplegado)
+## Docker / Fly.io
+
+Instancia pública activa (no desplegada por este repo):
+`https://pausa-mia-voz-ar.fly.dev`. El frontend publicado apunta ahí y sólo
+envía texto del guion tras consentimiento. Autostop/costo: cold start posible;
+máquina y egress facturan. No modificar secretos ni redesplegar desde aquí.
 
 - `Dockerfile` — Node + `piper-tts==1.6.0` (CLI `piper`) + descarga de
   `es_AR-daniela-high` / `.onnx.json` a `/models` en el build (`ARG HF_REVISION`,

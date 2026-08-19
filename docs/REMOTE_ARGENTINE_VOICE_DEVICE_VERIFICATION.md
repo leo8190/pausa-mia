@@ -3,9 +3,19 @@
 Guía práctica. **No afirma compatibilidad universal**: cada fila debe marcarse
 sólo tras prueba real en ese dispositivo/navegador.
 
-## Prerrequisitos
+## Endpoint público activo
 
-1. Frontend local con `VITE_ARGENTINE_TTS_ENDPOINT` apuntando al servicio.
+El sitio publicado (GitHub Pages) usa
+`VITE_ARGENTINE_TTS_ENDPOINT=https://pausa-mia-voz-ar.fly.dev`. El servicio
+sólo recibe texto del guion (`POST /v1/tts`) después del consentimiento en la UI
+(nunca automático; sólo si Piper local falla o no es compatible). Fly tiene
+autostop: cold start posible y hay costo de máquina/egress. Este repo no
+despliega ni modifica secretos.
+
+## Prerrequisitos (prueba local)
+
+1. Frontend local con `VITE_ARGENTINE_TTS_ENDPOINT` apuntando al servicio (o el
+   sitio publicado, que ya trae el endpoint Fly).
 2. `voice-service` en marcha (`ARG_TTS_BACKEND=mock` basta para validar la ruta
    HTTP/UI; `piper` + modelo para calidad de voz).
 3. CORS: el origen del frontend debe estar en `ARG_ALLOWED_ORIGINS`.

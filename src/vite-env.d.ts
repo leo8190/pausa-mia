@@ -15,8 +15,9 @@ interface ImportMetaEnv {
   readonly VITE_PIPER_ES_AR_VOICE_CONFIG_URL?: string;
   /**
    * Base URL opcional del servicio remoto de voz argentina (`POST /v1/tts`).
-   * Vacío por defecto: no se envía ningún texto. Sólo se usa tras consentimiento
-   * explícito en la UI cuando Piper local no está disponible o falla.
+   * Vacío por defecto en local. El build de Pages usa
+   * https://pausa-mia-voz-ar.fly.dev. Sólo se usa tras consentimiento explícito
+   * en la UI cuando Piper local no está disponible o falla.
    */
   readonly VITE_ARGENTINE_TTS_ENDPOINT?: string;
 }
