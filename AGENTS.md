@@ -9,7 +9,8 @@ funcionando aunque se agreguen cuentas, conectores o un despliegue público.
 
 ## Límites obligatorios
 
-- Cursor es el único responsable de implementar código.
+- Cursor es el implementador preferido; otros agentes pueden auditar, corregir y
+  coordinar cambios cuando Cursor no pueda completar una tarea.
 - No leer, copiar ni reutilizar datos, audios, voces, credenciales o estados del canal
   de YouTube ni de otros proyectos.
 - Se pueden conectar cuentas, Google, Calendar, Drive y redes sociales cuando exista

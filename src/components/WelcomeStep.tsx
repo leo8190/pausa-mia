@@ -1,4 +1,5 @@
 import type { SessionApi } from '../hooks/useSession';
+import { AccountPanel } from './AccountPanel';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 
 export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
@@ -15,7 +16,7 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
           </div>
           <p className="welcome-hero-brand">Pausa Mía</p>
           <p className="welcome-hero-benefit">
-            Una sesión breve, serena y privada — sin cuentas ni conexiones.
+            Una sesión breve, serena y privada — podés probarla sin cuenta.
           </p>
         </div>
       }
@@ -71,6 +72,7 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
           </p>
         </li>
       </ul>
+      <AccountPanel locale={sessionApi.session.checkIn.voiceVariant} />
     </StepLayout>
   );
 }
