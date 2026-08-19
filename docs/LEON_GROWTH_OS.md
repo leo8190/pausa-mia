@@ -42,17 +42,21 @@ segmentación o remarketing.
 
 ## Regla para contratar Okara
 
-No contratar ahora. Evaluar un solo mes de **AI CMO Lite mensual** únicamente cuando:
+La primera publicación de adquisición fue removida por los filtros de Reddit, por lo
+que no llegó a probar la capacidad del mensaje para conseguir testers. Esto identifica
+un cuello de botella real de distribución y vuelve razonable un piloto pago acotado.
 
-- existan diez visitas humanas verificadas;
-- al menos tres personas completen una sesión y den feedback sustantivo;
-- al menos dos manifiesten intención de reutilizar o pagar;
-- haya un cuello de botella concreto que los agentes actuales no resuelvan;
-- Okara confirme por escrito o en checkout que el nuevo CMO pertenece a Pausa Mía.
+Probar un solo mes de **AI CMO Lite mensual** únicamente cuando:
 
-Si se cumplen esos requisitos, probar Lite mensual por un mes, medir horas ahorradas,
-visitas calificadas y feedback obtenido, y cancelar si no supera al sistema interno.
-No elegir pago anual para un experimento inicial.
+- Okara confirme que se puede crear un CMO separado para Pausa Mía sin reemplazar ni
+  mezclar el proyecto Casi Ahí;
+- el cargo exacto sea `US$129` mensual, sin compromiso anual;
+- se defina antes del pago un experimento con canal, audiencia y diez testers como
+  resultado objetivo;
+- se conserve aprobación humana antes de cada publicación o conexión externa.
+
+Durante el mes, medir visitas calificadas, testers confirmados, feedback y horas
+ahorradas. Cancelar antes de la renovación si no supera al sistema interno.
 
 ## Fuentes de verdad
 
@@ -60,4 +64,3 @@ No elegir pago anual para un experimento inicial.
 - Marketing y precios: [`MONETIZATION_AND_MARKETING.md`](MONETIZATION_AND_MARKETING.md)
 - Corrida de Okara: [`OKARA_MARKETING_RUN_2026-08-18.md`](OKARA_MARKETING_RUN_2026-08-18.md)
 - Equipo: [`TEAM_AND_EXECUTION.md`](TEAM_AND_EXECUTION.md)
-

@@ -20,6 +20,12 @@ URL: https://leo8190.github.io/pausa-mia/
 - Ambos planes muestran literalmente `1 AI CMO per website`. Por lo tanto, un plan
   pago no confirma dos proyectos bajo la misma suscripción; Pausa Mía necesitaría una
   suscripción/CMO propia o una confirmación comercial de Okara.
+- El selector de proyectos de la cuenta sólo ofrece `Casi Ahí` y `Upgrade`; no muestra
+  `Nuevo proyecto` ni una segunda empresa.
+- La edición de empresa permite cambiar tamaño de equipo, categoría, perfiles sociales
+  y descripción, pero no el nombre ni la URL base del sitio.
+- La documentación pública revisada no promete reemplazar libremente el sitio. Hasta
+  recibir confirmación de Okara, tratar el CMO como ligado al sitio inicial.
 
 ## Copia aprobada para un primer canal orgánico
 
@@ -34,9 +40,10 @@ URL: https://leo8190.github.io/pausa-mia/
    usar el texto aprobado en un canal orgánico independiente.
 2. Contar como evidencia manual una respuesta pública de cada tester, sin pedir
    datos privados; añadir analítica anónima sólo si luego autorizamos una cuenta.
-3. El primer post fue publicado en Reddit r/SideProject, con el enlace público y
-   parámetros de origen: https://www.reddit.com/r/SideProject/comments/1vs64xo/pausa_mía_personalized_guided_meditation/
-4. Pedir confirmación justo antes de publicar el primer post o enviar el primer
+3. El primer post fue enviado a Reddit r/SideProject, pero Reddit lo removió mediante
+   sus filtros; no produjo una campaña visible:
+   https://www.reddit.com/r/SideProject/comments/1vs64xo/pausa_mía_personalized_guided_meditation/
+4. Pedir confirmación justo antes de publicar otro post o enviar el primer
    mensaje en una red social.
 
-Estado: `PUBLICADO; POST EN REDDIT; OKARA SEPARADO PENDIENTE; 0/10 VISITAS HUMANAS VERIFICADAS`.
+Estado: `BETA PUBLICADA; POST REMOVIDO; OKARA SEPARADO PENDIENTE; 0/10 VISITAS HUMANAS VERIFICADAS`.

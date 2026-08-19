@@ -44,8 +44,9 @@ diez visitas humanas nuevas.
 4. Usar una medición mínima: confirmación manual de cada tester en el hilo, sin
    texto personal ni identificadores publicitarios, o agregar analítica anónima
    cuando exista una cuenta autorizada.
-5. Canal ejecutado: publicación transparente en Reddit r/SideProject, con pedido de
-   diez testers y confirmación pública sin datos privados:
+5. El primer canal intentado fue Reddit r/SideProject, pero Reddit removió el post por
+   sus filtros. No se considera una campaña distribuida ni evidencia de que el mensaje
+   haya fallado:
    https://www.reddit.com/r/SideProject/comments/1vs64xo/pausa_mía_personalized_guided_meditation/
 
 ## Primera campaña recomendada
