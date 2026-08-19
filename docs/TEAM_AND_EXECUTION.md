@@ -27,9 +27,10 @@ El sistema operativo completo está en [`LEON_GROWTH_OS.md`](LEON_GROWTH_OS.md).
 
 ## Ingeniería de producto
 
-**Cursor — Dirección de Ingeniería de Software.** Es el único implementador del código.
-Debe trabajar en esta carpeta, respetar `AGENTS.md`, ejecutar verificaciones y reportar
-archivos y resultados.
+**Cursor — Dirección de Ingeniería de Software.** Es el implementador preferido del
+código. Otros agentes pueden auditar o corregir cambios cuando Cursor no pueda
+completar una tarea. Todo cambio debe respetar `AGENTS.md`, ejecutar verificaciones y
+reportar archivos y resultados.
 
 ## Calidad de guiones y experiencia contemplativa
 
@@ -55,7 +56,8 @@ acotadas con acceso y autorización verificables.
 ## Orden de ejecución
 
 1. Especificación y límites.
-2. Prototipo local sin cuentas ni claves.
-3. Verificación funcional y de guion.
+2. Prototipo local con modo invitado y cuentas opcionales.
+3. Verificación funcional, de guion y de seguridad.
 4. Muestras reales de voz y prueba de disposición a pagar.
-5. Sólo después: proveedor de voz, backend, cuentas y conectores consentidos.
+5. Conectar proveedores consentidos y desplegar sólo con credenciales y dominio
+   configurados de forma segura.

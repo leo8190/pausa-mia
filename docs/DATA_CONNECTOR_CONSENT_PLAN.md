@@ -1,6 +1,6 @@
 # Plan de conexiones y consentimiento
 
-Estado: **PREPARADO, NO IMPLEMENTADO, SIN CUENTAS CONECTADAS**.
+Estado: **CUENTAS LOCALES IMPLEMENTADAS; OAUTH DE PROVEEDORES PENDIENTE**.
 
 Actualizado: 18 de agosto de 2026.
 
@@ -18,7 +18,7 @@ cobrable debe seguir funcionando sin conectar ninguna cuenta.
 - Diario escrito o archivo importado localmente.
 - Selección explícita de cada fragmento.
 - Vista exacta de lo que se enviará antes de generar.
-- Sin OAuth, sincronización pasiva ni almacenamiento de tokens.
+- Sin OAuth todavía, sincronización pasiva ni almacenamiento de tokens.
 
 ### Etapa uno — Google con permisos mínimos
 
