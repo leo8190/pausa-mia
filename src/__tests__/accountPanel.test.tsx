@@ -193,4 +193,65 @@ describe('AccountPanel', () => {
       screen.getByText(/abrimos google calendar en una pestaña nueva/i),
     ).toBeInTheDocument();
   });
+
+  it('permite desconectar un conector conectado', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let providerReads = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/api/account/status')) {
+        return jsonResponse({
+          authenticated: true,
+          mode: 'account',
+          user: {
+            id: 'usr-c',
+            displayName: 'Pausa',
+            locale: 'es-AR',
+            status: 'active',
+          },
+        });
+      }
+      if (url.endsWith('/api/connectors/providers')) {
+        providerReads += 1;
+        return jsonResponse({
+          providers: [
+            {
+              provider: 'google_calendar',
+              state: providerReads === 1 ? 'connected' : 'disconnected',
+              configured: true,
+            },
+            { provider: 'google_drive', state: 'disconnected', configured: true },
+          ],
+        });
+      }
+      if (url.endsWith('/api/connectors/google_calendar/oauth/revoke')) {
+        expect(init?.method).toBe('POST');
+        return jsonResponse({
+          ok: true,
+          provider: 'google_calendar',
+          state: 'revoked',
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<AccountPanel locale="es-AR" />);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /desconectar google calendar/i }),
+      ).toBeInTheDocument(),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /desconectar google calendar/i }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/google calendar quedó desconectado/i),
+      ).toBeInTheDocument(),
+    );
+    expect(window.confirm).toHaveBeenCalled();
+  });
 });

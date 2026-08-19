@@ -236,6 +236,42 @@ export function AccountPanel({ locale }: { locale: string }) {
     }
   }
 
+  async function handleRevoke(provider: SupportedProvider) {
+    const providerName = PROVIDER_COPY[provider].title;
+    if (
+      !window.confirm(
+        `¿Querés desconectar ${providerName}? Se revocará el acceso guardado y podrás volver a conectarlo cuando quieras.`,
+      )
+    ) {
+      return;
+    }
+
+    setConnectorBusy(provider);
+    setConnectorError(null);
+    setConnectorMessage(null);
+
+    try {
+      await requestConnector(`/api/connectors/${provider}/oauth/revoke`, {
+        method: 'POST',
+      });
+      setConsentChecks((prev) => ({ ...prev, [provider]: false }));
+      await refreshProviders();
+      setConnectorMessage(`${providerName} quedó desconectado.`);
+    } catch (error: unknown) {
+      const code = error instanceof Error ? error.message : 'CONNECTOR_REQUEST_FAILED';
+      if (code === 'UNAUTHORIZED') {
+        setConnectorError('Tu sesión venció. Iniciá sesión de nuevo para desconectar.');
+      } else if (code === 'LINKED_ACCOUNT_NOT_FOUND') {
+        setConnectorError(`${providerName} ya estaba desconectado.`);
+        await refreshProviders();
+      } else {
+        setConnectorError(`No pudimos desconectar ${providerName}. Probá de nuevo.`);
+      }
+    } finally {
+      setConnectorBusy(null);
+    }
+  }
+
   return (
     <details className="account-panel">
       <summary>
@@ -320,11 +356,23 @@ export function AccountPanel({ locale }: { locale: string }) {
                       <button
                         type="button"
                         className="btn btn-secondary btn-small"
-                        disabled={!entry.configured || isBusy}
+                        disabled={
+                          !entry.configured || isBusy || entry.state === 'connected'
+                        }
                         onClick={() => void handleConnect(entry.provider)}
                       >
                         {isBusy ? 'Conectando…' : `Conectar ${copy.title}`}
                       </button>
+                      {entry.state === 'connected' && (
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-small"
+                          disabled={isBusy}
+                          onClick={() => void handleRevoke(entry.provider)}
+                        >
+                          {isBusy ? 'Desconectando…' : `Desconectar ${copy.title}`}
+                        </button>
+                      )}
                     </div>
                   </article>
                 );
