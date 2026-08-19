@@ -47,4 +47,19 @@ describe('summarizeVoiceAvailability', () => {
     ]);
     expect(text).toMatch(/leer el guion/i);
   });
+
+  it('mentions remote Argentine option honestly when local voices are unavailable', () => {
+    const text = summarizeVoiceAvailability([
+      status('web-speech', { supported: false, available: false }),
+      status('neural-piper-es-ar', { supported: false, available: false }),
+      status('remote-wav-es-ar', {
+        supported: true,
+        configured: true,
+        available: false,
+      }),
+    ]);
+    expect(text).toMatch(/voz argentina remota/i);
+    expect(text).toMatch(/consentimiento/i);
+    expect(text).not.toMatch(/garantiza|universal|siempre/i);
+  });
 });

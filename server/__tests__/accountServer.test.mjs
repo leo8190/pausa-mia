@@ -260,10 +260,141 @@ describe('account server endpoints', () => {
           body: JSON.stringify({}),
         },
       );
-      expect(connect.status).toBe(501);
+      expect(connect.status).toBe(409);
       const payload = await connect.json();
-      expect(payload.error).toBe('CONNECTOR_NOT_CONFIGURED');
-      expect(payload.details.provider).toBe('google_drive');
+      expect(payload.error).toBe('USE_OAUTH_START');
+      expect(payload.details.startPath).toBe('/api/connectors/google_drive/oauth/start');
+    });
+  });
+
+  it('requiere consentimiento explícito antes de iniciar OAuth', async () => {
+    const googleOAuthService = {
+      isProviderConfigured: () => true,
+      getMissingConfig: () => [],
+      getRedirectUri: () =>
+        'http://localhost:3001/api/connectors/google_calendar/oauth/callback',
+      createStart: () => ({
+        authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=state-1',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      }),
+      exchangeCode: async () => {
+        throw new Error('not-used');
+      },
+      revokeLinkedAccount: async () => ({ ok: true }),
+    };
+
+    await withTestServerOptions({ googleOAuthService }, async ({ port }) => {
+      const register = await fetch(`http://127.0.0.1:${port}/api/account/register`, {
+        ...options('POST'),
+        body: JSON.stringify({
+          displayName: 'OAuth',
+          locale: 'es-AR',
+          loginSecret: 'clave-oauth',
+        }),
+      });
+      const cookie = register.headers.get('set-cookie') ?? '';
+
+      const withoutConsent = await fetch(
+        `http://127.0.0.1:${port}/api/connectors/google_calendar/oauth/start`,
+        {
+          ...options('POST', cookie),
+          body: JSON.stringify({}),
+        },
+      );
+      expect(withoutConsent.status).toBe(409);
+      expect((await withoutConsent.json()).error).toBe('CONSENT_REQUIRED');
+
+      await fetch(`http://127.0.0.1:${port}/api/connectors/google_calendar/consents`, {
+        ...options('POST', cookie),
+        body: JSON.stringify({
+          purpose: 'calendar_read',
+          scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+          evidence: 'Acepto vincular calendario para disponibilidad.',
+        }),
+      });
+
+      const started = await fetch(
+        `http://127.0.0.1:${port}/api/connectors/google_calendar/oauth/start`,
+        {
+          ...options('POST', cookie),
+          body: JSON.stringify({}),
+        },
+      );
+      expect(started.status).toBe(200);
+      const startedPayload = await started.json();
+      expect(startedPayload.authorizationUrl).toContain('accounts.google.com');
+      expect(startedPayload).not.toHaveProperty('token');
+    });
+  });
+
+  it('completa callback OAuth y permite revocar sin exponer secretos', async () => {
+    const googleOAuthService = {
+      isProviderConfigured: (provider) => provider !== 'social_networks',
+      getMissingConfig: () => [],
+      getRedirectUri: (provider) =>
+        `http://localhost:3001/api/connectors/${provider}/oauth/callback`,
+      createStart: () => ({
+        authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=unused',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      }),
+      exchangeCode: async () => ({
+        userId: 'oauth-user-id',
+        provider: 'google_drive',
+        scopes: ['https://www.googleapis.com/auth/drive.metadata.readonly'],
+        providerAccountRef: 'google-sub-1',
+        tokenCiphertext: 'ciphertext-opaque',
+        tokenKid: 'kid-1',
+      }),
+      revokeLinkedAccount: async () => ({ ok: true }),
+    };
+
+    await withTestServerOptions({ googleOAuthService }, async ({ port, store }) => {
+      const register = await fetch(`http://127.0.0.1:${port}/api/account/register`, {
+        ...options('POST'),
+        body: JSON.stringify({
+          displayName: 'OAuth callback',
+          locale: 'es-AR',
+          loginSecret: 'clave-oauth-callback',
+        }),
+      });
+      const cookie = register.headers.get('set-cookie') ?? '';
+      const registeredBody = await register.json();
+      googleOAuthService.exchangeCode = async () => ({
+        userId: registeredBody.user.id,
+        provider: 'google_drive',
+        scopes: ['https://www.googleapis.com/auth/drive.metadata.readonly'],
+        providerAccountRef: 'google-sub-1',
+        tokenCiphertext: 'ciphertext-opaque',
+        tokenKid: 'kid-1',
+      });
+
+      const callback = await fetch(
+        `http://127.0.0.1:${port}/api/connectors/google_drive/oauth/callback?state=abc&code=ok`,
+        options('GET', cookie),
+      );
+      expect(callback.status).toBe(200);
+      const callbackBody = await callback.json();
+      expect(callbackBody).toEqual({ ok: true, provider: 'google_drive', state: 'connected' });
+      expect(JSON.stringify(callbackBody)).not.toMatch(/token/i);
+
+      const linked = store.getLinkedAccount(registeredBody.user.id, 'google_drive');
+      expect(linked?.status).toBe('active');
+      expect(linked?.tokenCiphertext).toBe('ciphertext-opaque');
+
+      const revoke = await fetch(
+        `http://127.0.0.1:${port}/api/connectors/google_drive/oauth/revoke`,
+        {
+          ...options('POST', cookie),
+          body: JSON.stringify({}),
+        },
+      );
+      expect(revoke.status).toBe(200);
+      const revokedPayload = await revoke.json();
+      expect(revokedPayload).toEqual({ ok: true, provider: 'google_drive', state: 'revoked' });
+
+      const revoked = store.getLinkedAccount(registeredBody.user.id, 'google_drive');
+      expect(revoked?.status).toBe('revoked');
+      expect(revoked?.tokenCiphertext).toBeNull();
     });
   });
 

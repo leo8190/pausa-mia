@@ -46,6 +46,8 @@ jobs:
           VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/pausa-mia/' }}
           # Endpoint público verificado (Fly). Sólo frontend; sin secretos.
           VITE_ARGENTINE_TTS_ENDPOINT: https://pausa-mia-voz-ar.fly.dev
+          # Backend público de cuentas; no contiene secretos.
+          VITE_ACCOUNT_API_URL: https://pausa-mia-api.fly.dev
 
       - name: Subir artefacto de Pages
         uses: actions/upload-pages-artifact@v3

@@ -1,0 +1,12 @@
+.git
+node_modules
+voice-service
+dist
+artifacts
+docs
+src
+tmp
+server/data
+*.db
+*.sqlite
+.env

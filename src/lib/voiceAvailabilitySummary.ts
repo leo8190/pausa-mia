@@ -25,6 +25,10 @@ export function summarizeVoiceAvailability(statuses: VoiceEngineStatus[]): strin
     return 'Hay una voz del dispositivo lista. La voz argentina local no está disponible en este navegador.';
   }
 
+  if (remote?.configured && remote?.supported) {
+    return 'No hay una voz local lista en este dispositivo. Podés usar la voz argentina remota con consentimiento.';
+  }
+
   if (webSpeech?.available) {
     return 'Hay una voz del dispositivo lista. Podés usarla para escuchar la pausa.';
   }

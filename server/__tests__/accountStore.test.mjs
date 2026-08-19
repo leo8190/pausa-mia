@@ -156,4 +156,41 @@ describe('account store', () => {
     store.close();
     rmSync(dir, { recursive: true, force: true });
   });
+
+  it('gestiona linked_accounts con listado y revocación de secretos', async () => {
+    const dir = makeTempDir();
+    const store = await createAccountStore({
+      fallbackPath: join(dir, 'app-store.json'),
+      forceEngine: 'json',
+    });
+    const user = store.createUser({
+      displayName: 'OAuth user',
+      locale: 'es-AR',
+      loginSecretHash: 'hash',
+      loginSecretSalt: 'salt',
+    });
+
+    store.upsertLinkedAccount({
+      userId: user.id,
+      provider: 'google_drive',
+      providerAccountRef: 'sub-1',
+      status: 'active',
+      scopes: ['drive.readonly'],
+      tokenCiphertext: 'opaque-ciphertext',
+      tokenKid: 'kid-v1',
+    });
+
+    const listed = store.listLinkedAccountsByUser(user.id);
+    expect(listed).toHaveLength(1);
+    expect(listed[0].provider).toBe('google_drive');
+    expect(listed[0].tokenCiphertext).toBe('opaque-ciphertext');
+
+    store.revokeLinkedAccount(user.id, 'google_drive', null);
+    const revoked = store.getLinkedAccount(user.id, 'google_drive');
+    expect(revoked?.status).toBe('revoked');
+    expect(revoked?.tokenCiphertext).toBeNull();
+
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
 });

@@ -87,7 +87,7 @@ src/
 │   ├── voiceEngine.ts        # Descarga/caché del modelo es-AR y punto único de síntesis
 │   ├── piperEngine.ts        # Inferencia Piper real (fonemizador + ONNX Runtime Web + WAV)
 │   ├── remoteVoiceService.ts # Cliente POST /v1/tts (vacío en local; Fly en Pages)
-│   ├── onlineConnector.ts    # Estado honesto: OAuth no activo sin flujo implementado
+│   ├── onlineConnector.ts    # Estado honesto de conectores/OAuth en frontend
 │   ├── speechController.ts   # Cancelación global de audio
 │   └── session.ts            # Estado de sesión en memoria
 ├── types/
@@ -95,7 +95,7 @@ src/
 
 server/
 ├── core.mjs             # Validadores puros IA (sin escuchar puerto)
-├── accountServer.mjs    # Endpoints de cuenta/sesión/conectores (fase 1)
+├── accountServer.mjs    # Endpoints de cuenta/sesión/conectores + OAuth Google
 ├── accountAuth.mjs      # Hash de secretos y cookies HttpOnly de sesión
 ├── connectors.mjs       # Contrato provider-neutral + adaptadores no configurados
 ├── store/
@@ -117,10 +117,11 @@ voice-service/           # Servicio Piper es-AR; instancia pública en Fly (auto
 
 Copiar `.env.example` a `.env` para probar IA. Sin `OPENAI_API_KEY`, el modo IA queda desactivado.
 
-## Cuentas y sesión (fase 1 local)
+## Cuentas y sesión (fase local)
 
-El modo invitado se mantiene como camino por defecto. Esta fase agrega cuenta opcional
-y sesión server-side local, sin OAuth real ni despliegue.
+El modo invitado se mantiene como camino por defecto. Esta fase agrega cuenta opcional,
+sesión server-side local y OAuth Google para `google_calendar` y `google_drive`
+(con `social_networks` explícitamente no configurado).
 
 - Persistencia local: SQLite (`server/data/app.db`) cuando `node:sqlite` está
   disponible; fallback JSON portable (`server/data/app-store.json`) si no.
@@ -145,8 +146,14 @@ y sesión server-side local, sin OAuth real ni despliegue.
 - `POST /api/connectors/:provider/consents` — guarda consentimiento por proveedor.
 - `GET /api/connectors/:provider/consents` — lista consentimientos activos.
 - `DELETE /api/connectors/:provider/consents/:consentId` — revoca consentimiento.
-- `POST /api/connectors/:provider/connect` y `.../revoke` — responden
-  `CONNECTOR_NOT_CONFIGURED` hasta tener credenciales reales.
+- `POST /api/connectors/:provider/oauth/start` — inicia OAuth Google con PKCE,
+  `state` anti-CSRF de un solo uso y expiración (requiere consentimiento previo).
+- `GET /api/connectors/:provider/oauth/callback` — intercambio de `code` sólo en
+  backend; nunca expone tokens al navegador.
+- `POST /api/connectors/:provider/oauth/revoke` — revoca token en Google y limpia
+  secretos locales.
+- `POST /api/connectors/:provider/connect` y `.../revoke` — rutas legacy; para
+  Google responden `USE_OAUTH_START` / `USE_OAUTH_REVOKE`.
 
 Proveedores incluidos en el contrato inicial: `google_calendar`, `google_drive`,
 `social_networks`.
@@ -163,6 +170,19 @@ Proveedores incluidos en el contrato inicial: `google_calendar`, `google_drive`,
 - `SESSION_PEPPER` — **obligatorio y fuerte en producción/deploy** (mínimo 32
   caracteres con diversidad). En desarrollo/test, si falta o es débil, el servidor
   genera uno efímero con warning y nunca imprime su valor.
+- `GOOGLE_OAUTH_CLIENT_ID` y `GOOGLE_OAUTH_CLIENT_SECRET` — credenciales OAuth
+  sólo en backend.
+- `GOOGLE_OAUTH_REDIRECT_URI_CALENDAR` y `GOOGLE_OAUTH_REDIRECT_URI_DRIVE` — URI de
+  callback por proveedor.
+- `GOOGLE_OAUTH_TOKEN_ENCRYPTION_KEY` — clave para cifrado autenticado AES-256-GCM
+  de tokens en reposo (`linked_accounts.token_ciphertext`).
+- `GOOGLE_OAUTH_TOKEN_ENCRYPTION_KID` — identificador de clave para rotación.
+
+### Deploy del servidor
+
+- Docker reproducible: `server/Dockerfile` (incluye `HEALTHCHECK` sobre
+  `/api/health`).
+- Guía y redirect URI: `docs/SERVER_OAUTH_DEPLOYMENT.md`.
 
 ### Variable de entorno opcional (frontend cuentas)
 
@@ -271,8 +291,8 @@ exportados por la persona: perfil de Google, calendario de Google, diario/notas 
 exportaciones de Instagram, Facebook, X, LinkedIn o TikTok. Se pueden elegir varios
 archivos, soltarlos en la zona de importación y, cuando corresponde, leer CSV. Se
 interpretan en el navegador, se pueden quitar antes de generar y no se envían a
-servidores. Los botones de conexión directa permanecen deshabilitados: no hay OAuth ni
-cuentas conectadas.
+servidores. Los botones de conexión directa del frontend permanecen deshabilitados por
+ahora; el flujo OAuth real vive en el backend para la siguiente integración de UI.
 
 ## Pausa de seguridad — Argentina
 
@@ -479,7 +499,8 @@ verificó después de una ejecución exitosa de GitHub Actions.
   diario/perfil. El sitio publicado apunta a `https://pausa-mia-voz-ar.fly.dev` y
   sólo envía texto del guion tras consentimiento (nunca en silencio; con endpoint la
   oferta remota es visible en es-AR junto a Piper local).
-- OAuth (Google, redes) se muestra desactivado como función futura.
+- OAuth quedó activo sólo para `google_calendar` y `google_drive` cuando hay
+  variables de entorno configuradas. `social_networks` sigue desactivado.
 
 ## Límites del producto
 

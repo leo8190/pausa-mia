@@ -22,6 +22,7 @@ import {
   getConnector,
   SUPPORTED_CONNECTOR_PROVIDERS,
 } from './connectors.mjs';
+import { createGoogleOAuthService } from './googleOAuth.mjs';
 
 const VALID_LOCALES = new Set(['es-AR', 'es-neutro']);
 
@@ -102,6 +103,14 @@ function normalizeScopes(scopes) {
     .slice(0, 20);
 }
 
+function getConfiguredScopesFromConsents(store, userId, provider) {
+  const activeConsents = store.listActiveConsents(userId, provider);
+  const mergedScopes = activeConsents.flatMap((consent) =>
+    Array.isArray(consent.scopes) ? consent.scopes : [],
+  );
+  return [...new Set(normalizeScopes(mergedScopes))];
+}
+
 export function createAppHandler(options = {}) {
   const allowedOrigins = options.allowedOrigins ?? ALLOWED_ORIGINS;
   const aiHandler = createAiServerHandler({
@@ -117,6 +126,11 @@ export function createAppHandler(options = {}) {
   if (!store) {
     throw new Error('STORE_REQUIRED');
   }
+  const googleOAuth = options.googleOAuthService ?? createGoogleOAuthService();
+  const isGoogleProvider = (provider) =>
+    provider === 'google_calendar' || provider === 'google_drive';
+  const isProviderConfigured = (provider) =>
+    isGoogleProvider(provider) ? googleOAuth.isProviderConfigured(provider) : false;
 
   return async function appHandler(req, res) {
     const requestUrl = new URL(req.url ?? '/', 'http://localhost');
@@ -136,7 +150,10 @@ export function createAppHandler(options = {}) {
         return;
       }
 
-      if (!getCorsAllowOrigin(req.headers.origin, allowedOrigins, true)) {
+      if (
+        req.headers.origin &&
+        !getCorsAllowOrigin(req.headers.origin, allowedOrigins, true)
+      ) {
         sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
         return;
       }
@@ -295,7 +312,7 @@ export function createAppHandler(options = {}) {
         state: auth.ok
           ? store.getProviderState(auth.user.id, provider)
           : 'disconnected',
-        configured: false,
+        configured: isProviderConfigured(provider),
       }));
       sendJson(res, 200, { providers });
       return;
@@ -317,7 +334,177 @@ export function createAppHandler(options = {}) {
         const state = auth.ok
           ? store.getProviderState(auth.user.id, provider)
           : 'disconnected';
-        sendJson(res, 200, { provider, state, configured: false });
+        sendJson(res, 200, {
+          provider,
+          state,
+          configured: isProviderConfigured(provider),
+        });
+        return;
+      }
+
+      if (
+        req.method === 'POST' &&
+        parts.length === 3 &&
+        parts[1] === 'oauth' &&
+        parts[2] === 'start'
+      ) {
+        const auth = await requireAuthContext(req, store, sessionPepper);
+        if (!auth.ok) {
+          sendError(res, 401, 'UNAUTHORIZED');
+          return;
+        }
+        if (!isGoogleProvider(provider)) {
+          sendError(res, 501, 'CONNECTOR_NOT_CONFIGURED', null, {
+            provider,
+            configured: false,
+          });
+          return;
+        }
+        if (!googleOAuth.isProviderConfigured(provider)) {
+          sendError(res, 501, 'CONNECTOR_NOT_CONFIGURED', null, {
+            provider,
+            missingEnv: googleOAuth.getMissingConfig(provider),
+          });
+          return;
+        }
+
+        const scopes = getConfiguredScopesFromConsents(store, auth.user.id, provider);
+        if (scopes.length === 0) {
+          sendError(res, 409, 'CONSENT_REQUIRED', null, {
+            provider,
+            hint: 'Crea primero un consentimiento activo con scopes para iniciar OAuth.',
+          });
+          return;
+        }
+
+        try {
+          const started = googleOAuth.createStart({
+            userId: auth.user.id,
+            provider,
+            scopes,
+          });
+          sendJson(res, 200, {
+            provider,
+            configured: true,
+            authorizationUrl: started.authorizationUrl,
+            expiresAt: started.expiresAt,
+            redirectUri: googleOAuth.getRedirectUri(provider),
+          });
+        } catch (error) {
+          sendError(res, 500, 'OAUTH_START_FAILED');
+        }
+        return;
+      }
+
+      if (
+        req.method === 'GET' &&
+        parts.length === 3 &&
+        parts[1] === 'oauth' &&
+        parts[2] === 'callback'
+      ) {
+        const auth = await requireAuthContext(req, store, sessionPepper);
+        if (!auth.ok) {
+          sendError(res, 401, 'UNAUTHORIZED');
+          return;
+        }
+        if (!isGoogleProvider(provider)) {
+          sendError(res, 501, 'CONNECTOR_NOT_CONFIGURED', null, {
+            provider,
+            configured: false,
+          });
+          return;
+        }
+
+        const state = requestUrl.searchParams.get('state') ?? '';
+        const code = requestUrl.searchParams.get('code') ?? '';
+        const providerError = requestUrl.searchParams.get('error') ?? '';
+        if (providerError) {
+          sendError(res, 400, 'OAUTH_AUTHORIZATION_DENIED', null, {
+            provider,
+            providerError,
+          });
+          return;
+        }
+
+        try {
+          const linked = await googleOAuth.exchangeCode({ code, state });
+          if (linked.provider !== provider || linked.userId !== auth.user.id) {
+            sendError(res, 400, 'OAUTH_STATE_INVALID');
+            return;
+          }
+          store.upsertLinkedAccount({
+            userId: linked.userId,
+            provider: linked.provider,
+            providerAccountRef: linked.providerAccountRef,
+            status: 'active',
+            scopes: linked.scopes,
+            tokenCiphertext: linked.tokenCiphertext,
+            tokenKid: linked.tokenKid,
+            errorMessage: null,
+          });
+          sendJson(res, 200, { ok: true, provider, state: 'connected' });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'OAUTH_CALLBACK_FAILED';
+          if (message === 'OAUTH_STATE_INVALID' || message === 'OAUTH_CALLBACK_INVALID') {
+            sendError(res, 400, message);
+            return;
+          }
+          if (message === 'OAUTH_PROVIDER_NOT_CONFIGURED') {
+            sendError(res, 501, 'CONNECTOR_NOT_CONFIGURED', null, {
+              provider,
+              missingEnv: googleOAuth.getMissingConfig(provider),
+            });
+            return;
+          }
+          if (
+            message === 'OAUTH_TOKEN_EXCHANGE_FAILED' ||
+            message === 'OAUTH_TOKEN_RESPONSE_INVALID'
+          ) {
+            sendError(res, 502, 'OAUTH_TOKEN_EXCHANGE_FAILED');
+            return;
+          }
+          sendError(res, 500, 'OAUTH_CALLBACK_FAILED');
+        }
+        return;
+      }
+
+      if (
+        req.method === 'POST' &&
+        parts.length === 3 &&
+        parts[1] === 'oauth' &&
+        parts[2] === 'revoke'
+      ) {
+        const auth = await requireAuthContext(req, store, sessionPepper);
+        if (!auth.ok) {
+          sendError(res, 401, 'UNAUTHORIZED');
+          return;
+        }
+        if (!isGoogleProvider(provider)) {
+          sendError(res, 501, 'CONNECTOR_NOT_CONFIGURED', null, {
+            provider,
+            configured: false,
+          });
+          return;
+        }
+        const linkedAccount = store.getLinkedAccount(auth.user.id, provider);
+        if (!linkedAccount) {
+          sendError(res, 404, 'LINKED_ACCOUNT_NOT_FOUND');
+          return;
+        }
+
+        try {
+          if (googleOAuth.isProviderConfigured(provider)) {
+            await googleOAuth.revokeLinkedAccount(linkedAccount);
+          }
+          store.revokeLinkedAccount(auth.user.id, provider, null);
+          sendJson(res, 200, { ok: true, provider, state: 'revoked' });
+        } catch (error) {
+          store.revokeLinkedAccount(auth.user.id, provider, 'oauth-revoke-failed');
+          sendError(res, 502, 'OAUTH_TOKEN_REVOKE_FAILED', null, {
+            provider,
+            localState: 'revoked',
+          });
+        }
         return;
       }
 
@@ -417,8 +604,22 @@ export function createAppHandler(options = {}) {
 
         try {
           if (parts[1] === 'connect') {
+            if (isGoogleProvider(provider)) {
+              sendError(res, 409, 'USE_OAUTH_START', null, {
+                provider,
+                startPath: `/api/connectors/${provider}/oauth/start`,
+              });
+              return;
+            }
             await connector.connect({ userId: auth.user.id });
           } else {
+            if (isGoogleProvider(provider)) {
+              sendError(res, 409, 'USE_OAUTH_REVOKE', null, {
+                provider,
+                revokePath: `/api/connectors/${provider}/oauth/revoke`,
+              });
+              return;
+            }
             await connector.revoke({ userId: auth.user.id });
           }
           sendJson(res, 200, { ok: true });

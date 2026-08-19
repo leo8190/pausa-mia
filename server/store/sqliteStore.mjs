@@ -226,6 +226,122 @@ export async function createSqliteStore(dbPath) {
       if (row.status === 'active') return 'connected';
       return 'disconnected';
     },
+    getLinkedAccount(userId, provider) {
+      const row = db
+        .prepare(
+          `SELECT id, user_id, provider, provider_account_ref, status, scopes_json,
+                  token_ciphertext, token_kid, connected_at, revoked_at, error_message
+           FROM linked_accounts
+           WHERE user_id = ? AND provider = ?
+           ORDER BY connected_at DESC
+           LIMIT 1`,
+        )
+        .get(userId, provider);
+      if (!row) return null;
+      return {
+        id: row.id,
+        userId: row.user_id,
+        provider: row.provider,
+        providerAccountRef: row.provider_account_ref,
+        status: row.status,
+        scopes: parseJsonArray(row.scopes_json),
+        tokenCiphertext: row.token_ciphertext,
+        tokenKid: row.token_kid,
+        connectedAt: row.connected_at,
+        revokedAt: row.revoked_at,
+        errorMessage: row.error_message,
+      };
+    },
+    listLinkedAccountsByUser(userId) {
+      const rows = db
+        .prepare(
+          `SELECT id, user_id, provider, provider_account_ref, status, scopes_json,
+                  token_ciphertext, token_kid, connected_at, revoked_at, error_message
+           FROM linked_accounts
+           WHERE user_id = ?
+           ORDER BY connected_at DESC`,
+        )
+        .all(userId);
+      return rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        provider: row.provider,
+        providerAccountRef: row.provider_account_ref,
+        status: row.status,
+        scopes: parseJsonArray(row.scopes_json),
+        tokenCiphertext: row.token_ciphertext,
+        tokenKid: row.token_kid,
+        connectedAt: row.connected_at,
+        revokedAt: row.revoked_at,
+        errorMessage: row.error_message,
+      }));
+    },
+    upsertLinkedAccount({
+      userId,
+      provider,
+      providerAccountRef = null,
+      status = 'active',
+      scopes = [],
+      tokenCiphertext = null,
+      tokenKid = null,
+      errorMessage = null,
+    }) {
+      const existing = this.getLinkedAccount(userId, provider);
+      const connectedAt = nowIso();
+      if (existing) {
+        db.prepare(
+          `UPDATE linked_accounts
+           SET provider_account_ref = ?, status = ?, scopes_json = ?, token_ciphertext = ?,
+               token_kid = ?, connected_at = ?, revoked_at = ?, error_message = ?
+           WHERE id = ?`,
+        ).run(
+          providerAccountRef,
+          status,
+          JSON.stringify(Array.isArray(scopes) ? scopes : []),
+          tokenCiphertext,
+          tokenKid,
+          connectedAt,
+          status === 'active' ? null : nowIso(),
+          errorMessage,
+          existing.id,
+        );
+        return this.getLinkedAccount(userId, provider);
+      }
+
+      const id = randomUUID();
+      db.prepare(
+        `INSERT INTO linked_accounts (
+          id, user_id, provider, provider_account_ref, status, scopes_json,
+          token_ciphertext, token_kid, connected_at, revoked_at, error_message
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
+      ).run(
+        id,
+        userId,
+        provider,
+        providerAccountRef,
+        status,
+        JSON.stringify(Array.isArray(scopes) ? scopes : []),
+        tokenCiphertext,
+        tokenKid,
+        connectedAt,
+        errorMessage,
+      );
+      return this.getLinkedAccount(userId, provider);
+    },
+    revokeLinkedAccount(userId, provider, errorMessage = null) {
+      const result = db
+        .prepare(
+          `UPDATE linked_accounts
+           SET status = 'revoked', revoked_at = ?, token_ciphertext = NULL, error_message = ?
+           WHERE id = (
+             SELECT id FROM linked_accounts
+             WHERE user_id = ? AND provider = ?
+             ORDER BY connected_at DESC LIMIT 1
+           )`,
+        )
+        .run(nowIso(), errorMessage, userId, provider);
+      return result.changes > 0;
+    },
     createContextItem({
       userId,
       sessionId = null,

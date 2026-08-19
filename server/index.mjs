@@ -118,7 +118,7 @@ export async function startServer() {
 
   const server = createServer(handler);
 
-  server.listen(PORT, () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`AI server on http://localhost:${PORT}`);
     console.log(`AI enabled: ${Boolean(API_KEY)}`);
     console.log(`Account store: ${store.kind}`);

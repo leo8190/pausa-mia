@@ -179,6 +179,63 @@ export function createJsonStore(path) {
       if (linked.status === 'active') return 'connected';
       return 'disconnected';
     },
+    getLinkedAccount(userId, provider) {
+      const linked = state.linkedAccounts
+        .filter((entry) => entry.userId === userId && entry.provider === provider)
+        .sort((a, b) => b.connectedAt.localeCompare(a.connectedAt))[0];
+      return linked ? { ...linked } : null;
+    },
+    listLinkedAccountsByUser(userId) {
+      return state.linkedAccounts
+        .filter((entry) => entry.userId === userId)
+        .sort((a, b) => b.connectedAt.localeCompare(a.connectedAt))
+        .map((entry) => ({ ...entry }));
+    },
+    upsertLinkedAccount({
+      userId,
+      provider,
+      providerAccountRef = null,
+      status = 'active',
+      scopes = [],
+      tokenCiphertext = null,
+      tokenKid = null,
+      errorMessage = null,
+    }) {
+      const existing = state.linkedAccounts
+        .filter((entry) => entry.userId === userId && entry.provider === provider)
+        .sort((a, b) => b.connectedAt.localeCompare(a.connectedAt))[0];
+      const linked = existing ?? {
+        id: randomUUID(),
+        userId,
+        provider,
+        connectedAt: nowIso(),
+      };
+      Object.assign(linked, {
+        providerAccountRef,
+        status,
+        scopes: Array.isArray(scopes) ? scopes : [],
+        tokenCiphertext,
+        tokenKid,
+        connectedAt: nowIso(),
+        revokedAt: status === 'active' ? null : nowIso(),
+        errorMessage,
+      });
+      if (!existing) state.linkedAccounts.push(linked);
+      persist();
+      return { ...linked };
+    },
+    revokeLinkedAccount(userId, provider, errorMessage = null) {
+      const linked = state.linkedAccounts
+        .filter((entry) => entry.userId === userId && entry.provider === provider)
+        .sort((a, b) => b.connectedAt.localeCompare(a.connectedAt))[0];
+      if (!linked) return false;
+      linked.status = 'revoked';
+      linked.revokedAt = nowIso();
+      linked.tokenCiphertext = null;
+      linked.errorMessage = errorMessage;
+      persist();
+      return true;
+    },
     createContextItem({
       userId,
       sessionId = null,
