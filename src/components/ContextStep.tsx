@@ -101,7 +101,10 @@ export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
               {source.date && <span className="field-hint"> — {source.date}</span>}
             </div>
 
-            <div className="checkbox-option">
+            <label
+              className="checkbox-option checkbox-option--compact"
+              htmlFor={`ctx-select-${source.id}`}
+            >
               <input
                 type="checkbox"
                 id={`ctx-select-${source.id}`}
@@ -111,8 +114,8 @@ export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
                 }
                 aria-label={`Incluir ${source.label} en el guion`}
               />
-              <label htmlFor={`ctx-select-${source.id}`}>Incluir en el guion</label>
-            </div>
+              <span>Incluir en el guion</span>
+            </label>
 
             {source.type === 'manual-diary' || source.type === 'other' ? (
               <textarea

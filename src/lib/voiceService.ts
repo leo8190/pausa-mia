@@ -27,6 +27,16 @@ function matchesLocale(voice: SpeechSynthesisVoice, locales: string[]): boolean 
   );
 }
 
+/**
+ * Verdadero sólo cuando la voz declara explícitamente el locale argentino
+ * (`es-AR`/`es_AR`). Voces de otros países hispanohablantes (es-MX, es-ES,
+ * es-US, es-419, etc.) nunca deben etiquetarse como argentinas, aunque se
+ * usen como reemplazo honesto cuando no hay una voz es-AR real disponible.
+ */
+export function isArgentineVoice(voice: SpeechSynthesisVoice): boolean {
+  return matchesLocale(voice, ARGENTINE_LOCALES);
+}
+
 export function selectVoice(
   variant: VoiceVariant,
   voices: SpeechSynthesisVoice[],
@@ -40,6 +50,7 @@ export function selectVoice(
       actualLocale: 'none',
       fallbackMessage:
         'No se detectaron voces en tu dispositivo. El texto se mostrará para lectura.',
+      isArgentine: false,
     };
   }
 
@@ -51,6 +62,7 @@ export function selectVoice(
         requestedLocale,
         actualLocale: argentine.lang,
         fallbackMessage: null,
+        isArgentine: true,
       };
     }
 
@@ -60,7 +72,8 @@ export function selectVoice(
         voice: spanish,
         requestedLocale,
         actualLocale: spanish.lang,
-        fallbackMessage: `No encontramos una voz argentina (es-AR). Usaremos ${spanish.name} (${spanish.lang}) como reemplazo.`,
+        fallbackMessage: `No encontramos una voz argentina (es-AR). Usaremos ${spanish.name} (${spanish.lang}) como reemplazo, no como voz argentina.`,
+        isArgentine: false,
       };
     }
 
@@ -68,7 +81,8 @@ export function selectVoice(
       voice: voices[0],
       requestedLocale,
       actualLocale: voices[0].lang,
-      fallbackMessage: `No encontramos una voz en español. Usaremos ${voices[0].name} (${voices[0].lang}) como reemplazo.`,
+      fallbackMessage: `No encontramos una voz en español. Usaremos ${voices[0].name} (${voices[0].lang}) como reemplazo, no como voz argentina.`,
+      isArgentine: false,
     };
   }
 
@@ -83,6 +97,7 @@ export function selectVoice(
         fallbackMessage: isExact
           ? null
           : `No encontramos es-MX. Usaremos ${match.name} (${match.lang}) como español neutro.`,
+        isArgentine: false,
       };
     }
   }
@@ -94,6 +109,7 @@ export function selectVoice(
       requestedLocale,
       actualLocale: anySpanish.lang,
       fallbackMessage: `Usaremos ${anySpanish.name} (${anySpanish.lang}) como reemplazo de español neutro.`,
+      isArgentine: false,
     };
   }
 
@@ -102,6 +118,7 @@ export function selectVoice(
     requestedLocale,
     actualLocale: voices[0].lang,
     fallbackMessage: `No encontramos español neutro. Usaremos ${voices[0].name} (${voices[0].lang}).`,
+    isArgentine: false,
   };
 }
 

@@ -6,15 +6,23 @@ interface StepLayoutProps {
   lead?: string;
   children: React.ReactNode;
   actions?: React.ReactNode;
+  /** Clase adicional para destacar la tarjeta, por ejemplo durante la reproducción activa. */
+  cardClassName?: string;
 }
 
-export function StepLayout({ title, lead, children, actions }: StepLayoutProps) {
+export function StepLayout({
+  title,
+  lead,
+  children,
+  actions,
+  cardClassName,
+}: StepLayoutProps) {
   return (
     <div className="step-container">
-      <div className="step-card">
+      <div className={`step-card${cardClassName ? ` ${cardClassName}` : ''}`}>
         <h2>{title}</h2>
         {lead && <p className="step-lead">{lead}</p>}
-        {children}
+        <div className="step-body">{children}</div>
         {actions && <div className="step-actions">{actions}</div>}
       </div>
     </div>
@@ -26,7 +34,7 @@ export function DeleteSessionButton({ sessionApi }: { sessionApi: SessionApi }) 
 
   if (confirming) {
     return (
-      <div className="delete-confirm">
+      <div className="delete-confirm" role="alertdialog" aria-label="Confirmar borrado">
         <p>¿Borrar todos los datos de esta sesión?</p>
         <div className="step-actions-row">
           <button
@@ -54,7 +62,7 @@ export function DeleteSessionButton({ sessionApi }: { sessionApi: SessionApi }) 
   return (
     <button
       type="button"
-      className="btn btn-danger"
+      className="btn btn-danger btn-ghost"
       onClick={() => setConfirming(true)}
     >
       Borrar esta sesión
