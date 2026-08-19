@@ -1,11 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import {
+  isAutoplayPolicyError,
   useArgentineVoicePlayer,
   type ArgentineVoiceMode,
 } from '../hooks/useArgentineVoicePlayer';
 import * as voiceEngine from '../lib/voiceEngine';
 import * as remoteVoice from '../lib/remoteVoiceService';
+
+describe('isAutoplayPolicyError', () => {
+  it('detects NotAllowedError from DOMException and similar messages', () => {
+    expect(isAutoplayPolicyError(new DOMException('Denied', 'NotAllowedError'))).toBe(
+      true,
+    );
+    expect(isAutoplayPolicyError(new Error('play() failed because of autoplay'))).toBe(
+      true,
+    );
+    expect(isAutoplayPolicyError(new Error('network failed'))).toBe(false);
+  });
+});
 
 describe('useArgentineVoicePlayer — remoto', () => {
   beforeEach(() => {
@@ -78,6 +91,40 @@ describe('useArgentineVoicePlayer — remoto', () => {
     });
     expect(result.current.state.status).toBe('stopped');
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:remote-mock');
+  });
+
+  it('falls back to native controls when audio.play is blocked by autoplay policy', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.spyOn(remoteVoice, 'assertRemoteSessionTextLimits').mockImplementation(() => {});
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'audio/wav' }),
+    );
+    window.HTMLMediaElement.prototype.play = vi
+      .fn()
+      .mockRejectedValue(new DOMException('Denied', 'NotAllowedError'));
+
+    const { result } = renderHook(() => useArgentineVoicePlayer('remote'));
+
+    await act(async () => {
+      await result.current.prepare();
+    });
+    await act(async () => {
+      result.current.play([{ text: 'Respirá.', pauseAfterMs: 5 }]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('needs-native-play');
+    });
+    expect(result.current.state.nativeAudioUrl).toBe('blob:remote-mock');
+    expect(result.current.state.error).toBeNull();
+
+    window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
+    await act(async () => {
+      result.current.resume();
+    });
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('playing');
+    });
   });
 
   it('changing from local to remote ignores a late local prepare', async () => {

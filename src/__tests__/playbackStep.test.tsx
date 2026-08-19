@@ -31,7 +31,6 @@ function makeSessionApi(voiceVariant: 'es-AR' | 'es-neutro'): SessionApi {
 
 describe('PlaybackStep — voz argentina neuronal real', () => {
   beforeEach(() => {
-    (window as unknown as { AudioContext?: unknown }).AudioContext = class {};
     Object.defineProperty(window, 'caches', {
       configurable: true,
       value: { open: vi.fn().mockResolvedValue({ match: vi.fn(), put: vi.fn() }) },
@@ -57,11 +56,13 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(false);
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', '');
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     voiceEngine.resetNeuralVoiceVerificationForTests();
     voiceEngine.resetArgentineVoiceSessionForTests();
   });
@@ -141,6 +142,7 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
 
   it('shows the remote alternative when the endpoint is configured, even if local Piper is idle', async () => {
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
 
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
 
@@ -154,6 +156,12 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/evita descargar el modelo local/i)).toBeInTheDocument();
     expect(screen.getByText(/wav estándar/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/voz argentina remota \(wav vía endpoint propio\)/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/endpoint configurado; requiere consentimiento y síntesis/i),
+    ).toBeInTheDocument();
 
     const remoteButton = screen.getByRole('button', {
       name: /usar voz argentina remota/i,
