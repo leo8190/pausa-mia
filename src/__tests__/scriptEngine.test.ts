@@ -59,7 +59,7 @@ describe('scriptEngine', () => {
   it('uses categorical situation reference without literal user text', () => {
     const script = generateScript(baseCheckIn(), new Set(), genOpts);
     expect(script.fullText).not.toContain('Reunión intensa esta mañana');
-    expect(script.fullText).toMatch(/situación reciente/i);
+    expect(script.fullText).toMatch(/ocupa espacio/i);
     expect(script.fullText).not.toMatch(/relacionado con/i);
     expect(script.fullText).not.toMatch(/diagnóstico|trastorno|depresión/i);
     for (const detail of script.usedDetails) {
@@ -166,6 +166,7 @@ describe('duración sin relleno repetido', () => {
     expect(script.fullText).not.toMatch(ARGENTINE_MARKERS);
     expect(script.fullText.toLowerCase()).not.toContain('relájate');
     expect(script.fullText).toMatch(/práctica habitual/i);
+    expect(script.fullText).toMatch(/seguir el hilo de tu práctica/i);
 
     const closing = buildClosingBlock(checkIn, 'es-neutro');
     expect(texts.slice(-2)).toEqual(closing.map((segment) => segment.text));
@@ -425,7 +426,8 @@ describe('calidad editorial del guion', () => {
     const script = generateScript(checkIn, new Set(), genOpts);
 
     expect(isDurationWithinTolerance(script.estimatedMinutes, 5)).toBe(true);
-    expect(script.fullText).toMatch(/no hace falta explicar cada paso/i);
+    expect(script.fullText).toMatch(/no hace falta explicar cada paso desde cero/i);
+    expect(script.fullText).toMatch(/quédate con ella unos instantes/i);
     expect(script.fullText).not.toMatch(/primera vez/i);
     expect(script.fullText).not.toMatch(/práctica habitual/i);
     expect(script.usedDetails).toContain('experience');
@@ -481,7 +483,8 @@ describe('calidad editorial del guion', () => {
     );
     expect(script.fullText).not.toMatch(/no hace falta elegir un foco/i);
     expect(script.fullText).toMatch(/una atención amplia también concentra/i);
-    expect(script.fullText).toMatch(/no hace falta explicar cada paso/i);
+    expect(script.fullText).toMatch(/no hace falta explicar cada paso desde cero/i);
+    expect(script.fullText).toMatch(/quédate con ella unos instantes/i);
     expect(validateScriptQuality(script).issues).toEqual([]);
   });
 

@@ -127,19 +127,29 @@ Copiar `.env.example` a `.env` para probar IA. Sin `OPENAI_API_KEY`, el modo IA 
 
 ## Verificaciones ejecutadas
 
-| Comando                | Resultado                                                 |
-| ---------------------- | --------------------------------------------------------- |
-| `npm run format:check` | ✅                                                        |
-| `npm run lint`         | ✅                                                        |
-| `npm test`             | ✅ 69 tests (unitarias + servidor mockeado; sin API real) |
-| `npm run build`        | ✅                                                        |
-| `npm audit --omit=dev` | ✅ 0 vulnerabilidades                                     |
+| Comando                | Resultado                                                               |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `npm run format:check` | ✅                                                                      |
+| `npm run lint`         | ✅                                                                      |
+| `npm test`             | ✅ 97 tests (unitarias + flujo React + servidor mockeado; sin API real) |
+| `npm run build`        | ✅                                                                      |
+| `npm audit --omit=dev` | ✅ 0 vulnerabilidades                                                   |
 
 El modo IA sigue **experimental**: no se ejecutó ninguna llamada real a OpenAI en
 esta verificación. Las pruebas de servidor usan `callProvider` mockeado y puerto efímero.
 El servidor local valida entrada/salida, restringe orígenes a
 `localhost`/`127.0.0.1` en puertos 5173 y 4173 (incluye `/api/health`), limita el
 cuerpo a 16 KiB y usa Structured Outputs estrictos cuando el hostname es `api.openai.com`.
+
+### Revisión editorial de casos sintéticos (2026-08-19)
+
+Los cinco casos priorizados de `docs/SCRIPT_EVAL_CASES.md` (1, 2, 3, 8 y 9) se
+regeneraron con el motor local: los cinco quedaron **sin segmentos duplicados**,
+con el **cierre siempre como los dos últimos segmentos** (sin texto posterior) y
+con la **duración estimada dentro de la tolerancia** (±1 minuto) respecto a los 3,
+5 o 10 minutos elegidos. Detalle completo en
+`docs/LOCAL_SCRIPT_EVALUATION_2026-08-19.md`. La calidad contemplativa subjetiva
+sigue pendiente de revisión humana ciega según `docs/SCRIPT_QUALITY_RUBRIC.md`.
 
 ## Publicación estática pendiente — Pausa Mía
 
