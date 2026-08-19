@@ -113,11 +113,11 @@ La reproducción es independiente del motor de generación del guion. Hay dos mo
 de **voz** posibles, evaluados y mostrados en `CheckInStep` y `PlaybackStep` mediante
 `voiceEngine.ts` y `VoiceEngineStatus.tsx`:
 
-| Motor                           | Estado                                                       | Cómo funciona                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Web Speech API**              | Disponible según navegador/SO                                | Usa las voces instaladas en el dispositivo. Es el único motor para español neutro y el fallback confirmado para es-AR.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| **Neuronal es-AR (Piper/ONNX)** | Real; requiere un gesto explícito ("Preparar voz argentina") | Ejecuta `es_AR-daniela-high` (`rhasspy/piper-voices`, archivos del modelo publicados bajo MIT; revisar también el `MODEL_CARD` y las atribuciones del dataset) enteramente en el navegador: fonemizador Piper (WASM/espeak-ng) + inferencia ONNX Runtime Web + conversión PCM→WAV (`piperEngine.ts`). El modelo (≈114 MB) y su config se descargan sólo al presionar el botón, con progreso visible, y quedan en `Cache Storage` para sesiones futuras. Sobreescribible con `VITE_PIPER_ES_AR_VOICE_URL`/`VITE_PIPER_ES_AR_VOICE_CONFIG_URL` para servir el modelo desde un host propio. |
-| **Remoto es-AR (opcional)**     | Activo en el sitio publicado; nunca automático               | Si Piper local no es compatible o falla, la UI ofrece "Usar voz argentina remota" sólo tras marcar un consentimiento visible (no preseleccionado). El cliente (`remoteVoiceService.ts`) hace `POST { text }` a `VITE_ARGENTINE_TTS_ENDPOINT/v1/tts` y reproduce el `audio/wav` con `HTMLAudioElement`. El build de Pages usa `https://pausa-mia-voz-ar.fly.dev`. Sin endpoint (dev local) se explica que falta el servicio; no se envía nada. El servicio de referencia está en `voice-service/` (Piper `es_AR-daniela-high`; modelo no versionado). Fly tiene autostop y costo.         |
+| Motor                           | Estado                                                       | Cómo funciona                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Web Speech API**              | Disponible según navegador/SO                                | Usa las voces instaladas en el dispositivo. Es el único motor para español neutro y el fallback confirmado para es-AR.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Neuronal es-AR (Piper/ONNX)** | Real; requiere un gesto explícito ("Preparar voz argentina") | Ejecuta `es_AR-daniela-high` (`rhasspy/piper-voices`, archivos del modelo publicados bajo MIT; revisar también el `MODEL_CARD` y las atribuciones del dataset) enteramente en el navegador: fonemizador Piper (WASM/espeak-ng) + inferencia ONNX Runtime Web + conversión PCM→WAV (`piperEngine.ts`). El modelo (≈114 MB) y su config se descargan sólo al presionar el botón, con progreso visible, y quedan en `Cache Storage` para sesiones futuras. Sobreescribible con `VITE_PIPER_ES_AR_VOICE_URL`/`VITE_PIPER_ES_AR_VOICE_CONFIG_URL` para servir el modelo desde un host propio.                                                                                                                                        |
+| **Remoto es-AR (opcional)**     | Activo en el sitio publicado; nunca automático               | Si `VITE_ARGENTINE_TTS_ENDPOINT` está definido, `PlaybackStep` muestra "Usar voz argentina remota" en es-AR aunque Piper local esté idle y el navegador soporte WASM (Piper sigue primero). Opt-in: casilla de consentimiento desmarcada y botón deshabilitado hasta marcarla. Evita descargar el modelo local y usa WAV estándar. El cliente (`remoteVoiceService.ts`) hace `POST { text }` a `VITE_ARGENTINE_TTS_ENDPOINT/v1/tts`. El build de Pages usa `https://pausa-mia-voz-ar.fly.dev`. Sin endpoint, el aviso de servicio faltante aparece sólo tras incompatibilidad o fallo local. El servicio de referencia está en `voice-service/` (Piper `es_AR-daniela-high`; modelo no versionado). Fly tiene autostop y costo. |
 
 `voiceEngine.getVoiceEngineStatuses()` verifica de forma honesta, en cada dispositivo:
 
@@ -130,10 +130,12 @@ de **voz** posibles, evaluados y mostrados en `CheckInStep` y `PlaybackStep` med
 
 En `PlaybackStep`, si la variante elegida es es-AR, la interfaz primero ofrece
 "Preparar voz argentina" (con progreso en MB), luego "Reproducir voz argentina"
-cuando la preparación produjo audio real. Si la preparación o la reproducción
-fallan (o el navegador no soporta WASM/ONNX), se muestra el error explícito, el
-botón "Usar voz del dispositivo (no es argentina)" y —por separado— la oferta
-remota con consentimiento. Web Speech y el remoto **nunca** se activan
+cuando la preparación produjo audio real. Si `VITE_ARGENTINE_TTS_ENDPOINT` está
+configurado, la alternativa remota (WAV estándar, sin descargar el modelo local)
+queda visible al mismo tiempo, con casilla desmarcada. Si la preparación o la
+reproducción fallan (o el navegador no soporta WASM/ONNX), se muestra el error
+explícito, el botón "Usar voz del dispositivo (no es argentina)" y —sin endpoint—
+el aviso de servicio faltante. Web Speech y el remoto **nunca** se activan
 automáticamente.
 
 ### Voz remota (sitio publicado y local)
@@ -141,9 +143,9 @@ automáticamente.
 El sitio publicado incrusta
 `VITE_ARGENTINE_TTS_ENDPOINT=https://pausa-mia-voz-ar.fly.dev` en el build de
 Pages (`.github/workflows/pages.yml`). Sigue siendo sólo frontend: la UI exige
-consentimiento explícito (casilla desmarcada) y ofrece la ruta remota únicamente
-si Piper local no es compatible o falla. El servicio recibe sólo el texto del
-segmento (`POST /v1/tts`); no diario, perfil ni fuentes.
+consentimiento explícito (casilla desmarcada) y, con el endpoint configurado,
+muestra la ruta remota en es-AR aunque Piper local esté idle. El servicio recibe
+sólo el texto del segmento (`POST /v1/tts`); no diario, perfil ni fuentes.
 
 Esa instancia Fly usa autostop (`min_machines_running = 0`): el primer request
 puede tardar por cold start y hay costo de máquina/egress. Este repo no despliega
@@ -213,7 +215,7 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
 | ---------------------- | ------------------------------------------------------------------------ |
 | `npm run format:check` | ✅                                                                       |
 | `npm run lint`         | ✅                                                                       |
-| `npm test`             | ✅ 152 tests (unitarias + flujo React + servidor mockeado; sin API real) |
+| `npm test`             | ✅ 156 tests (unitarias + flujo React + servidor mockeado; sin API real) |
 | `npm run build`        | ✅                                                                       |
 | `voice-service` tests  | ✅ 3 tests (`ARG_TTS_BACKEND=mock`, sin modelo ni deploy)                |
 | `npm audit --omit=dev` | (no re-ejecutado en este handoff)                                        |
@@ -252,8 +254,9 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
 - Si la preparación o la síntesis fallan, `useArgentineVoicePlayer` expone el error
   textual y `PlaybackStep` nunca cae a Web Speech ni al remoto en silencio: Web Speech
   sólo tras "Usar voz del dispositivo (no es argentina)"; remoto sólo tras casilla de
-  consentimiento + "Usar voz argentina remota" (y con `VITE_ARGENTINE_TTS_ENDPOINT`
-  configurado). Español neutro sigue usando Web Speech directamente, sin pasar por Piper.
+  consentimiento + "Usar voz argentina remota" (visible con `VITE_ARGENTINE_TTS_ENDPOINT`
+  configurado aunque Piper local esté idle). Español neutro sigue usando Web Speech
+  directamente, sin pasar por Piper.
 - Ruta remota: `remoteVoiceService.ts` + modo `remote` en `useArgentineVoicePlayer`
   (HTMLAudioElement + object URLs); servicio de referencia en `voice-service/`
   (tests con backend `mock`; Piper real documentado, modelo no versionado). Verificación
@@ -264,7 +267,8 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
   `voiceEngine.test.ts` ampliado (incluye una síntesis neuronal completa de extremo a
   extremo con ONNX Runtime, fonemizador y `fetch` mockeados, que confirma que
   `getVoiceEngineStatuses` sólo pasa a "disponible" tras esa síntesis real); y
-  `playbackStep.test.tsx` (incluye consentimiento remoto y endpoint faltante). Suite
+  `playbackStep.test.tsx` (alternativa remota visible con endpoint, consentimiento
+  requerido y aviso de endpoint ausente sólo tras fallo local). Suite
   frontend: ver tabla de verificaciones arriba.
 
 El modo IA sigue **experimental**: no se ejecutó ninguna llamada real a OpenAI en
@@ -364,7 +368,8 @@ verificó después de una ejecución exitosa de GitHub Actions.
 - El modo IA requiere servidor local y proveedor configurado; no se incluyen claves. Sigue experimental hasta una prueba real autorizada.
 - No hay checkout, cuentas, OAuth real ni envío de diario/perfil. El sitio publicado
   apunta a `https://pausa-mia-voz-ar.fly.dev` y sólo envía texto del guion tras
-  consentimiento (nunca en silencio; sólo si Piper local falla o no es compatible).
+  consentimiento (nunca en silencio; con endpoint la oferta remota es visible en
+  es-AR junto a Piper local).
 - OAuth (Google, redes) se muestra desactivado como función futura.
 
 ## Límites del producto

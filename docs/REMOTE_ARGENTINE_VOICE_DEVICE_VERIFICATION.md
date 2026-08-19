@@ -8,7 +8,8 @@ sólo tras prueba real en ese dispositivo/navegador.
 El sitio publicado (GitHub Pages) usa
 `VITE_ARGENTINE_TTS_ENDPOINT=https://pausa-mia-voz-ar.fly.dev`. El servicio
 sólo recibe texto del guion (`POST /v1/tts`) después del consentimiento en la UI
-(nunca automático; sólo si Piper local falla o no es compatible). Fly tiene
+(nunca automático; con endpoint configurado la oferta es visible junto a Piper
+local). Fly tiene
 autostop: cold start posible y hay costo de máquina/egress. Este repo no
 despliega ni modifica secretos.
 
@@ -34,8 +35,9 @@ despliega ni modifica secretos.
 ## Checklist por dispositivo
 
 1. Flujo es-AR hasta Reproducción.
-2. Si Piper local falla o el navegador no soporta WASM: aparece oferta remota (no
-   se activa sola).
+2. Con endpoint configurado: la oferta remota está visible junto a Piper local
+   (Piper primero; no se activa sola). Sin endpoint: el aviso de configuración
+   faltante aparece sólo si Piper local falla o el navegador no soporta WASM.
 3. Casilla de consentimiento **desmarcada**; botón "Usar voz argentina remota"
    deshabilitado hasta marcarla.
 4. Tras consentimiento: "Reproducir voz argentina remota" obtiene WAV y suena
