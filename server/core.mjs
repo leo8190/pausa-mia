@@ -15,12 +15,35 @@ import {
 export const MAX_BODY_BYTES = 16 * 1024;
 export const REQUEST_TIMEOUT_MS = 25000;
 
-export const ALLOWED_ORIGINS = new Set([
+export const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:4173',
   'http://127.0.0.1:4173',
-]);
+];
+
+export function parseAllowedOrigins(rawValue, fallback = DEFAULT_ALLOWED_ORIGINS) {
+  if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
+    return new Set(fallback);
+  }
+
+  const parsed = rawValue
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
+  if (parsed.length === 0) {
+    return new Set(fallback);
+  }
+
+  return new Set(parsed);
+}
+
+export function resolveAllowedOrigins(env = process.env) {
+  return parseAllowedOrigins(env.ACCOUNT_ALLOWED_ORIGINS);
+}
+
+export const ALLOWED_ORIGINS = resolveAllowedOrigins();
 
 export const AI_TEXT_MAX_LENGTH = 200;
 export const AI_MAX_CONTEXT_SOURCES = 10;
@@ -91,11 +114,16 @@ function collectExtraKeys(obj, allowed) {
 }
 
 export function isNonEmptyString(value, maxLength) {
-  return typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength;
+  return (
+    typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength
+  );
 }
 
 export function countWords(text) {
-  return text.trim().split(/\s+/).filter((w) => w.length > 0).length;
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length > 0).length;
 }
 
 export function estimateMinutes(segments) {
@@ -165,7 +193,8 @@ export function validatePayload(payload) {
   } else {
     const opExtras = collectExtraKeys(operational, OPERATIONAL_KEYS);
     if (opExtras.length > 0) issues.push('OPERATIONAL_EXTRA_KEYS');
-    if (!VALID_DURATIONS.has(operational.duration)) issues.push('OPERATIONAL_DURATION_INVALID');
+    if (!VALID_DURATIONS.has(operational.duration))
+      issues.push('OPERATIONAL_DURATION_INVALID');
     if (!VALID_VOICE_VARIANTS.has(operational.voiceVariant)) {
       issues.push('OPERATIONAL_VOICE_INVALID');
     }
@@ -291,7 +320,8 @@ export function validateScriptOutput(script, targetDuration, payload = null) {
   }
 
   if (!isNonEmptyString(script.title, 200)) issues.push('SCRIPT_TITLE_INVALID');
-  if (!isNonEmptyString(script.intentionLabel, 120)) issues.push('SCRIPT_INTENTION_INVALID');
+  if (!isNonEmptyString(script.intentionLabel, 120))
+    issues.push('SCRIPT_INTENTION_INVALID');
 
   if (!Array.isArray(script.segments) || script.segments.length < MIN_SCRIPT_SEGMENTS) {
     issues.push('SCRIPT_SEGMENTS_INSUFFICIENT');
@@ -323,7 +353,11 @@ export function validateScriptOutput(script, targetDuration, payload = null) {
 
   if (payload) {
     const sourceTexts = collectSensitiveSourceTextsFromPayload(payload);
-    const overlap = detectSensitiveOverlapInScript(text, script.usedDetails, sourceTexts);
+    const overlap = detectSensitiveOverlapInScript(
+      text,
+      script.usedDetails,
+      sourceTexts,
+    );
     if (overlap.hasOverlap) {
       issues.push('SCRIPT_SENSITIVE_OVERLAP');
     }
@@ -379,6 +413,21 @@ export function isOriginAllowed(origin) {
   return Boolean(origin && ALLOWED_ORIGINS.has(origin));
 }
 
+export function isOriginAllowedForSet(origin, allowedOrigins) {
+  return Boolean(origin && allowedOrigins.has(origin));
+}
+
+export function getCorsAllowOrigin(origin, allowedOrigins, credentials = false) {
+  if (!origin) return null;
+  if (allowedOrigins.has(origin)) {
+    return origin;
+  }
+  if (!credentials && allowedOrigins.has('*')) {
+    return '*';
+  }
+  return null;
+}
+
 export async function readBodyLimited(req, maxBytes = MAX_BODY_BYTES) {
   let body = '';
   let size = 0;
@@ -398,11 +447,13 @@ export function createAiServerHandler(options = {}) {
   const model = options.model ?? 'gpt-4o-mini';
   const aiEnabled = Boolean(apiKey);
   const callProvider = options.callProvider;
+  const allowedOrigins = options.allowedOrigins ?? ALLOWED_ORIGINS;
 
   function setCorsHeaders(req, res) {
     const origin = req.headers.origin;
-    if (origin && ALLOWED_ORIGINS.has(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
+    const allowedOrigin = getCorsAllowOrigin(origin, allowedOrigins, false);
+    if (allowedOrigin) {
+      res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
       res.setHeader('Vary', 'Origin');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -474,7 +525,7 @@ export function createAiServerHandler(options = {}) {
     setCorsHeaders(req, res);
 
     if (req.method === 'OPTIONS') {
-      if (!isOriginAllowed(req.headers.origin)) {
+      if (!getCorsAllowOrigin(req.headers.origin, allowedOrigins, false)) {
         res.writeHead(403);
         res.end();
         return;
@@ -485,7 +536,7 @@ export function createAiServerHandler(options = {}) {
     }
 
     if (req.method === 'GET' && req.url === '/api/health') {
-      if (!isOriginAllowed(req.headers.origin)) {
+      if (!getCorsAllowOrigin(req.headers.origin, allowedOrigins, false)) {
         sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
         return;
       }
@@ -494,7 +545,7 @@ export function createAiServerHandler(options = {}) {
     }
 
     if (req.method === 'POST' && req.url === '/api/generate-script') {
-      if (!isOriginAllowed(req.headers.origin)) {
+      if (!getCorsAllowOrigin(req.headers.origin, allowedOrigins, false)) {
         sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
         return;
       }
@@ -523,7 +574,11 @@ export function createAiServerHandler(options = {}) {
         const payload = parsed.payload;
         const prompt = buildPrompt(payload);
         const raw = await invokeProvider(prompt);
-        const outputIssues = validateScriptOutput(raw, payload.operational.duration, payload);
+        const outputIssues = validateScriptOutput(
+          raw,
+          payload.operational.duration,
+          payload,
+        );
         if (outputIssues.length > 0) {
           sendJson(res, 422, { error: 'VALIDATION_FAILED', issues: outputIssues });
           return;

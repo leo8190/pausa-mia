@@ -124,8 +124,8 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         title="Reproducción"
         lead={
           useRemoteArgentine
-            ? 'Voz argentina remota (WAV servido por tu endpoint). El guion se envía sólo tras tu consentimiento.'
-            : 'Voz argentina neuronal real (es_AR-daniela-high), generada en tu navegador.'
+            ? 'Voz argentina remota. El texto del guion se envía sólo si aceptás.'
+            : 'Voz argentina, generada en tu navegador.'
         }
         cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
         actions={
@@ -170,10 +170,8 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
         {!useRemoteArgentine && !neuralBrowserSupported && (
           <div className="fallback-notice" role="alert">
-            Este navegador no admite la voz argentina local (hace falta WebAssembly,
-            caché, TextDecoder y reproducción WAV). No afirmamos compatibilidad en todos
-            los dispositivos. Si hay endpoint remoto configurado, aparece abajo antes
-            que cualquier voz no argentina.
+            Este navegador no puede usar la voz argentina en tu dispositivo. Si hay una
+            opción remota, aparece abajo antes que cualquier voz que no sea argentina.
             {deviceInline && (
               <div className="player-controls">{deviceFallbackButton}</div>
             )}
@@ -265,17 +263,15 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             aria-label="Voz argentina remota opcional"
           >
             <p className="field-hint">
-              Alternativa remota (opt-in, no automática): evita descargar el modelo
-              local (aprox. {ES_AR_VOICE_APPROX_SIZE_MB} MB) y usa audio WAV estándar.
-              Un servidor propio sintetiza el mismo modelo Piper. Nunca se activa sola
-              ni cambia el motor en silencio.
+              Podés escuchar la voz argentina sin descargar el modelo en este
+              dispositivo (aprox. {ES_AR_VOICE_APPROX_SIZE_MB} MB). El audio se genera
+              en un servidor propio y no se activa solo: hace falta tu consentimiento.
             </p>
             {!remoteConfigured ? (
               <p className="fallback-notice" role="status">
-                Falta configurar el servicio remoto. Definí{' '}
-                <code>VITE_ARGENTINE_TTS_ENDPOINT</code> en tu entorno local (ver README
-                y <code>voice-service/</code>) y reiniciá el frontend. Sin ese valor no
-                se envía ningún texto.
+                Esta opción remota no está disponible en esta copia de la app. Falta
+                configurar el servicio remoto. Sin esa configuración no se envía ningún
+                texto.
               </p>
             ) : (
               <>

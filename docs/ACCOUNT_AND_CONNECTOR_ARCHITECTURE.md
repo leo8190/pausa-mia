@@ -1,13 +1,14 @@
 # Arquitectura de cuentas y conectores
 
-Estado: **DISEÑO / PREPARACIÓN — NO IMPLEMENTADO**.
+Estado: **IMPLEMENTACIÓN PARCIAL (fase local server-side)**.
 
 Fecha: 19 de agosto de 2026.
 
-Este archivo no autoriza crear cuentas reales, OAuth, claves, una base de datos
-externa, pagos ni despliegue. El prototipo sigue en modo demostración local, sin
-enviar datos a terceros. Las integraciones se muestran como funciones futuras,
-separadas y desactivadas (`src/lib/onlineConnector.ts`).
+Este archivo no autoriza OAuth real, claves de proveedor, una base externa de
+producción, pagos ni despliegue. Desde 2026-08-19 existe una **fase local** en
+`server/` con persistencia de cuenta/sesión y contrato de conectores aún
+desconfigurados. El prototipo sigue en modo demostración local, sin enviar datos a
+terceros por conectores.
 
 Los alcances de producto y el texto de consentimiento por fuente están en
 `docs/DATA_CONNECTOR_CONSENT_PLAN.md`. Este documento fija el modelo de datos, el

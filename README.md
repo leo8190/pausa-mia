@@ -94,8 +94,16 @@ src/
 └── __tests__/           # Unitarias + flujo React
 
 server/
-├── core.mjs             # Validadores puros importables sin escuchar puerto
-└── index.mjs            # Servidor local OpenAI-compatible (clave solo aquí)
+├── core.mjs             # Validadores puros IA (sin escuchar puerto)
+├── accountServer.mjs    # Endpoints de cuenta/sesión/conectores (fase 1)
+├── accountAuth.mjs      # Hash de secretos y cookies HttpOnly de sesión
+├── connectors.mjs       # Contrato provider-neutral + adaptadores no configurados
+├── store/
+│   ├── createStore.mjs  # Selección SQLite preferente, fallback JSON portable
+│   ├── schema.sql       # Migración/esquema inicial local
+│   ├── sqliteStore.mjs  # Implementación SQLite
+│   └── jsonStore.mjs    # Implementación local portable (fallback)
+└── index.mjs            # Entrypoint del servidor local
 
 voice-service/           # Servicio Piper es-AR; instancia pública en Fly (autostop)
 ```
@@ -108,6 +116,59 @@ voice-service/           # Servicio Piper es-AR; instancia pública en Fly (auto
 | **IA**    | Requiere `npm run server` con `.env` configurado. Consentimiento independiente. Payload mínimo (`operational`, `personal`, `context`) idéntico en vista previa, detalle JSON y solicitud; sin consentimientos en el cuerpo. Fallback local si falla. **Experimental** hasta prueba con proveedor real. |
 
 Copiar `.env.example` a `.env` para probar IA. Sin `OPENAI_API_KEY`, el modo IA queda desactivado.
+
+## Cuentas y sesión (fase 1 local)
+
+El modo invitado se mantiene como camino por defecto. Esta fase agrega cuenta opcional
+y sesión server-side local, sin OAuth real ni despliegue.
+
+- Persistencia local: SQLite (`server/data/app.db`) cuando `node:sqlite` está
+  disponible; fallback JSON portable (`server/data/app-store.json`) si no.
+- `server/data/` y archivos de store local se excluyen del repo vía `.gitignore`;
+  nunca se versionan.
+- Sesiones: cookie `HttpOnly`, `SameSite=Lax`, `Path=/`, expiración 7 días y token
+  aleatorio hasheado en store.
+- No se guardan secretos en `VITE_*`, ni se exponen credenciales en respuestas.
+
+### Endpoints de cuenta/sesión
+
+- `POST /api/account/register` — crea cuenta opcional y abre sesión.
+- `POST /api/account/login` — inicia sesión para una cuenta existente.
+- `POST /api/account/logout` — cierra sesión y limpia cookie.
+- `DELETE /api/account` — borra cuenta y datos asociados.
+- `GET /api/account/status` — estado actual (`guest` o `account`).
+
+### Endpoints de conectores (provider-neutral)
+
+- `GET /api/connectors/providers` — catálogo con estado por proveedor.
+- `GET /api/connectors/:provider/status` — estado `disconnected/connected/revoked/error`.
+- `POST /api/connectors/:provider/consents` — guarda consentimiento por proveedor.
+- `GET /api/connectors/:provider/consents` — lista consentimientos activos.
+- `DELETE /api/connectors/:provider/consents/:consentId` — revoca consentimiento.
+- `POST /api/connectors/:provider/connect` y `.../revoke` — responden
+  `CONNECTOR_NOT_CONFIGURED` hasta tener credenciales reales.
+
+Proveedores incluidos en el contrato inicial: `google_calendar`, `google_drive`,
+`social_networks`.
+
+### Variables de entorno nuevas (servidor)
+
+- `ACCOUNT_DB_PATH` — ruta SQLite local.
+- `ACCOUNT_STORE_ENGINE` — `json` para forzar fallback portable.
+- `ACCOUNT_STORE_JSON_PATH` — ruta del store JSON fallback.
+- `ACCOUNT_ALLOWED_ORIGINS` — lista separada por comas para CORS en
+  `/api/account*`, `/api/connectors*`, `/api/health` y `/api/generate-script`.
+  Si queda vacía usa sólo localhost/127.0.0.1 (puertos 5173/4173). Con cookies
+  (`credentials`), `*` se rechaza por seguridad.
+- `SESSION_PEPPER` — **obligatorio y fuerte en producción/deploy** (mínimo 32
+  caracteres con diversidad). En desarrollo/test, si falta o es débil, el servidor
+  genera uno efímero con warning y nunca imprime su valor.
+
+### Variable de entorno opcional (frontend cuentas)
+
+- `VITE_ACCOUNT_API_URL` — backend de cuentas opcional para frontend (`http(s)` sin
+  credenciales embebidas). Si queda vacío, el cliente usa rutas relativas
+  (`/api/...`) en el mismo origen.
 
 ## Motores de voz
 

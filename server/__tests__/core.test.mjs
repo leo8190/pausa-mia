@@ -6,7 +6,9 @@ import {
   buildSystemPrompt,
   createAiServerHandler,
   estimateMinutes,
+  getCorsAllowOrigin,
   isOriginAllowed,
+  parseAllowedOrigins,
   usesOpenAiStructuredOutputs,
   validatePayload,
   validateRequestBody,
@@ -153,13 +155,17 @@ describe('server/core validators', () => {
         i === 0 ? { ...s, pauseAfterMs: 4000.5 } : s,
       ),
     };
-    expect(validateScriptOutput(floatPause, 5)).toContain('SCRIPT_SEGMENT_PAUSE_INVALID');
+    expect(validateScriptOutput(floatPause, 5)).toContain(
+      'SCRIPT_SEGMENT_PAUSE_INVALID',
+    );
 
     const inconsistent = {
       ...script,
       fullText: 'texto distinto',
     };
-    expect(validateScriptOutput(inconsistent, 5)).toContain('SCRIPT_FULLTEXT_INCONSISTENT');
+    expect(validateScriptOutput(inconsistent, 5)).toContain(
+      'SCRIPT_FULLTEXT_INCONSISTENT',
+    );
 
     const shortDuration = {
       ...script,
@@ -429,5 +435,27 @@ describe('origin helpers', () => {
     expect(isOriginAllowed('http://localhost:5173')).toBe(true);
     expect(isOriginAllowed('http://evil.example')).toBe(false);
     expect(isOriginAllowed(undefined)).toBe(false);
+  });
+
+  it('parseAllowedOrigins usa localhost por defecto y soporta lista separada por comas', () => {
+    const fallback = parseAllowedOrigins('');
+    expect(fallback).toEqual(new Set(ALLOWED_ORIGINS));
+
+    const custom = parseAllowedOrigins(
+      'https://app.example.com, http://localhost:5173 ,https://api.example.com',
+    );
+    expect(custom).toEqual(
+      new Set([
+        'https://app.example.com',
+        'http://localhost:5173',
+        'https://api.example.com',
+      ]),
+    );
+  });
+
+  it('rechaza wildcard para credenciales pero lo permite sin credenciales', () => {
+    const wildcard = new Set(['*']);
+    expect(getCorsAllowOrigin('https://any.example', wildcard, true)).toBeNull();
+    expect(getCorsAllowOrigin('https://any.example', wildcard, false)).toBe('*');
   });
 });

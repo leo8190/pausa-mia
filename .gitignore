@@ -25,6 +25,12 @@ dist/
 voice-service/models/
 voice-service/dist/
 
+# Persistencia local de cuentas/sesion (nunca versionar)
+server/data/
+server/store/*.db
+server/store/*.sqlite
+server/store/*.json
+
 # Sistema operativo y editores
 .DS_Store
 Thumbs.db

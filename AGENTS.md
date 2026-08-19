@@ -2,19 +2,28 @@
 
 ## Alcance actual
 
-Construir un prototipo web local, en español, que convierta un cuestionario breve y
-una entrada opcional de diario en una meditación guiada reproducible como audio.
+Construir y evolucionar una aplicación web de meditación personalizada, en español,
+que convierta un cuestionario, contexto consentido y preferencias de voz en una
+meditación guiada reproducible como audio. El modo invitado local debe seguir
+funcionando aunque se agreguen cuentas, conectores o un despliegue público.
 
 ## Límites obligatorios
 
 - Cursor es el único responsable de implementar código.
 - No leer, copiar ni reutilizar datos, audios, voces, credenciales o estados del canal
   de YouTube ni de otros proyectos.
-- No conectar cuentas reales, Google, Gmail, Calendar, Drive ni redes sociales.
-- Mostrar esas integraciones sólo como funciones futuras, separadas y desactivadas.
-- No crear OAuth, claves, cuentas, pagos, publicaciones ni despliegues.
-- No persistir la entrada de diario ni el estado emocional por defecto.
-- No enviar datos a terceros en modo demostración.
+- Se pueden conectar cuentas, Google, Calendar, Drive y redes sociales cuando exista
+  un flujo real de consentimiento por proveedor y no se compartan secretos con el
+  navegador. Gmail queda fuera hasta una decisión específica.
+- OAuth, cuentas, pagos, publicaciones y despliegues quedan permitidos como fases de
+  producto, con secretos fuera del repositorio, revisión antes de cada acción
+  irreversible y evidencia posterior.
+- No persistir la entrada de diario ni el estado emocional por defecto: conservarlos
+  requiere una elección explícita y una opción de borrado.
+- No enviar datos a terceros sin consentimiento específico, propósito visible y
+  minimización del contenido.
+- No guardar claves, tokens, contraseñas, códigos de un solo uso ni datos de pago en
+  el frontend, el repositorio o los logs.
 - No afirmar que el producto es terapia, psicología, tratamiento o diagnóstico.
 - No prometer curar, reducir o resolver ansiedad, depresión, insomnio, trauma u otra
   condición.

@@ -163,8 +163,8 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     expect(
       screen.getByRole('button', { name: /preparar voz argentina/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/evita descargar el modelo local/i)).toBeInTheDocument();
-    expect(screen.getByText(/wav estándar/i)).toBeInTheDocument();
+    expect(screen.getByText(/sin descargar el modelo/i)).toBeInTheDocument();
+    expect(screen.getByText(/no se activa solo/i)).toBeInTheDocument();
     expect(
       screen.getByText(/voz argentina remota \(wav vía endpoint propio\)/i),
     ).toBeInTheDocument();
@@ -273,6 +273,77 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     });
     expect(
       screen.queryByRole('button', { name: /usar voz argentina remota/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers remote Argentine voice when the browser lacks local support, then uses remote WAV before the device voice', async () => {
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' }),
+    );
+
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+
+    expect(
+      screen.queryByRole('button', { name: /preparar voz argentina/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/este navegador no puede usar la voz argentina/i),
+    ).toBeInTheDocument();
+
+    const remoteRegion = screen.getByRole('region', {
+      name: /voz argentina remota opcional/i,
+    });
+    const remoteButton = within(remoteRegion).getByRole('button', {
+      name: /usar voz argentina remota/i,
+    });
+    const deviceButton = within(remoteRegion).getByRole('button', {
+      name: /usar voz del dispositivo \(no es argentina\)/i,
+    });
+    expect(
+      remoteButton.compareDocumentPosition(deviceButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('checkbox', {
+        name: /acepto enviar sólo el texto del guion/i,
+      }),
+    ).not.toBeChecked();
+    expect(remoteButton).toBeDisabled();
+
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /acepto enviar sólo el texto del guion/i,
+      }),
+    );
+    fireEvent.click(remoteButton);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/estás usando la voz argentina remota/i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(/estás usando una voz del dispositivo/i),
+    ).not.toBeInTheDocument();
+    expect(localSpy).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
+      ).toBeInTheDocument();
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
+    );
+    await waitFor(() => {
+      expect(remoteVoice.synthesizeRemoteArgentineVoice).toHaveBeenCalled();
+    });
+    expect(localSpy).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('button', { name: /^reproducir$/i }),
     ).not.toBeInTheDocument();
   });
 
