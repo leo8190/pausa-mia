@@ -27,6 +27,7 @@ async function renderApp() {
 
 describe('App flow', () => {
   beforeEach(() => {
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', '');
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -38,6 +39,7 @@ describe('App flow', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('renders welcome screen and navigates to consent', async () => {
@@ -99,5 +101,25 @@ describe('App flow', () => {
       'href',
       'https://www.argentina.gob.ar/node/492429',
     );
+  });
+
+  it('keeps es-AR visible in check-in when remote endpoint is configured', async () => {
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+
+    await renderApp();
+    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    acceptSessionConsent();
+    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+
+    const argentineOption = screen.getByLabelText(/español argentino/i);
+    const neutralOption = screen.getByLabelText(/español neutro/i);
+
+    expect(argentineOption).toBeInTheDocument();
+    expect(neutralOption).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/motores de voz en este dispositivo/i),
+      ).toBeInTheDocument();
+    });
   });
 });
