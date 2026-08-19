@@ -5,6 +5,7 @@ import {
   checkWebSpeechEngineSupport,
   DEFAULT_ES_AR_VOICE_URL,
   ES_AR_VOICE_APPROX_SIZE_MB,
+  loadAndCacheNeuralVoiceModel,
   getNeuralVoiceModelUrl,
   getVoiceEngineStatuses,
   hasVerifiedNeuralVoiceInSession,
@@ -268,6 +269,50 @@ describe('voiceEngine', () => {
       // next to each other so a future change can't silently reintroduce
       // "available == HEAD ok".
       expect(true).toBe(true);
+    });
+  });
+
+  describe('model cache writes', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('stores the downloaded buffer without explicit slicing copy', async () => {
+      const downloaded = new ArrayBuffer(6);
+      const put = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(window, 'caches', {
+        configurable: true,
+        value: {
+          open: vi.fn().mockResolvedValue({
+            match: vi.fn().mockResolvedValue(undefined),
+            put,
+          }),
+        },
+      });
+
+      const responseBodies: unknown[] = [];
+      class MockResponse {
+        constructor(body: unknown) {
+          responseBodies.push(body);
+        }
+      }
+      vi.stubGlobal('Response', MockResponse as unknown as typeof Response);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          headers: { get: () => null },
+          body: null,
+          arrayBuffer: () => Promise.resolve(downloaded),
+        }),
+      );
+
+      const result = await loadAndCacheNeuralVoiceModel(
+        'https://example.com/model.onnx',
+      );
+      expect(result).toBe(downloaded);
+      expect(put).toHaveBeenCalledTimes(1);
+      expect(responseBodies).toEqual([downloaded]);
     });
   });
 });

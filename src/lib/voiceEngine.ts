@@ -231,7 +231,7 @@ async function putInCache(url: string, buffer: ArrayBuffer): Promise<void> {
   if (!hasWindow() || !('caches' in window)) return;
   try {
     const cache = await caches.open(NEURAL_MODEL_CACHE_NAME);
-    await cache.put(url, new Response(buffer.slice(0)));
+    await cache.put(url, new Response(buffer));
   } catch {
     // El cacheo es una optimización; si falla, seguimos sin caché.
   }

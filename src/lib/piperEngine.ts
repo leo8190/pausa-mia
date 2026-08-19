@@ -141,11 +141,44 @@ export async function fetchWithProgress(
   if (!res.ok) {
     throw new Error(`No se pudo descargar ${url} (HTTP ${res.status})`);
   }
-  const total = Number(res.headers.get('Content-Length') ?? 0);
+  const parsedTotal = Number(res.headers.get('Content-Length') ?? 0);
+  const total = Number.isFinite(parsedTotal) && parsedTotal > 0 ? parsedTotal : 0;
   const reader = res.body?.getReader();
   if (!reader) {
     return res.arrayBuffer();
   }
+  if (total > 0) {
+    const preallocated = new Uint8Array(total);
+    let loaded = 0;
+    let fallbackChunks: Uint8Array[] | null = null;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!fallbackChunks && loaded + value.length <= preallocated.length) {
+        preallocated.set(value, loaded);
+      } else {
+        if (!fallbackChunks) {
+          fallbackChunks = [preallocated.subarray(0, loaded)];
+        }
+        fallbackChunks.push(value);
+      }
+      loaded += value.length;
+      onProgress?.({ loaded, total });
+    }
+    if (!fallbackChunks) {
+      return loaded === preallocated.length
+        ? preallocated.buffer
+        : preallocated.slice(0, loaded).buffer;
+    }
+    const merged = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of fallbackChunks) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return merged.buffer;
+  }
+
   const chunks: Uint8Array[] = [];
   let loaded = 0;
   for (;;) {

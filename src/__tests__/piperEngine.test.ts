@@ -110,6 +110,65 @@ describe('piperEngine', () => {
       ]);
     });
 
+    it('falls back correctly when Content-Length is missing', async () => {
+      const chunk1 = new Uint8Array([8, 9]);
+      const chunk2 = new Uint8Array([10]);
+      let call = 0;
+      const reader = {
+        read: vi.fn().mockImplementation(() => {
+          call += 1;
+          if (call === 1) return Promise.resolve({ done: false, value: chunk1 });
+          if (call === 2) return Promise.resolve({ done: false, value: chunk2 });
+          return Promise.resolve({ done: true, value: undefined });
+        }),
+      };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          headers: { get: () => null },
+          body: { getReader: () => reader },
+        }),
+      );
+
+      const progressUpdates: { loaded: number; total: number }[] = [];
+      const buffer = await fetchWithProgress('https://example.com/model.onnx', (p) =>
+        progressUpdates.push(p),
+      );
+
+      expect(new Uint8Array(buffer)).toEqual(new Uint8Array([8, 9, 10]));
+      expect(progressUpdates).toEqual([
+        { loaded: 2, total: 0 },
+        { loaded: 3, total: 0 },
+      ]);
+    });
+
+    it('propagates stream cancellation errors after reporting prior progress', async () => {
+      const abortError = new DOMException('Aborted', 'AbortError');
+      const reader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({ done: false, value: new Uint8Array([1, 2]) })
+          .mockRejectedValueOnce(abortError),
+      };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          headers: { get: (key: string) => (key === 'Content-Length' ? '4' : null) },
+          body: { getReader: () => reader },
+        }),
+      );
+
+      const progressUpdates: { loaded: number; total: number }[] = [];
+      await expect(
+        fetchWithProgress('https://example.com/model.onnx', (p) =>
+          progressUpdates.push(p),
+        ),
+      ).rejects.toThrow(/aborted/i);
+      expect(progressUpdates).toEqual([{ loaded: 2, total: 4 }]);
+    });
+
     it('throws a descriptive error on a non-ok response', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
       await expect(
