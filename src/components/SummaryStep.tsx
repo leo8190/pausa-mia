@@ -122,11 +122,14 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
             />
             <span>
               {ENGINE_LABELS.ai}
-              {!aiAvailable && ' (no disponible — servidor sin proveedor configurado)'}
+              {!aiAvailable &&
+                ' (no disponible — sin servidor de IA; usá el motor local por reglas)'}
             </span>
           </label>
         </div>
         <p className="field-hint">
+          El motor local funciona sin claves ni cuenta. La IA del servidor local queda
+          desactivada hasta que exista un proveedor configurado; no se simula.
           Tolerancia de duración estimada: ±{DURATION_TOLERANCE_MINUTES} min respecto a
           la opción elegida.
         </p>
