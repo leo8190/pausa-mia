@@ -1,7 +1,12 @@
 import { useRef, useState } from 'react';
 import type { SessionApi } from '../hooks/useSession';
 import type { ContextSourceType } from '../types';
-import { ADDABLE_SOURCES, parseSourceByType } from '../lib/contextSources';
+import {
+  ADDABLE_SOURCES,
+  limitImportFiles,
+  parseSourceByType,
+} from '../lib/contextSources';
+import { getOnlineConnectorStatus } from '../lib/onlineConnector';
 
 type SourceFeedback = {
   loading: boolean;
@@ -27,6 +32,7 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
   const { contextSources } = sessionApi.session;
   const [feedback, setFeedback] = useState<Record<string, SourceFeedback>>({});
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const onlineConnector = getOnlineConnectorStatus();
 
   const setSourceFeedback = (
     type: ContextSourceType,
@@ -38,46 +44,76 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
     }));
   };
 
-  const handleFile = (type: ContextSourceType, file: File) => {
+  const readFileText = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ''));
+      reader.onerror = () =>
+        reject(new Error('No pudimos leer ese archivo en este navegador.'));
+      reader.readAsText(file);
+    });
+
+  const handleFiles = (type: ContextSourceType, files: FileList | File[]) => {
+    const limited = limitImportFiles(files);
+    const selectedFiles = limited.files;
+    if (selectedFiles.length === 0) return;
+
     setSourceFeedback(type, {
       loading: true,
       error: null,
       success: null,
     });
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result ?? '');
-      const result = parseSourceByType(type, text, file.name);
-      if (result.sources.length > 0) {
-        sessionApi.updateContextSources([...contextSources, ...result.sources]);
-        const count = result.sources.length;
-        setSourceFeedback(type, {
-          loading: false,
-          error: result.error,
-          success:
-            count === 1
-              ? 'Se agregó 1 entrada a tus fuentes de esta sesión. Podés incluirla o quitarla arriba.'
-              : `Se agregaron ${count} entradas a tus fuentes de esta sesión. Podés incluirlas o quitarlas arriba.`,
-        });
-      } else {
+    void Promise.all(
+      selectedFiles.map((file) => readFileText(file).then((text) => ({ text, file }))),
+    )
+      .then((loadedFiles) => {
+        const parsed = loadedFiles.map(({ text, file }) =>
+          parseSourceByType(type, text, file.name),
+        );
+        const sources = parsed.flatMap((result) => result.sources);
+        const errors = parsed
+          .map((result) => result.error)
+          .filter((error): error is string => Boolean(error));
+
+        if (sources.length > 0) {
+          sessionApi.updateContextSources([...contextSources, ...sources]);
+          setSourceFeedback(type, {
+            loading: false,
+            error:
+              errors.length > 0
+                ? errors.join(' ')
+                : limited.truncated
+                  ? `Se procesaron sólo los primeros ${selectedFiles.length} archivos para cuidar el rendimiento.`
+                  : null,
+            success:
+              sources.length === 1
+                ? 'Se agregó 1 entrada a tus fuentes de esta sesión. Podés incluirla o quitarla arriba.'
+                : `Se agregaron ${sources.length} entradas a tus fuentes de esta sesión. Podés incluirlas o quitarlas arriba.`,
+          });
+          return;
+        }
+
         setSourceFeedback(type, {
           loading: false,
           error:
-            result.error ??
-            'No encontramos contenido usable en ese archivo. Probá con otra exportación.',
+            errors.join(' ') ||
+            (limited.truncated
+              ? `Se procesaron sólo los primeros ${selectedFiles.length} archivos y no encontramos contenido usable.`
+              : 'No encontramos contenido usable en esos archivos. Probá con otra exportación.'),
           success: null,
         });
-      }
-    };
-    reader.onerror = () => {
-      setSourceFeedback(type, {
-        loading: false,
-        error: 'No pudimos leer ese archivo en este navegador. Podés reintentar.',
-        success: null,
+      })
+      .catch((error: unknown) => {
+        setSourceFeedback(type, {
+          loading: false,
+          error:
+            error instanceof Error
+              ? `${error.message} Podés reintentar.`
+              : 'No pudimos leer esos archivos en este navegador. Podés reintentar.',
+          success: null,
+        });
       });
-    };
-    reader.readAsText(file);
   };
 
   return (
@@ -89,6 +125,9 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
         terceros. Después de agregarla, la vas a ver en la lista de fuentes de arriba,
         con casilla para incluirla en el guion y opción de quitarla en cualquier
         momento.
+      </p>
+      <p className="field-hint" role="status">
+        Estado de conexiones online: {onlineConnector.reason}
       </p>
       <ul className="addable-source-list">
         {ADDABLE_SOURCES.map((source) => {
@@ -102,7 +141,9 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
               <div className="addable-source-header">
                 <strong>{source.title}</strong>
                 <span className="future-badge future-badge--disabled">
-                  Conexión en línea: no disponible
+                  {onlineConnector.configured
+                    ? 'Configuración detectada; conexión apagada'
+                    : 'Conexión en línea: no disponible'}
                 </span>
               </div>
               <p className="field-hint">{source.description}</p>
@@ -117,23 +158,28 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
                   className={`btn btn-secondary btn-small addable-source-file-label${
                     state.loading ? ' is-loading' : ''
                   }${state.error ? ' has-error' : ''}`}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    handleFiles(source.type, event.dataTransfer.files);
+                  }}
                 >
-                  {state.loading ? 'Leyendo archivo…' : 'Elegir archivo local'}
+                  {state.loading ? 'Leyendo archivos…' : 'Elegir o soltar archivos'}
                   <input
                     ref={(el) => {
                       fileInputs.current[source.type] = el;
                     }}
                     type="file"
                     accept={source.accept}
+                    multiple
                     className="addable-source-file-input"
                     disabled={state.loading}
                     aria-invalid={state.error ? true : undefined}
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleFile(source.type, file);
+                      if (e.target.files) handleFiles(source.type, e.target.files);
                       e.target.value = '';
                     }}
-                    aria-label={`Importar archivo local para ${source.title}`}
+                    aria-label={`Importar uno o más archivos locales para ${source.title}`}
                     aria-describedby={`addable-status-${source.type}`}
                   />
                 </label>
@@ -141,7 +187,7 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
                   type="button"
                   className="btn btn-secondary btn-small"
                   disabled
-                  title="Requiere OAuth y configuración que este prototipo no implementa"
+                  title={onlineConnector.reason}
                   aria-disabled="true"
                 >
                   {source.onlineConnectionLabel}
@@ -176,7 +222,8 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
 
               <p className="field-hint">
                 El contenido de este archivo se procesa sólo en tu navegador, durante
-                esta sesión. No se guarda ni se envía a ningún servidor por defecto.
+                esta sesión. Podés elegir varios archivos o soltarlos sobre el botón. No
+                se guarda ni se envía a ningún servidor por defecto.
               </p>
             </li>
           );

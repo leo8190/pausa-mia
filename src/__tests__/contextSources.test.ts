@@ -8,6 +8,9 @@ import {
   parseSourceByType,
   ADDABLE_SOURCES,
   CONTEXT_SOURCE_MAX_LENGTH,
+  MAX_IMPORT_FILES,
+  limitImportFiles,
+  parseCsvRows,
 } from '../lib/contextSources';
 
 describe('contextSources', () => {
@@ -38,6 +41,18 @@ describe('contextSources', () => {
     const long = 'a'.repeat(CONTEXT_SOURCE_MAX_LENGTH + 100);
     const sources = parseImportedContent(long, 'long.txt');
     expect(sources[0].content.length).toBeLessThanOrEqual(CONTEXT_SOURCE_MAX_LENGTH);
+  });
+
+  it('parses CSV rows while omitting a header and preserving quoted commas', () => {
+    const rows = parseCsvRows('fecha,nota\n2026-08-19,"Día intenso, pero breve"');
+    expect(rows).toEqual(['2026-08-19 — Día intenso, pero breve']);
+  });
+
+  it('limits local multi-file imports deterministically', () => {
+    const files = Array.from({ length: MAX_IMPORT_FILES + 2 }, () => ({}) as File);
+    const result = limitImportFiles(files);
+    expect(result.files).toHaveLength(MAX_IMPORT_FILES);
+    expect(result.truncated).toBe(true);
   });
 
   describe('parseGoogleProfileExport', () => {

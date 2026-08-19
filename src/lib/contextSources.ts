@@ -44,55 +44,140 @@ export const ADDABLE_SOURCES: AddableSourceDefinition[] = [
     type: 'google-profile',
     title: 'Perfil exportado de Google',
     description:
-      'Archivo de Google Takeout con tu perfil (JSON o HTML). Se lee sólo en tu navegador.',
+      'Archivos de Google Takeout con tu perfil (JSON o HTML). Podés elegir o soltar varios; se leen sólo en tu navegador.',
     accept: '.json,.html,.htm',
     onlineConnectionLabel: 'Conectar cuenta de Google (requiere configuración)',
   },
   {
     type: 'google-calendar',
     title: 'Calendario de Google exportado',
-    description: 'Archivo .ics (text/calendar) o JSON exportado desde Google Calendar.',
-    accept: '.ics,.json,text/calendar',
+    description:
+      'Archivos .ics, CSV o JSON exportados desde Google Calendar. Podés elegir o soltar varios.',
+    accept: '.ics,.json,.csv,text/calendar,text/csv',
     onlineConnectionLabel: 'Conectar Google Calendar (requiere configuración)',
   },
   {
     type: 'instagram',
     title: 'Exportación de Instagram',
-    description: 'Archivo JSON o texto de tu descarga de datos de Instagram.',
-    accept: '.json,.txt',
+    description:
+      'Archivos JSON, CSV o texto de tu descarga de datos de Instagram. Podés elegir o soltar varios.',
+    accept: '.json,.txt,.csv,text/csv',
     onlineConnectionLabel: 'Conectar Instagram (requiere configuración)',
   },
   {
     type: 'facebook',
     title: 'Exportación de Facebook',
-    description: 'Archivo JSON o texto de tu descarga de información de Facebook.',
-    accept: '.json,.txt',
+    description:
+      'Archivos JSON, CSV o texto de tu descarga de información de Facebook. Podés elegir o soltar varios.',
+    accept: '.json,.txt,.csv,text/csv',
     onlineConnectionLabel: 'Conectar Facebook (requiere configuración)',
   },
   {
     type: 'x',
     title: 'Exportación de X (Twitter)',
-    description: 'Archivo JSON o texto de tu archivo de datos de X.',
-    accept: '.json,.txt',
+    description:
+      'Archivos JSON, CSV o texto de tu archivo de datos de X. Podés elegir o soltar varios.',
+    accept: '.json,.txt,.csv,text/csv',
     onlineConnectionLabel: 'Conectar X (requiere configuración)',
   },
   {
     type: 'linkedin',
     title: 'Exportación de LinkedIn',
-    description: 'Archivo JSON, CSV o texto exportado desde LinkedIn.',
+    description:
+      'Archivos JSON, CSV o texto exportados desde LinkedIn. Podés elegir o soltar varios.',
     accept: '.json,.csv,.txt,text/csv',
     onlineConnectionLabel: 'Conectar LinkedIn (requiere configuración)',
   },
   {
     type: 'tiktok',
     title: 'Exportación de TikTok',
-    description: 'Archivo JSON o texto de tu descarga de datos de TikTok.',
-    accept: '.json,.txt',
+    description:
+      'Archivos JSON, CSV o texto de tu descarga de datos de TikTok. Podés elegir o soltar varios.',
+    accept: '.json,.txt,.csv,text/csv',
     onlineConnectionLabel: 'Conectar TikTok (requiere configuración)',
   },
 ];
 
 export const CONTEXT_SOURCE_MAX_LENGTH = 500;
+/** Máximo de archivos locales leídos en una misma selección o soltada. */
+export const MAX_IMPORT_FILES = 10;
+/** Máximo de entradas extraídas por archivo (JSON/CSV/ICS). */
+export const MAX_ENTRIES_PER_FILE = 10;
+
+export function isCsvFilename(filename: string): boolean {
+  return filename.toLowerCase().endsWith('.csv');
+}
+
+export function limitImportFiles(files: ArrayLike<File>): {
+  files: File[];
+  truncated: boolean;
+} {
+  const list = Array.from(files);
+  return {
+    files: list.slice(0, MAX_IMPORT_FILES),
+    truncated: list.length > MAX_IMPORT_FILES,
+  };
+}
+
+/**
+ * Parte una línea CSV respetando comillas. No envía nada: sólo interpreta texto
+ * que la persona eligió en su dispositivo.
+ */
+export function parseCsvLine(line: string): string[] {
+  const cells: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      cells.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+function looksLikeCsvHeader(cells: string[]): boolean {
+  if (cells.length < 2) return false;
+  return cells.every(
+    (cell) =>
+      cell.length > 0 && cell.length < 40 && /^[\w ./()#\-áéíóúñ]+$/i.test(cell),
+  );
+}
+
+/**
+ * Convierte un CSV en filas de texto. Omite la primera línea si parece encabezado.
+ */
+export function parseCsvRows(text: string): string[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) return [];
+
+  const firstCells = parseCsvLine(lines[0]);
+  const dataLines =
+    looksLikeCsvHeader(firstCells) && lines.length > 1 ? lines.slice(1) : lines;
+
+  return dataLines
+    .slice(0, MAX_ENTRIES_PER_FILE)
+    .map((line) =>
+      parseCsvLine(line)
+        .filter((cell) => cell.length > 0)
+        .join(' — '),
+    )
+    .filter((row) => row.trim().length > 0);
+}
 
 export interface ContextSource {
   id: string;
@@ -151,7 +236,7 @@ export function parseImportedContent(text: string, filename: string): ContextSou
       const parsed = JSON.parse(trimmed) as unknown;
       if (Array.isArray(parsed)) {
         return parsed
-          .slice(0, 10)
+          .slice(0, MAX_ENTRIES_PER_FILE)
           .map((item, i) => {
             const content =
               typeof item === 'string'
@@ -173,6 +258,14 @@ export function parseImportedContent(text: string, filename: string): ContextSou
     } catch {
       return [createContextSource('import-text', `Importación — ${filename}`, trimmed)];
     }
+  }
+
+  if (isCsvFilename(filename)) {
+    return parseCsvRows(trimmed)
+      .map((row, i) =>
+        createContextSource('import-text', `Importación CSV — fila ${i + 1}`, row),
+      )
+      .filter((s) => s.content.trim().length > 0);
   }
 
   return [createContextSource('import-text', `Importación — ${filename}`, trimmed)];
@@ -287,7 +380,7 @@ export function parseGoogleCalendarExport(text: string, filename: string): Parse
       }
       return {
         sources: events
-          .slice(0, 10)
+          .slice(0, MAX_ENTRIES_PER_FILE)
           .map((event, i) =>
             createContextSource(
               'google-calendar',
@@ -300,10 +393,29 @@ export function parseGoogleCalendarExport(text: string, filename: string): Parse
       };
     }
 
+    if (isCsvFilename(filename)) {
+      const rows = parseCsvRows(trimmed);
+      if (rows.length === 0) {
+        return {
+          sources: [],
+          error:
+            'No encontramos filas en ese CSV de calendario. Verificá que sea una exportación válida.',
+        };
+      }
+      return {
+        sources: rows.map((row, i) =>
+          createContextSource('google-calendar', `Calendario — fila ${i + 1}`, row, {
+            selected: false,
+          }),
+        ),
+        error: null,
+      };
+    }
+
     const parsed = JSON.parse(trimmed) as unknown;
     const items = Array.isArray(parsed) ? parsed : [parsed];
     const sources = items
-      .slice(0, 10)
+      .slice(0, MAX_ENTRIES_PER_FILE)
       .map((item, i) => {
         const content =
           typeof item === 'string'
@@ -333,15 +445,15 @@ export function parseGoogleCalendarExport(text: string, filename: string): Parse
     return {
       sources: [],
       error:
-        'No pudimos interpretar ese archivo como calendario (.ics o JSON válido). Podés reintentar con otro archivo.',
+        'No pudimos interpretar ese archivo como calendario (.ics, CSV o JSON válido). Podés reintentar con otro archivo.',
     };
   }
 }
 
 /**
  * Interpreta una exportación de redes sociales (Instagram, Facebook, X,
- * LinkedIn, TikTok) en JSON, o texto plano como respaldo. Sólo procesa el
- * archivo local elegido por la persona.
+ * LinkedIn, TikTok) en JSON, CSV o texto plano. Sólo procesa el archivo local
+ * elegido por la persona.
  */
 export function parseSocialExport(
   type: 'instagram' | 'facebook' | 'x' | 'linkedin' | 'tiktok',
@@ -363,7 +475,7 @@ export function parseSocialExport(
       const parsed = JSON.parse(trimmed) as unknown;
       const items = Array.isArray(parsed) ? parsed : [parsed];
       const sources = items
-        .slice(0, 10)
+        .slice(0, MAX_ENTRIES_PER_FILE)
         .map((item, i) => {
           const content =
             typeof item === 'string'
@@ -384,6 +496,24 @@ export function parseSocialExport(
         };
       }
       return { sources, error: null };
+    }
+
+    if (isCsvFilename(filename)) {
+      const rows = parseCsvRows(trimmed);
+      if (rows.length === 0) {
+        return {
+          sources: [],
+          error: `No encontramos filas en ese CSV de ${label.toLowerCase()}.`,
+        };
+      }
+      return {
+        sources: rows.map((row, i) =>
+          createContextSource(type, `${label} — fila ${i + 1}`, row, {
+            selected: false,
+          }),
+        ),
+        error: null,
+      };
     }
 
     return {

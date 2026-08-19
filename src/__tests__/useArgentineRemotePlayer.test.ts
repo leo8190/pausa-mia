@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import {
+  argentineWavDownloadName,
   isAutoplayPolicyError,
   useArgentineVoicePlayer,
   type ArgentineVoiceMode,
@@ -17,6 +18,14 @@ describe('isAutoplayPolicyError', () => {
       true,
     );
     expect(isAutoplayPolicyError(new Error('network failed'))).toBe(false);
+  });
+});
+
+describe('argentineWavDownloadName', () => {
+  it('uses a neutral filename without script content', () => {
+    expect(argentineWavDownloadName(0)).toBe('pausa-mia-segmento-1.wav');
+    expect(argentineWavDownloadName(4)).toBe('pausa-mia-segmento-5.wav');
+    expect(argentineWavDownloadName(Number.NaN)).toBe('pausa-mia-segmento-1.wav');
   });
 });
 

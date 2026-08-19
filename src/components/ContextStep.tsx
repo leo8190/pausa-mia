@@ -1,18 +1,21 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { SessionApi } from '../hooks/useSession';
 import type { ContextSource } from '../types';
 import {
   CONTEXT_SOURCE_LABELS,
   CONTEXT_SOURCE_MAX_LENGTH,
   createContextSource,
+  limitImportFiles,
   parseImportedContent,
 } from '../lib/contextSources';
+import { useLocalFileDrop } from '../hooks/useLocalFileDrop';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 import { FutureIntegrations } from './FutureIntegrations';
 
 export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { contextSources } = sessionApi.session;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
 
   const updateSource = (id: string, updates: Partial<ContextSource>) => {
     sessionApi.updateContextSources(
@@ -24,15 +27,40 @@ export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
     sessionApi.updateContextSources(contextSources.filter((s) => s.id !== id));
   };
 
-  const handleImport = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result ?? '');
-      const imported = parseImportedContent(text, file.name);
-      sessionApi.updateContextSources([...contextSources, ...imported]);
-    };
-    reader.readAsText(file);
+  const handleImport = (files: FileList | File[]) => {
+    const limited = limitImportFiles(files);
+    const selectedFiles = limited.files;
+    if (selectedFiles.length === 0) return;
+    setImportNotice(
+      limited.truncated
+        ? `Se procesarán sólo los primeros ${selectedFiles.length} archivos para cuidar el rendimiento.`
+        : null,
+    );
+
+    void Promise.all(
+      selectedFiles.map(
+        (file) =>
+          new Promise<{ file: File; text: string }>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve({ file, text: String(reader.result ?? '') });
+            reader.onerror = () =>
+              reject(new Error('No se pudo leer un archivo local.'));
+            reader.readAsText(file);
+          }),
+      ),
+    )
+      .then((loadedFiles) => {
+        const imported = loadedFiles.flatMap(({ file, text }) =>
+          parseImportedContent(text, file.name),
+        );
+        sessionApi.updateContextSources([...contextSources, ...imported]);
+      })
+      .catch(() => {
+        // El input no envía datos: si un archivo falla, se conserva el estado actual.
+      });
   };
+
+  const fileDrop = useLocalFileDrop(handleImport);
 
   const addManualSource = () => {
     const source = createContextSource('other', 'Otra fuente manual', '');
@@ -68,23 +96,27 @@ export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
         longitud y quitar cualquier entrada. No se simulan cuentas conectadas.
       </p>
 
-      <div className="field">
+      <div
+        className={`field context-import-drop${fileDrop.active ? ' is-active' : ''}`}
+        {...fileDrop.handlers}
+      >
         <label htmlFor="context-import">Importar archivo local (texto o JSON)</label>
         <input
           id="context-import"
           ref={fileInputRef}
           type="file"
           accept=".txt,.json,.md"
+          multiple
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleImport(file);
+            if (e.target.files) handleImport(e.target.files);
             e.target.value = '';
           }}
         />
         <p className="field-hint">
-          Solo se lee el archivo que elegís. Máximo {CONTEXT_SOURCE_MAX_LENGTH}{' '}
-          caracteres por entrada.
+          Solo se leen los archivos que elegís. Podés seleccionar varios. Máximo{' '}
+          {CONTEXT_SOURCE_MAX_LENGTH} caracteres por entrada.
         </p>
+        {importNotice && <p className="field-hint">{importNotice}</p>}
       </div>
 
       <button type="button" className="btn btn-secondary" onClick={addManualSource}>
