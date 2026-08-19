@@ -1,0 +1,28 @@
+{
+  "name": "Pausa Mía",
+  "short_name": "Pausa Mía",
+  "description": "Pausa guiada personalizada en el navegador, sin cuentas ni conexiones. Bienestar general, no terapia.",
+  "lang": "es",
+  "dir": "ltr",
+  "id": "/pausa-mia/",
+  "start_url": "/pausa-mia/",
+  "scope": "/pausa-mia/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e7eeea",
+  "theme_color": "#2f5c4f",
+  "icons": [
+    {
+      "src": "/pausa-mia/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pausa-mia/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
