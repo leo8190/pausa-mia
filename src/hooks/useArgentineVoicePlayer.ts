@@ -44,6 +44,12 @@ export interface ArgentineVoicePlayerState {
   mode: ArgentineVoiceMode;
   /** Object URL del WAV del segmento actual (reproductor nativo / abrir / descargar). */
   nativeAudioUrl: string | null;
+  /**
+   * Se activa cuando el navegador exige gesto manual para reproducir el WAV.
+   * Mantiene visible/montado el reproductor nativo para evitar cortes al
+   * desmontar/remontar el elemento de audio en Safari/WebViews.
+   */
+  nativeControlsRequired: boolean;
 }
 
 /** Nombre de archivo genérico: nunca incluye texto del guion ni datos íntimos. */
@@ -100,6 +106,7 @@ const initialState = (mode: ArgentineVoiceMode): ArgentineVoicePlayerState => ({
   currentSegmentIndex: 0,
   mode,
   nativeAudioUrl: null,
+  nativeControlsRequired: false,
 });
 
 export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
@@ -198,6 +205,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       currentSegmentIndex: 0,
       mode: requestMode,
       nativeAudioUrl: null,
+      nativeControlsRequired: false,
     });
 
     try {
@@ -214,6 +222,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           error: null,
           mode: requestMode,
           nativeAudioUrl: null,
+          nativeControlsRequired: false,
         }));
         return true;
       }
@@ -233,6 +242,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         error: null,
         mode: requestMode,
         nativeAudioUrl: null,
+        nativeControlsRequired: false,
       }));
       return true;
     } catch (err) {
@@ -243,6 +253,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         error: toErrorMessage(err),
         mode: requestMode,
         nativeAudioUrl: null,
+        nativeControlsRequired: false,
       }));
       return false;
     } finally {
@@ -300,6 +311,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           status: 'stopped',
           currentSegmentIndex: segments.length,
           nativeAudioUrl: null,
+          nativeControlsRequired: false,
         }));
         return;
       }
@@ -311,6 +323,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         currentSegmentIndex: index,
         error: null,
         mode,
+        nativeControlsRequired: false,
       }));
 
       try {
@@ -335,6 +348,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           mode,
           nativeAudioUrl: url,
           error: null,
+          nativeControlsRequired: false,
         }));
 
         audio.onended = () => {
@@ -348,6 +362,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
             ...prev,
             status: 'error',
             nativeAudioUrl: null,
+            nativeControlsRequired: false,
             error:
               mode === 'remote'
                 ? 'No se pudo reproducir el audio WAV del servicio remoto.'
@@ -392,6 +407,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
               nativeAudioUrl: url,
               currentSegmentIndex: index,
               mode,
+              nativeControlsRequired: true,
             }));
             return;
           }
@@ -407,6 +423,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           status: 'error',
           error: toErrorMessage(err),
           nativeAudioUrl: null,
+          nativeControlsRequired: false,
         }));
       }
     },
@@ -431,6 +448,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
             error: toErrorMessage(err),
             mode,
             nativeAudioUrl: null,
+            nativeControlsRequired: false,
           }));
           return;
         }
@@ -486,6 +504,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
             status: 'needs-native-play',
             error: null,
             nativeAudioUrl: objectUrlRef.current,
+            nativeControlsRequired: true,
           }));
           return;
         }
@@ -495,6 +514,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
             status: 'error',
             error: toErrorMessage(err),
             nativeAudioUrl: null,
+            nativeControlsRequired: false,
           }));
         }
       });
@@ -523,6 +543,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       ...prev,
       status: 'stopped',
       nativeAudioUrl: null,
+      nativeControlsRequired: false,
     }));
   }, [abortInFlight, clearPauseTimer, teardownAudio]);
 

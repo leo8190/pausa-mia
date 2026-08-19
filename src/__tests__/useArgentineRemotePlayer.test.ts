@@ -131,6 +131,7 @@ describe('useArgentineVoicePlayer — remoto', () => {
       expect(result.current.state.status).toBe('needs-native-play');
     });
     expect(result.current.state.nativeAudioUrl).toBe('blob:remote-mock');
+    expect(result.current.state.nativeControlsRequired).toBe(true);
     expect(result.current.state.error).toBeNull();
 
     window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
@@ -140,6 +141,7 @@ describe('useArgentineVoicePlayer — remoto', () => {
     await waitFor(() => {
       expect(result.current.state.status).toBe('playing');
     });
+    expect(result.current.state.nativeControlsRequired).toBe(true);
   });
 
   it('changing from local to remote ignores a late local prepare', async () => {

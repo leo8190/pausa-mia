@@ -90,6 +90,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     const isPaused = neuralState.status === 'paused';
     const isStoppedAfterPlay = neuralState.status === 'stopped';
     const needsNativePlay = neuralState.status === 'needs-native-play';
+    const keepNativeControlsMounted = neuralState.nativeControlsRequired;
     const hasError = neuralState.status === 'error';
     const canPlayback =
       isReady || isPlaying || isPaused || isStoppedAfterPlay || needsNativePlay;
@@ -366,17 +367,25 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             ))}
           </div>
 
-          {needsNativePlay && (
+          {(needsNativePlay || keepNativeControlsMounted) && (
             <div
               className="native-audio-fallback"
               role="region"
               aria-label="Reproducción con controles del dispositivo"
             >
-              <p className="field-hint" role="status">
-                Tu navegador bloqueó el inicio automático del audio. Usá el reproductor
-                nativo o el botón de abajo para iniciar el WAV. Pausar, Continuar,
-                Detener y Reiniciar siguen disponibles.
-              </p>
+              {needsNativePlay ? (
+                <p className="field-hint" role="status">
+                  Tu navegador bloqueó el inicio automático del audio. Usá el
+                  reproductor nativo o el botón de abajo para iniciar el WAV. Pausar,
+                  Continuar, Detener y Reiniciar siguen disponibles.
+                </p>
+              ) : (
+                <p className="field-hint" role="status">
+                  Este dispositivo requiere controles nativos para mantener una
+                  reproducción estable. Podés seguir usando este reproductor junto con
+                  Pausar, Continuar, Detener y Reiniciar.
+                </p>
+              )}
               <p className="field-hint">
                 Esto puede pasar en Safari (iOS/macOS), algunos Android y WebViews; no
                 implica falla del guion ni del servidor. En Chrome/Edge de escritorio
