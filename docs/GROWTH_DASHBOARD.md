@@ -12,10 +12,12 @@ Actualizado: 2026-08-19.
 | Intenciones de reutilizar o pagar | 0 |
 | Pagos reales | 0 |
 | Suscripción Okara para Pausa Mía | No contratada |
+| Titular operativo | Leonardo Apollonio, bajo la marca Pausa Mía |
+| Sociedad argentina o LLC estadounidense | No constituidas; no recomendadas durante la validación inicial |
 
 ## Próxima decisión
 
 Confirmar con Okara cómo crear un CMO separado para Pausa Mía. Si lo permite, evaluar
 un mes de Lite mensual con un experimento de adquisición definido antes del pago.
 
-Estado general: `BETA PUBLICADA; CANAL DE REDDIT REMOVIDO; SIN VALIDACIÓN COMERCIAL`.
+Estado general: `BETA PUBLICADA; CANAL DE REDDIT REMOVIDO; SIN VALIDACIÓN COMERCIAL; TITULARIDAD PERSONAL`.

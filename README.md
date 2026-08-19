@@ -537,7 +537,9 @@ verificó después de una ejecución exitosa de GitHub Actions.
 
 ## Licencia
 
-Prototipo de León Developments en fase de prueba pública controlada. No se despliegan
+Prototipo de Leonardo Apollonio, bajo la marca comercial **Pausa Mía**, en fase de
+prueba pública controlada. **León Developments** es el nombre operativo del equipo,
+no una sociedad constituida. No se despliegan
 claves, el servidor IA ni OAuth sin configurar primero credenciales y revisión de
 seguridad. La voz remota del sitio publicado usa
 `https://pausa-mia-voz-ar.fly.dev` (autostop/costo en Fly) y exige consentimiento; en
