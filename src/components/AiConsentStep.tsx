@@ -87,7 +87,7 @@ export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
       </details>
 
       <div className="field">
-        <div className="checkbox-option">
+        <label className="checkbox-option" htmlFor="consent-ai">
           <input
             type="checkbox"
             id="consent-ai"
@@ -97,15 +97,15 @@ export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             }
             aria-describedby="consent-ai-hint"
           />
-          <label htmlFor="consent-ai">
+          <span>
             Permito transmitir únicamente los campos listados arriba al servidor local
             de IA para generar el guion.{' '}
             <span id="consent-ai-hint" className="field-hint">
               Consentimiento independiente del procesamiento de sesión. La clave API
               nunca sale del servidor.
             </span>
-          </label>
-        </div>
+          </span>
+        </label>
       </div>
 
       <p className="field-hint">

@@ -69,7 +69,10 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
               <span className="summary-value">
                 {excluded ? <em>Excluido del guion</em> : value || '—'}
               </span>
-              <div className="checkbox-option">
+              <label
+                className="checkbox-option checkbox-option--compact"
+                htmlFor={`exclude-${field}`}
+              >
                 <input
                   type="checkbox"
                   id={`exclude-${field}`}
@@ -77,8 +80,8 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
                   onChange={() => sessionApi.toggleExcluded(field)}
                   aria-label={`Excluir ${FIELD_LABELS[field]} del guion`}
                 />
-                <label htmlFor={`exclude-${field}`}>Excluir</label>
-              </div>
+                <span>Excluir</span>
+              </label>
             </li>
           );
         })}
@@ -95,7 +98,7 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
       <fieldset className="field">
         <legend>Motor de generación</legend>
         <div className="radio-group">
-          <div className="radio-option">
+          <label className="radio-option" htmlFor="engine-local">
             <input
               type="radio"
               id="engine-local"
@@ -103,9 +106,12 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
               checked={!useAiEngine}
               onChange={() => sessionApi.setUseAiEngine(false)}
             />
-            <label htmlFor="engine-local">{ENGINE_LABELS.local}</label>
-          </div>
-          <div className="radio-option">
+            <span>{ENGINE_LABELS.local}</span>
+          </label>
+          <label
+            className={`radio-option${!aiAvailable ? ' radio-option--disabled' : ''}`}
+            htmlFor="engine-ai"
+          >
             <input
               type="radio"
               id="engine-ai"
@@ -114,11 +120,11 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
               disabled={!aiAvailable}
               onChange={() => sessionApi.setUseAiEngine(true)}
             />
-            <label htmlFor="engine-ai">
+            <span>
               {ENGINE_LABELS.ai}
               {!aiAvailable && ' (no disponible — servidor sin proveedor configurado)'}
-            </label>
-          </div>
+            </span>
+          </label>
         </div>
         <p className="field-hint">
           Tolerancia de duración estimada: ±{DURATION_TOLERANCE_MINUTES} min respecto a

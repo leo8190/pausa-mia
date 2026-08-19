@@ -4,6 +4,7 @@ import {
   getRequestedLocale,
   createUtterance,
   getNeutralFallbackOrder,
+  isArgentineVoice,
 } from '../lib/voiceService';
 
 function mockVoice(name: string, lang: string): SpeechSynthesisVoice {
@@ -70,5 +71,39 @@ describe('voiceService', () => {
     const order = getNeutralFallbackOrder();
     expect(order).toContain('es-419');
     expect(order).toContain('es-MX');
+  });
+
+  it('never labels an es-MX voice as argentine', () => {
+    const voices = [mockVoice('Paulina', 'es-MX')];
+    const selection = selectVoice('es-AR', voices);
+    expect(selection.isArgentine).toBe(false);
+    expect(selection.actualLocale).toBe('es-MX');
+    expect(selection.fallbackMessage).toContain('no como voz argentina');
+  });
+
+  it('never labels es-ES or es-US as argentine when requesting es-AR', () => {
+    const voices = [mockVoice('Conchita', 'es-ES'), mockVoice('Juan', 'es-US')];
+    const selection = selectVoice('es-AR', voices);
+    expect(selection.isArgentine).toBe(false);
+    expect(isArgentineVoice(selection.voice as SpeechSynthesisVoice)).toBe(false);
+  });
+
+  it('marks isArgentine true only for a genuine es-AR/es_AR voice', () => {
+    expect(isArgentineVoice(mockVoice('Diego', 'es-AR'))).toBe(true);
+    expect(isArgentineVoice(mockVoice('Diego', 'es_AR'))).toBe(true);
+    expect(isArgentineVoice(mockVoice('Paulina', 'es-MX'))).toBe(false);
+  });
+
+  it('marks isArgentine true and no fallback message for a real es-AR match', () => {
+    const voices = [mockVoice('Diego', 'es-AR')];
+    const selection = selectVoice('es-AR', voices);
+    expect(selection.isArgentine).toBe(true);
+    expect(selection.fallbackMessage).toBeNull();
+  });
+
+  it('never marks neutral selections as argentine', () => {
+    const voices = [mockVoice('Diego', 'es-AR'), mockVoice('Paulina', 'es-MX')];
+    const selection = selectVoice('es-neutro', voices);
+    expect(selection.isArgentine).toBe(false);
   });
 });

@@ -30,7 +30,7 @@ export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
       }
     >
       <div className="field">
-        <div className="checkbox-option">
+        <label className="checkbox-option" htmlFor="consent-session">
           <input
             type="checkbox"
             id="consent-session"
@@ -40,18 +40,18 @@ export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             }
             aria-describedby="consent-session-hint"
           />
-          <label htmlFor="consent-session">
+          <span>
             Permito usar mis respuestas de esta sesión únicamente para crear el guion y
             reproducir el audio.{' '}
             <span id="consent-session-hint" className="field-hint">
               Requerido para continuar.
             </span>
-          </label>
-        </div>
+          </span>
+        </label>
       </div>
 
       <div className="field">
-        <div className="checkbox-option">
+        <label className="checkbox-option" htmlFor="consent-preferences">
           <input
             type="checkbox"
             id="consent-preferences"
@@ -61,14 +61,14 @@ export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             }
             aria-describedby="consent-preferences-hint"
           />
-          <label htmlFor="consent-preferences">
+          <span>
             Guardar mis preferencias localmente en este dispositivo (opcional).{' '}
             <span id="consent-preferences-hint" className="field-hint">
               Solo se guardan variante de español, duración y estilo de práctica. Nunca
               diario, situación ni estado emocional.
             </span>
-          </label>
-        </div>
+          </span>
+        </label>
       </div>
     </StepLayout>
   );

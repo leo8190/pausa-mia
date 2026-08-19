@@ -9,6 +9,7 @@ import type {
   VoiceVariant,
 } from '../types';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { VoiceEngineStatusPanel } from './VoiceEngineStatus';
 
 export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { checkIn } = sessionApi.session;
@@ -64,7 +65,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
               ['pausa-laboral', 'Pausa laboral'],
             ] as [Moment, string][]
           ).map(([value, label]) => (
-            <div className="radio-option" key={value}>
+            <label className="radio-option" htmlFor={`moment-${value}`} key={value}>
               <input
                 type="radio"
                 id={`moment-${value}`}
@@ -73,8 +74,8 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
                 checked={checkIn.moment === value}
                 onChange={() => sessionApi.updateCheckIn({ moment: value })}
               />
-              <label htmlFor={`moment-${value}`}>{label}</label>
-            </div>
+              <span>{label}</span>
+            </label>
           ))}
         </div>
       </fieldset>
@@ -109,7 +110,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
               ['otro', 'Otro'],
             ] as [PerceivedState, string][]
           ).map(([value, label]) => (
-            <div className="radio-option" key={value}>
+            <label className="radio-option" htmlFor={`state-${value}`} key={value}>
               <input
                 type="radio"
                 id={`state-${value}`}
@@ -118,21 +119,23 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
                 checked={checkIn.perceivedState === value}
                 onChange={() => sessionApi.updateCheckIn({ perceivedState: value })}
               />
-              <label htmlFor={`state-${value}`}>{label}</label>
-            </div>
+              <span>{label}</span>
+            </label>
           ))}
         </div>
         {checkIn.perceivedState === 'otro' && (
-          <input
-            type="text"
-            value={checkIn.perceivedStateOther}
-            onChange={(e) =>
-              sessionApi.updateCheckIn({ perceivedStateOther: e.target.value })
-            }
-            placeholder="Describe brevemente"
-            maxLength={100}
-            aria-label="Descripción del estado percibido"
-          />
+          <div className="field field--tight">
+            <input
+              type="text"
+              value={checkIn.perceivedStateOther}
+              onChange={(e) =>
+                sessionApi.updateCheckIn({ perceivedStateOther: e.target.value })
+              }
+              placeholder="Describe brevemente"
+              maxLength={100}
+              aria-label="Descripción del estado percibido"
+            />
+          </div>
         )}
       </fieldset>
 
@@ -148,7 +151,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
               ['volver-al-cuerpo', 'Volver al cuerpo'],
             ] as [Intention, string][]
           ).map(([value, label]) => (
-            <div className="radio-option" key={value}>
+            <label className="radio-option" htmlFor={`intention-${value}`} key={value}>
               <input
                 type="radio"
                 id={`intention-${value}`}
@@ -157,8 +160,8 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
                 checked={checkIn.intention === value}
                 onChange={() => sessionApi.updateCheckIn({ intention: value })}
               />
-              <label htmlFor={`intention-${value}`}>{label}</label>
-            </div>
+              <span>{label}</span>
+            </label>
           ))}
         </div>
       </fieldset>
@@ -173,7 +176,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
               ['habitual', 'Práctica habitual'],
             ] as [Experience, string][]
           ).map(([value, label]) => (
-            <div className="radio-option" key={value}>
+            <label className="radio-option" htmlFor={`experience-${value}`} key={value}>
               <input
                 type="radio"
                 id={`experience-${value}`}
@@ -182,8 +185,8 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
                 checked={checkIn.experience === value}
                 onChange={() => sessionApi.updateCheckIn({ experience: value })}
               />
-              <label htmlFor={`experience-${value}`}>{label}</label>
-            </div>
+              <span>{label}</span>
+            </label>
           ))}
         </div>
       </fieldset>
@@ -199,7 +202,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
               ['autocompasion', 'Autocompasión'],
             ] as [MeditationStyle, string][]
           ).map(([value, label]) => (
-            <div className="radio-option" key={value}>
+            <label className="radio-option" htmlFor={`style-${value}`} key={value}>
               <input
                 type="radio"
                 id={`style-${value}`}
@@ -208,8 +211,8 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
                 checked={checkIn.style === value}
                 onChange={() => sessionApi.updateCheckIn({ style: value })}
               />
-              <label htmlFor={`style-${value}`}>{label}</label>
-            </div>
+              <span>{label}</span>
+            </label>
           ))}
         </div>
       </fieldset>
@@ -231,7 +234,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
         <legend>Duración</legend>
         <div className="radio-group">
           {([3, 5, 10] as Duration[]).map((value) => (
-            <div className="radio-option" key={value}>
+            <label className="radio-option" htmlFor={`duration-${value}`} key={value}>
               <input
                 type="radio"
                 id={`duration-${value}`}
@@ -240,8 +243,8 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
                 checked={checkIn.duration === value}
                 onChange={() => sessionApi.updateCheckIn({ duration: value })}
               />
-              <label htmlFor={`duration-${value}`}>{value} minutos</label>
-            </div>
+              <span>{value} minutos</span>
+            </label>
           ))}
         </div>
       </fieldset>
@@ -255,7 +258,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
               ['es-neutro', 'Español neutro'],
             ] as [VoiceVariant, string][]
           ).map(([value, label]) => (
-            <div className="radio-option" key={value}>
+            <label className="radio-option" htmlFor={`voice-${value}`} key={value}>
               <input
                 type="radio"
                 id={`voice-${value}`}
@@ -264,11 +267,18 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
                 checked={checkIn.voiceVariant === value}
                 onChange={() => sessionApi.updateCheckIn({ voiceVariant: value })}
               />
-              <label htmlFor={`voice-${value}`}>{label}</label>
-            </div>
+              <span>{label}</span>
+            </label>
           ))}
         </div>
+        <p className="field-hint">
+          Elegimos la mejor voz disponible en tu dispositivo para la variante elegida.
+          Si tu navegador no tiene una voz argentina real, te avisamos antes de
+          reproducir en vez de presentar otra voz como argentina.
+        </p>
       </fieldset>
+
+      <VoiceEngineStatusPanel />
     </StepLayout>
   );
 }

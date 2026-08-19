@@ -95,6 +95,8 @@ export interface VoiceSelection {
   requestedLocale: string;
   actualLocale: string;
   fallbackMessage: string | null;
+  /** Verdadero sólo si la voz elegida es realmente es-AR (nunca es-MX u otro reemplazo). */
+  isArgentine: boolean;
 }
 
 export type PriceOption = 'session' | 'monthly' | 'quarter';

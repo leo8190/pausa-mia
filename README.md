@@ -79,7 +79,8 @@ src/
 │   ├── durationEstimator.ts  # Estimación por palabras + pausas
 │   ├── situationReference.ts # Referencia breve sin citar literalmente
 │   ├── safetyDetector.ts     # Pausa de seguridad
-│   ├── voiceService.ts       # Web Speech API
+│   ├── voiceService.ts       # Selección de voz Web Speech (sin falsos es-AR)
+│   ├── voiceEngine.ts        # Adaptador web-speech / neuronal es-AR (Piper/ONNX)
 │   ├── speechController.ts   # Cancelación global de audio
 │   └── session.ts            # Estado de sesión en memoria
 ├── types/
@@ -98,6 +99,36 @@ server/
 | **IA**    | Requiere `npm run server` con `.env` configurado. Consentimiento independiente. Payload mínimo (`operational`, `personal`, `context`) idéntico en vista previa, detalle JSON y solicitud; sin consentimientos en el cuerpo. Fallback local si falla. **Experimental** hasta prueba con proveedor real. |
 
 Copiar `.env.example` a `.env` para probar IA. Sin `OPENAI_API_KEY`, el modo IA queda desactivado.
+
+## Motores de voz
+
+La reproducción es independiente del motor de generación del guion. Hay dos motores
+de **voz** posibles, evaluados y mostrados en `CheckInStep` y `PlaybackStep` mediante
+`voiceEngine.ts` y `VoiceEngineStatus.tsx`:
+
+| Motor                           | Estado                                      | Cómo funciona                                                                                                                                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Web Speech API**              | Disponible según navegador/SO               | Usa las voces instaladas en el dispositivo. Es el motor por defecto y el único activo sin configuración adicional.                                                                                                                                                                       |
+| **Neuronal es-AR (Piper/ONNX)** | No disponible por defecto (adaptador listo) | Ejecutaría un modelo `es_AR` (por ejemplo `es_AR-daniela-high`) en el navegador vía WebAssembly/ONNX Runtime Web, con carga diferida y caché (Cache Storage). Requiere `VITE_PIPER_ES_AR_VOICE_URL` apuntando a un modelo `.onnx` propio, con licencia y hosting decididos por Leonardo. |
+
+`voiceEngine.getVoiceEngineStatuses()` verifica de forma honesta, en cada dispositivo:
+
+- Si el navegador soporta la Web Speech API (`speechSynthesis`).
+- Si el navegador soporta las APIs que un runtime WASM/ONNX necesita (`WebAssembly`,
+  `AudioContext`, `Cache Storage`, `fetch`).
+- Si hay un modelo neuronal configurado y si responde (`HEAD` con timeout).
+
+**No se incluye ningún modelo de voz neuronal en este repositorio.** El adaptador
+(`loadAndCacheNeuralVoiceModel`) existe y cachea el binario si se configura una URL
+propia, pero mientras `VITE_PIPER_ES_AR_VOICE_URL` no esté definida, la interfaz
+declara el motor neuronal como **no disponible** en vez de simular una voz que no
+existe. Esto es intencional: distribuir pesos de un modelo de terceros exige resolver
+antes licencia, hosting y tamaño de bundle, que quedan fuera de este cierre.
+
+Independientemente del motor, `voiceService.selectVoice` nunca etiqueta una voz
+distinta de `es-AR`/`es_AR` como argentina: si sólo hay `es-MX` u otra variante, el
+`fallbackMessage` y el campo `isArgentine: false` lo dejan explícito tanto en la
+interfaz como en las pruebas (`voiceService.test.ts`).
 
 ## Privacidad y almacenamiento
 
@@ -134,6 +165,35 @@ Copiar `.env.example` a `.env` para probar IA. Sin `OPENAI_API_KEY`, el modo IA 
 | `npm test`             | ✅ 97 tests (unitarias + flujo React + servidor mockeado; sin API real) |
 | `npm run build`        | ✅                                                                      |
 | `npm audit --omit=dev` | ✅ 0 vulnerabilidades                                                   |
+
+### Auditoría de motores de voz y modos disponibles (2026-08-19)
+
+- `FutureIntegrations`, `ContextStep`, `scriptProvider`, `AiConsentStep`, `voiceService`
+  y `useSpeechPlayer` fueron auditados: ninguno prometía integraciones fuera de
+  alcance ni simulaba OAuth/credenciales. `scriptProvider` ya declaraba el motor IA
+  como dependiente de un servidor local configurado, con fallback honesto al motor
+  local; `SummaryStep` ya deshabilita la opción IA cuando `aiAvailable` es falso.
+- Se agregó `voiceEngine.ts` con dos adaptadores explícitos (`web-speech` y
+  `neural-piper-es-ar`) y el panel `VoiceEngineStatusPanel`, visible en el check-in y
+  en la reproducción, que reporta disponibilidad real por dispositivo en vez de un
+  texto genérico.
+- Se agregó el campo `isArgentine` a `VoiceSelection` y la función exportada
+  `isArgentineVoice` para que ninguna voz distinta de `es-AR`/`es_AR` pueda
+  etiquetarse como argentina, con pruebas dedicadas.
+- Se evaluó integrar una voz neuronal es-AR (Piper/ONNX Runtime Web,
+  `es_AR-daniela-high`) ejecutable en el navegador. **No se integró el modelo real**
+  porque distribuir sus pesos (decenas de MB, licencia de terceros, hosting) no podía
+  resolverse de forma seria en este turno sin credenciales ni autorización de gasto.
+  En su lugar se dejó el adaptador (`loadAndCacheNeuralVoiceModel`, con caché vía
+  Cache Storage y carga diferida) y la detección de soporte del navegador, listos
+  para activarse con `VITE_PIPER_ES_AR_VOICE_URL` el día que se decida un modelo y
+  hosting propios. La interfaz declara este motor "no disponible" honestamente en
+  vez de simular que ya funciona.
+- Pruebas nuevas: `voiceEngine.test.ts` (7 casos: soporte de Web Speech, soporte de
+  APIs neuronales con/sin `AudioContext`/`caches`, ausencia de modelo configurado,
+  estado combinado de ambos motores, éxito/fallo de `HEAD` al modelo) y 6 casos
+  nuevos en `voiceService.test.ts` sobre `isArgentine`/ausencia de es-AR falso.
+  Suite completa: 109 pruebas.
 
 El modo IA sigue **experimental**: no se ejecutó ninguna llamada real a OpenAI en
 esta verificación. Las pruebas de servidor usan `callProvider` mockeado y puerto efímero.
@@ -200,12 +260,29 @@ se publicará mediante GitHub Actions y se verificará la URL antes de difundirl
 
 ## Limitaciones reales
 
-- La calidad de voz depende del SO y navegador; no hay voz comercial.
+- La calidad de voz depende del SO y navegador; no hay voz comercial incluida.
+- **No podemos prometer que funcione en "cualquier celular o PC".** El motor por
+  defecto (Web Speech API) depende de lo que cada sistema operativo instale:
+  - Windows/Edge/Chrome de escritorio suelen traer voces `es-MX`/`es-ES`; una voz
+    `es-AR` real es poco común salvo que el usuario la instale manualmente.
+  - Android varía según fabricante y el motor TTS instalado (Google, Samsung, etc.).
+  - iOS/Safari expone voces del sistema, pero con comportamiento de `pause`/`resume`
+    menos consistente que en escritorio.
+  - Navegadores sin `speechSynthesis` (algunos WebViews embebidos, navegadores muy
+    antiguos) no reproducen audio en absoluto; la app sigue mostrando el guion para
+    lectura.
+  - Cuando no hay voz `es-AR` real, la interfaz lo dice explícitamente
+    (`fallbackMessage`, `isArgentine: false`) en vez de etiquetar otra voz como
+    argentina.
+- El motor de voz neuronal es-AR (Piper/ONNX) es un **adaptador preparado, no una
+  función activa**: sin un modelo propio configurado (`VITE_PIPER_ES_AR_VOICE_URL`),
+  la interfaz lo declara no disponible. Aun si se configura, requeriría
+  `WebAssembly`, `AudioContext` y `Cache Storage`, ausentes en navegadores muy
+  antiguos o restringidos.
 - El detector de seguridad es conservador por frases, no evalúa riesgo clínico.
 - El modo IA requiere servidor local y proveedor configurado; no se incluyen claves. Sigue experimental hasta una prueba real autorizada.
 - No hay checkout, cuentas, OAuth real ni envío de datos a terceros en modo demo.
 - OAuth (Google, redes) se muestra desactivado como función futura.
-- En Safari/iOS la Web Speech API puede tener limitaciones.
 
 ## Límites del producto
 

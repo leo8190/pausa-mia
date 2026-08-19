@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useSpeechPlayer } from '../hooks/useSpeechPlayer';
 import type { SessionApi } from '../hooks/useSession';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { VoiceEngineStatusPanel } from './VoiceEngineStatus';
 
 export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const script = sessionApi.session.script;
@@ -32,6 +33,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     <StepLayout
       title="Reproducción"
       lead="Audio generado con la voz disponible en tu dispositivo (Web Speech API)."
+      cardClassName={isPlaying ? 'step-card--active' : undefined}
       actions={
         <>
           <button
@@ -67,6 +69,8 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           anterior.
         </p>
       )}
+
+      <VoiceEngineStatusPanel />
 
       <div className="script-preview" role="region" aria-label="Guion en reproducción">
         {script.segments.map((seg, i) => (
@@ -137,7 +141,10 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         </button>
       </div>
 
-      <p className="player-status" role="status">
+      <p
+        className={`player-status${isPlaying ? ' player-status--playing' : ''}`}
+        role="status"
+      >
         Estado: {playerState.status === 'idle' && 'Listo'}
         {playerState.status === 'playing' &&
           `Reproduciendo segmento ${playerState.currentSegmentIndex + 1} de ${script.segments.length}`}
