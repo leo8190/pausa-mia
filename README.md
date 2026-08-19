@@ -316,6 +316,8 @@ Lo que quedó listo para publicar el sitio **Pausa Mía** en GitHub Pages:
 | `vite.config.ts`              | `base` configurable vía `VITE_BASE_PATH`, con `/pausa-mia/` por defecto                               |
 | `.gitignore`                  | Excluye `node_modules`, `dist`, `.env`, `*.tsbuildinfo` y artefactos de audio                         |
 | `public/.nojekyll`            | Evita que GitHub Pages procese el sitio con Jekyll                                                    |
+| `public/manifest.webmanifest` | Manifest instalable (`standalone`, `start_url` `/pausa-mia/`, sin service worker)                     |
+| `public/icon.svg`             | Ícono local referencial (sin dependencias externas ni datos personales)                               |
 | `.github/workflows/pages.yml` | `npm ci` → `npm run build` (con `VITE_BASE_PATH` y `VITE_ARGENTINE_TTS_ENDPOINT`) → artifact → deploy |
 
 ### Base path
@@ -336,6 +338,29 @@ VITE_BASE_PATH=/ npm run build
 En el workflow, el valor se puede sobrescribir con una variable de repositorio
 `VITE_BASE_PATH` sin editar el YAML. Como el `base` también aplica en desarrollo,
 `npm run dev` sirve la app en `http://localhost:5173/pausa-mia/`.
+
+### Instalar como aplicación (móvil / escritorio)
+
+Pausa Mía incluye un **Web App Manifest** para instalarse como shell de lanzamiento
+(`display: standalone`). No hay service worker: la instalación no implica modo
+offline ni caché de diario, perfil, guion o audio.
+
+1. Abrí https://leo8190.github.io/pausa-mia/ (o `http://localhost:5173/pausa-mia/`
+   en desarrollo) en un navegador compatible.
+2. **Android (Chrome/Edge):** menú → «Instalar aplicación» / «Agregar a la pantalla
+   de inicio».
+3. **iOS (Safari):** Compartir → «Agregar a pantalla de inicio».
+4. **Escritorio (Chrome/Edge/Chromium):** ícono de instalación en la barra de
+   direcciones, o menú → «Instalar Pausa Mía…».
+
+El `start_url` del manifest apunta a `/pausa-mia/`, coherente con el `base` por
+defecto de Vite y con GitHub Pages. Los archivos de `public/` se copian a `dist/`
+en el build; en desarrollo Vite los sirve bajo la misma base.
+
+**Límite de red / TTS:** la app instalada sigue necesitando red para cargar el
+sitio y, si se elige, para descargar el modelo Piper local o usar el TTS argentino
+remoto tras consentimiento. Sin conexión no hay reproducción TTS garantizada; el
+guion puede leerse en pantalla cuando ya esté generado en la sesión actual.
 
 ### Qué queda fuera del sitio publicado
 
