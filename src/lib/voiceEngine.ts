@@ -159,6 +159,31 @@ function readEnvUrl(key: string): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
+type TimeoutAbortHandle = {
+  signal: AbortSignal;
+  clear: () => void;
+};
+
+/**
+ * Safari iOS/desktop puede no implementar `AbortSignal.timeout`.
+ * Este helper mantiene timeout de fetch usando AbortController cuando hace falta.
+ */
+function createTimeoutAbortSignal(timeoutMs: number): TimeoutAbortHandle {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return { signal: AbortSignal.timeout(timeoutMs), clear: () => {} };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+  return {
+    signal: controller.signal,
+    clear: () => {
+      clearTimeout(timer);
+    },
+  };
+}
+
 export function getNeuralVoiceModelUrl(): string {
   return readEnvUrl('VITE_PIPER_ES_AR_VOICE_URL') ?? DEFAULT_ES_AR_VOICE_URL;
 }
@@ -179,11 +204,14 @@ const NEURAL_MODEL_CACHE_NAME = 'meditacion-piper-voice-cache-v1';
  * inferencia real vaya a funcionar en este dispositivo.
  */
 export async function isNeuralVoiceModelReachable(url: string): Promise<boolean> {
+  const timeout = createTimeoutAbortSignal(4000);
   try {
-    const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(4000) });
+    const res = await fetch(url, { method: 'HEAD', signal: timeout.signal });
     return res.ok;
   } catch {
     return false;
+  } finally {
+    timeout.clear();
   }
 }
 

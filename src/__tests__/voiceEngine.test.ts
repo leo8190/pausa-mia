@@ -234,6 +234,35 @@ describe('voiceEngine', () => {
       expect(reachable).toBe(true);
     });
 
+    it('works when AbortSignal.timeout is unavailable (Safari compatibility path)', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
+      const originalTimeout = AbortSignal.timeout;
+      Object.defineProperty(AbortSignal, 'timeout', {
+        configurable: true,
+        writable: true,
+        value: undefined,
+      });
+      try {
+        const reachable = await isNeuralVoiceModelReachable(
+          'https://example.com/voice.onnx',
+        );
+        expect(reachable).toBe(true);
+        expect(fetch).toHaveBeenCalledWith(
+          'https://example.com/voice.onnx',
+          expect.objectContaining({
+            method: 'HEAD',
+            signal: expect.any(AbortSignal),
+          }),
+        );
+      } finally {
+        Object.defineProperty(AbortSignal, 'timeout', {
+          configurable: true,
+          writable: true,
+          value: originalTimeout,
+        });
+      }
+    });
+
     it('a successful HEAD alone never sets available (see getVoiceEngineStatuses tests above)', () => {
       // Deliberate cross-reference: this file always keeps these behaviors
       // next to each other so a future change can't silently reintroduce
