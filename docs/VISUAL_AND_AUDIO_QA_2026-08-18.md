@@ -20,22 +20,22 @@ Estado: `VALIDADO` para el prototipo local con datos sintéticos.
 
 ## Resultados del recorrido
 
-| Comprobación | Resultado |
-| --- | --- |
-| Consentimientos inicialmente desmarcados | Aprobado |
-| Continuación bloqueada sin consentimiento requerido | Aprobado |
-| Preferencias opcionales permanecen desmarcadas | Aprobado |
-| Cuestionario completo | Aprobado |
-| Diario seleccionado visible y centinela no seleccionado ausente | Aprobado |
-| Exclusión desde el resumen y restauración | Aprobado |
-| Generación local de 3 minutos | Aprobado; estimación de 3,2 minutos dentro de tolerancia |
-| Frase íntima exacta ausente del guion | Aprobado |
-| Centinela no seleccionado ausente del guion | Aprobado |
-| Opción explícita de abrir los ojos, cambiar el ancla o detenerse | Aprobado |
-| Reproducción, pausa, continuación y detención | Aprobado |
-| Fallback de voz argentina informado | Aprobado; usa Paulina `es-MX`, sin presentarla como argentina |
-| Valoración, intención de repetir y precio hipotético | Aprobado |
-| Integraciones futuras desactivadas y sin permisos | Aprobado |
+| Comprobación                                                     | Resultado                                                     |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| Consentimientos inicialmente desmarcados                         | Aprobado                                                      |
+| Continuación bloqueada sin consentimiento requerido              | Aprobado                                                      |
+| Preferencias opcionales permanecen desmarcadas                   | Aprobado                                                      |
+| Cuestionario completo                                            | Aprobado                                                      |
+| Diario seleccionado visible y centinela no seleccionado ausente  | Aprobado                                                      |
+| Exclusión desde el resumen y restauración                        | Aprobado                                                      |
+| Generación local de 3 minutos                                    | Aprobado; estimación de 3,2 minutos dentro de tolerancia      |
+| Frase íntima exacta ausente del guion                            | Aprobado                                                      |
+| Centinela no seleccionado ausente del guion                      | Aprobado                                                      |
+| Opción explícita de abrir los ojos, cambiar el ancla o detenerse | Aprobado                                                      |
+| Reproducción, pausa, continuación y detención                    | Aprobado                                                      |
+| Fallback de voz argentina informado                              | Aprobado; usa Paulina `es-MX`, sin presentarla como argentina |
+| Valoración, intención de repetir y precio hipotético             | Aprobado                                                      |
+| Integraciones futuras desactivadas y sin permisos                | Aprobado                                                      |
 
 ## Resultado responsive
 
@@ -62,6 +62,9 @@ Verificación independiente posterior:
 - formato: aprobado;
 - análisis estático: aprobado;
 - pruebas: `83/83` en `12` archivos;
+- esta cifra corresponde a la auditoría histórica del 2026-08-18; la suite actual
+  publicada es de `172` pruebas en `19` archivos (ver `README.md` y la matriz de
+  cumplimiento);
 - compilación de producción: aprobada;
 - prueba manual móvil: `aria-pressed` y clases cambian correctamente entre
   `Sí` y `No`.
@@ -75,4 +78,3 @@ Verificación independiente posterior:
   pruebas automatizadas siguen siendo la evidencia disponible.
 - Faltan revisión humana ciega de guiones, cinco pruebas moderadas y evidencia
   de un pago real autorizado.
-
