@@ -8,6 +8,7 @@ import {
 } from '../lib/voiceEngine';
 import { isRemoteArgentineTtsConfigured } from '../lib/remoteVoiceService';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { DeviceCompatibilityPanel } from './DeviceCompatibilityPanel';
 import { VoiceEngineStatusPanel } from './VoiceEngineStatus';
 
 function formatMb(bytes: number): string {
@@ -132,6 +133,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         }
       >
         <VoiceEngineStatusPanel refreshKey={neuralState.status} />
+        <DeviceCompatibilityPanel />
 
         {useRemoteArgentine && (
           <div className="fallback-notice" role="status">
@@ -498,6 +500,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       )}
 
       <VoiceEngineStatusPanel />
+      <DeviceCompatibilityPanel />
 
       <div className="player-stage">
         <div
