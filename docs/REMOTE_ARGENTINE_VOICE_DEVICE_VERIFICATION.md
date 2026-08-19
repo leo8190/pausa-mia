@@ -23,14 +23,15 @@ despliega ni modifica secretos.
 
 ## Matriz (completar a mano)
 
-| Dispositivo | SO | Navegador | Piper local | Remoto WAV (mock) | Remoto WAV (piper) | Notas | Fecha | Quién |
-| ----------- | -- | --------- | ----------- | ----------------- | ------------------ | ----- | ----- | ----- |
-| _ej. iPhone_ | iOS _x_ | Safari _x_ | ¿ok / fallo / N/A? | ☐ | ☐ | | | |
-| | | Chrome | | ☐ | ☐ | | | |
-| _ej. Android_ | | Chrome | | ☐ | ☐ | | | |
-| Desktop | macOS | Chrome | | ☐ | ☐ | | | |
-| Desktop | macOS | Safari | | ☐ | ☐ | | | |
-| Desktop | Windows | Edge | | ☐ | ☐ | | | |
+| Dispositivo    | SO                 | Navegador  | Piper local        | Remoto WAV (mock) | Remoto WAV (piper) | Notas                                                                                            | Fecha      | Quién |
+| -------------- | ------------------ | ---------- | ------------------ | ----------------- | ------------------ | ------------------------------------------------------------------------------------------------ | ---------- | ----- |
+| _ej. iPhone_   | iOS _x_            | Safari _x_ | ¿ok / fallo / N/A? | ☐                 | ☐                  |                                                                                                  |            |       |
+|                |                    | Chrome     |                    | ☐                 | ☐                  |                                                                                                  |            |       |
+| _ej. Android_  |                    | Chrome     |                    | ☐                 | ☐                  |                                                                                                  |            |       |
+| Desktop        | macOS              | Chrome     |                    | ☐                 | ☐                  |                                                                                                  |            |       |
+| Desktop        | macOS              | Safari     |                    | ☐                 | ☐                  |                                                                                                  |            |       |
+| Desktop        | Windows            | Edge       |                    | ☐                 | ☐                  |                                                                                                  |            |       |
+| In-app Browser | Chromium integrado | Chromium   | N/A no físico      | ✅                | ✅                 | Sitio público; WAV Piper real verificado tras consentimiento; controles y estado remoto visibles | 2026-08-19 | Codex |
 
 ## Checklist por dispositivo
 

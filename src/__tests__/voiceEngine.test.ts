@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   checkNeuralEngineBrowserSupport,
+  checkRemoteWavPlaybackSupport,
   checkWebSpeechEngineSupport,
   DEFAULT_ES_AR_VOICE_URL,
   ES_AR_VOICE_APPROX_SIZE_MB,
@@ -18,22 +19,45 @@ describe('voiceEngine', () => {
     expect(checkWebSpeechEngineSupport()).toBe(true);
   });
 
-  it('does not claim neural engine browser support without AudioContext', () => {
+  it('still supports neural Piper without AudioContext (WAV usa HTMLAudioElement)', () => {
     const original = (window as unknown as { AudioContext?: unknown }).AudioContext;
     delete (window as unknown as { AudioContext?: unknown }).AudioContext;
-    expect(checkNeuralEngineBrowserSupport()).toBe(false);
-    if (original) {
-      (window as unknown as { AudioContext?: unknown }).AudioContext = original;
-    }
-  });
-
-  it('detects neural engine browser support when APIs exist', () => {
-    (window as unknown as { AudioContext?: unknown }).AudioContext = class {};
     Object.defineProperty(window, 'caches', {
       configurable: true,
       value: { open: vi.fn(), match: vi.fn() },
     });
     expect(checkNeuralEngineBrowserSupport()).toBe(true);
+    if (original) {
+      (window as unknown as { AudioContext?: unknown }).AudioContext = original;
+    }
+  });
+
+  it('does not claim neural support without Cache Storage', () => {
+    const descriptor = Object.getOwnPropertyDescriptor(window, 'caches');
+    // @ts-expect-error intentional deletion for capability probe
+    delete window.caches;
+    expect(checkNeuralEngineBrowserSupport()).toBe(false);
+    if (descriptor) {
+      Object.defineProperty(window, 'caches', descriptor);
+    } else {
+      Object.defineProperty(window, 'caches', {
+        configurable: true,
+        value: { open: vi.fn(), match: vi.fn() },
+      });
+    }
+  });
+
+  it('detects neural engine browser support when required APIs exist', () => {
+    Object.defineProperty(window, 'caches', {
+      configurable: true,
+      value: { open: vi.fn(), match: vi.fn() },
+    });
+    expect(typeof TextDecoder).toBe('function');
+    expect(checkNeuralEngineBrowserSupport()).toBe(true);
+  });
+
+  it('detects remote WAV playback support via HTMLAudioElement without network', () => {
+    expect(checkRemoteWavPlaybackSupport()).toBe(true);
   });
 
   it('uses the real es_AR-daniela-high model from rhasspy/piper-voices by default', () => {
@@ -48,16 +72,17 @@ describe('voiceEngine', () => {
 
   describe('getVoiceEngineStatuses', () => {
     beforeEach(() => {
-      (window as unknown as { AudioContext?: unknown }).AudioContext = class {};
       Object.defineProperty(window, 'caches', {
         configurable: true,
         value: { open: vi.fn(), match: vi.fn() },
       });
       resetNeuralVoiceVerificationForTests();
+      vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', '');
     });
 
     afterEach(() => {
       vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
       resetNeuralVoiceVerificationForTests();
     });
 
@@ -77,6 +102,31 @@ describe('voiceEngine', () => {
       const statuses = await getVoiceEngineStatuses();
       const neural = statuses.find((s) => s.id === 'neural-piper-es-ar');
       expect(neural?.available).toBe(false);
+    });
+
+    it('shows remote engine unconfigured without claiming a network check', async () => {
+      const statuses = await getVoiceEngineStatuses();
+      const remote = statuses.find((s) => s.id === 'remote-wav-es-ar');
+      expect(remote).toBeDefined();
+      expect(remote?.configured).toBe(false);
+      expect(remote?.available).toBe(false);
+      expect(remote?.reason).toMatch(/sin endpoint/i);
+      expect(remote?.reason).not.toMatch(/verificad/i);
+    });
+
+    it('shows remote engine as configured opt-in without claiming availability or probing the endpoint', async () => {
+      vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+
+      const statuses = await getVoiceEngineStatuses();
+      const remote = statuses.find((s) => s.id === 'remote-wav-es-ar');
+      expect(remote?.configured).toBe(true);
+      expect(remote?.supported).toBe(true);
+      expect(remote?.available).toBe(false);
+      expect(remote?.reason).toMatch(/endpoint configurado/i);
+      expect(remote?.reason).toMatch(/consentimiento y síntesis/i);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('marks the neural engine as available only after a real synthesis produced a Blob', async () => {

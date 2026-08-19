@@ -109,7 +109,7 @@ Copiar `.env.example` a `.env` para probar IA. Sin `OPENAI_API_KEY`, el modo IA 
 
 ## Motores de voz
 
-La reproducción es independiente del motor de generación del guion. Hay dos motores
+La reproducción es independiente del motor de generación del guion. Hay tres motores
 de **voz** posibles, evaluados y mostrados en `CheckInStep` y `PlaybackStep` mediante
 `voiceEngine.ts` y `VoiceEngineStatus.tsx`:
 
@@ -123,7 +123,7 @@ de **voz** posibles, evaluados y mostrados en `CheckInStep` y `PlaybackStep` med
 
 - Si el navegador soporta la Web Speech API (`speechSynthesis`).
 - Si el navegador soporta las APIs que un runtime WASM/ONNX necesita (`WebAssembly`,
-  `AudioContext`, `Cache Storage`, `fetch`).
+  `Cache Storage`, `TextDecoder`, `fetch` y `HTMLAudioElement`/`Audio`).
 - Si la síntesis neuronal ya produjo realmente un `Blob` de audio **en esta sesión de
   navegador** (`hasVerifiedNeuralVoiceInSession`). Un `HEAD` exitoso al modelo nunca
   alcanza para marcar el motor como "disponible": sólo una inferencia real lo hace.
@@ -137,6 +137,11 @@ reproducción fallan (o el navegador no soporta WASM/ONNX), se muestra el error
 explícito, el botón "Usar voz del dispositivo (no es argentina)" y —sin endpoint—
 el aviso de servicio faltante. Web Speech y el remoto **nunca** se activan
 automáticamente.
+
+Si el navegador bloquea `audio.play()` por una política de autoplay (frecuente en
+iOS/Safari), el WAV queda expuesto en un reproductor HTML nativo visible y con un
+botón de reintento que requiere un gesto. Así la reproducción no depende de que una
+promesa asíncrona conserve el gesto original.
 
 ### Voz remota (sitio publicado y local)
 
@@ -215,7 +220,7 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
 | ---------------------- | ------------------------------------------------------------------------ |
 | `npm run format:check` | ✅                                                                       |
 | `npm run lint`         | ✅                                                                       |
-| `npm test`             | ✅ 156 tests (unitarias + flujo React + servidor mockeado; sin API real) |
+| `npm test`             | ✅ 163 tests (unitarias + flujo React + servidor mockeado; sin API real) |
 | `npm run build`        | ✅                                                                       |
 | `voice-service` tests  | ✅ 3 tests (`ARG_TTS_BACKEND=mock`, sin modelo ni deploy)                |
 | `npm audit --omit=dev` | (no re-ejecutado en este handoff)                                        |
@@ -228,8 +233,8 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
   desactivadas. `scriptProvider` ya declaraba el motor IA
   como dependiente de un servidor local configurado, con fallback honesto al motor
   local; `SummaryStep` ya deshabilita la opción IA cuando `aiAvailable` es falso.
-- Se agregó `voiceEngine.ts` con dos adaptadores explícitos (`web-speech` y
-  `neural-piper-es-ar`) y el panel `VoiceEngineStatusPanel`, visible en el check-in y
+- Se agregó `voiceEngine.ts` con tres adaptadores explícitos (`web-speech`,
+  `neural-piper-es-ar` y `remote-wav-es-ar`) y el panel `VoiceEngineStatusPanel`, visible en el check-in y
   en la reproducción, que reporta disponibilidad real por dispositivo en vez de un
   texto genérico.
 - Se agregó el campo `isArgentine` a `VoiceSelection` y la función exportada
@@ -258,9 +263,12 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
   configurado aunque Piper local esté idle). Español neutro sigue usando Web Speech
   directamente, sin pasar por Piper.
 - Ruta remota: `remoteVoiceService.ts` + modo `remote` en `useArgentineVoicePlayer`
-  (HTMLAudioElement + object URLs); servicio de referencia en `voice-service/`
-  (tests con backend `mock`; Piper real documentado, modelo no versionado). Verificación
-  por dispositivo: `docs/REMOTE_ARGENTINE_VOICE_DEVICE_VERIFICATION.md`.
+  (HTMLAudioElement + object URLs); si el autoplay es bloqueado, expone controles
+  nativos visibles. El chequeo remoto no hace requests automáticos y sólo muestra
+  `Opt-in` cuando el endpoint está configurado. Servicio de referencia en
+  `voice-service/` (tests con backend `mock`; Piper real documentado, modelo no
+  versionado). Verificación por dispositivo:
+  `docs/REMOTE_ARGENTINE_VOICE_DEVICE_VERIFICATION.md`.
 - Pruebas nuevas: `piperEngine.test.ts` (11 casos: partición de texto en fragmentos,
   codificación WAV/clamping de muestras, descarga con progreso, síntesis con sesión
   ONNX mockeada, incluida la tensor `sid` sólo con `speaker_id_map` no vacío);
@@ -357,12 +365,13 @@ verificó después de una ejecución exitosa de GitHub Actions.
     argentina.
 - La voz argentina neuronal es-AR está implementada y se verifica con una síntesis
   real antes de habilitar la reproducción. La primera preparación descarga unos
-  114 MB y necesita `WebAssembly`, `AudioContext`, `Cache Storage` y un navegador
-  moderno. **No hay compatibilidad universal:** no se puede garantizar que Piper
-  local, Web Speech ni la ruta remota opcional funcionen en cualquier celular, PC,
-  WebView o navegador. En fallo, la UI informa la causa; Web Speech y el remoto
-  (`VITE_ARGENTINE_TTS_ENDPOINT`) sólo tras gesto/consentimiento explícitos — nunca
-  en silencio. Ver matriz vacía en
+  114 MB y necesita `WebAssembly`, `Cache Storage`, `TextDecoder`, HTMLAudioElement
+  y un navegador moderno. La ruta remota agrega audio WAV estándar y controles
+  nativos si el autoplay está bloqueado. **No hay compatibilidad universal:** no se
+  puede garantizar que Piper local, Web Speech ni la ruta remota opcional funcionen
+  en cualquier celular, PC, WebView o navegador. En fallo, la UI informa la causa;
+  Web Speech y el remoto (`VITE_ARGENTINE_TTS_ENDPOINT`) sólo tras
+  gesto/consentimiento explícitos — nunca en silencio. Ver matriz vacía en
   `docs/REMOTE_ARGENTINE_VOICE_DEVICE_VERIFICATION.md`.
 - El detector de seguridad es conservador por frases, no evalúa riesgo clínico.
 - El modo IA requiere servidor local y proveedor configurado; no se incluyen claves. Sigue experimental hasta una prueba real autorizada.

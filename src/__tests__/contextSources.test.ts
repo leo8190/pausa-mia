@@ -176,5 +176,15 @@ describe('contextSources', () => {
         ]),
       );
     });
+
+    it('keeps local file accept lists actionable (.ics/.csv included where needed)', () => {
+      const byType = Object.fromEntries(
+        ADDABLE_SOURCES.map((s) => [s.type, s.accept]),
+      ) as Record<string, string>;
+      expect(byType['google-calendar']).toMatch(/\.ics/);
+      expect(byType.linkedin).toMatch(/\.csv/);
+      expect(byType.instagram).toMatch(/\.json/);
+      expect(byType.tiktok).toMatch(/\.json/);
+    });
   });
 });
