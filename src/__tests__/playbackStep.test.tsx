@@ -29,6 +29,12 @@ function makeSessionApi(voiceVariant: 'es-AR' | 'es-neutro'): SessionApi {
   } as unknown as SessionApi;
 }
 
+function mockDeviceVoiceAvailable(): void {
+  vi.spyOn(window.speechSynthesis, 'getVoices').mockReturnValue([
+    { name: 'Voz de prueba', lang: 'es-ES' } as SpeechSynthesisVoice,
+  ]);
+}
+
 describe('PlaybackStep — voz argentina neuronal real', () => {
   beforeEach(() => {
     Object.defineProperty(window, 'caches', {
@@ -108,6 +114,7 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
   });
 
   it('shows an explicit error and requires confirmation before using a non-argentine device voice', async () => {
+    mockDeviceVoiceAvailable();
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
       new Error('El modelo no se pudo descargar.'),
     );
@@ -277,6 +284,7 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
   });
 
   it('offers remote Argentine voice when the browser lacks local support, then uses remote WAV before the device voice', async () => {
+    mockDeviceVoiceAvailable();
     vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
     const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
@@ -347,7 +355,59 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('does not show the remote offer when WAV playback is unsupported, and keeps explicit device fallback when available', async () => {
+    mockDeviceVoiceAvailable();
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
+    vi.spyOn(voiceEngine, 'checkRemoteWavPlaybackSupport').mockReturnValue(false);
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/no se detecta reproducción WAV compatible/i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole('region', { name: /voz argentina remota opcional/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /usar voz argentina remota/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /usar voz del dispositivo \(no es argentina\)/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a clear message when no compatible audio player exists at all', async () => {
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
+    vi.spyOn(voiceEngine, 'checkRemoteWavPlaybackSupport').mockReturnValue(false);
+    vi.spyOn(voiceEngine, 'checkWebSpeechEngineSupport').mockReturnValue(false);
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          /no hay ningún reproductor de audio compatible en este entorno/i,
+        ),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole('button', { name: /usar voz argentina remota/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: /usar voz del dispositivo \(no es argentina\)/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it('offers remote before the non-argentine device voice after a local failure', async () => {
+    mockDeviceVoiceAvailable();
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
       new Error('fallo local'),

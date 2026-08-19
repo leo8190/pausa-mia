@@ -61,6 +61,75 @@ describe('voiceEngine', () => {
     expect(checkRemoteWavPlaybackSupport()).toBe(true);
   });
 
+  it('reports no remote WAV support when neither Audio nor HTMLAudioElement exists', () => {
+    const globalScope = globalThis as unknown as {
+      Audio?: unknown;
+      HTMLAudioElement?: unknown;
+    };
+    const originalAudio = globalScope.Audio;
+    const originalHtmlAudio = globalScope.HTMLAudioElement;
+    const restoreAudio =
+      originalAudio === undefined
+        ? () => {
+            delete globalScope.Audio;
+          }
+        : () => {
+            globalScope.Audio = originalAudio;
+          };
+    const restoreHtmlAudio =
+      originalHtmlAudio === undefined
+        ? () => {
+            delete globalScope.HTMLAudioElement;
+          }
+        : () => {
+            globalScope.HTMLAudioElement = originalHtmlAudio;
+          };
+
+    try {
+      delete globalScope.Audio;
+      delete globalScope.HTMLAudioElement;
+      expect(checkRemoteWavPlaybackSupport()).toBe(false);
+    } finally {
+      restoreAudio();
+      restoreHtmlAudio();
+    }
+  });
+
+  it('keeps remote WAV support when canPlayType is unavailable but Audio exists', () => {
+    class MockAudioWithoutCanPlayType {}
+    const globalScope = globalThis as unknown as {
+      Audio?: unknown;
+      HTMLAudioElement?: unknown;
+    };
+    const originalAudio = globalScope.Audio;
+    const originalHtmlAudio = globalScope.HTMLAudioElement;
+    const restoreAudio =
+      originalAudio === undefined
+        ? () => {
+            delete globalScope.Audio;
+          }
+        : () => {
+            globalScope.Audio = originalAudio;
+          };
+    const restoreHtmlAudio =
+      originalHtmlAudio === undefined
+        ? () => {
+            delete globalScope.HTMLAudioElement;
+          }
+        : () => {
+            globalScope.HTMLAudioElement = originalHtmlAudio;
+          };
+
+    try {
+      globalScope.Audio = MockAudioWithoutCanPlayType as unknown as typeof Audio;
+      globalScope.HTMLAudioElement = class {} as unknown as typeof HTMLAudioElement;
+      expect(checkRemoteWavPlaybackSupport()).toBe(true);
+    } finally {
+      restoreAudio();
+      restoreHtmlAudio();
+    }
+  });
+
   it('uses the real es_AR-daniela-high model from rhasspy/piper-voices by default', () => {
     expect(getNeuralVoiceModelUrl()).toBe(DEFAULT_ES_AR_VOICE_URL);
     expect(getNeuralVoiceModelUrl()).toContain('rhasspy/piper-voices');

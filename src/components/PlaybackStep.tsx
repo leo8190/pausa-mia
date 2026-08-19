@@ -7,6 +7,7 @@ import {
 import type { SessionApi } from '../hooks/useSession';
 import {
   checkNeuralEngineBrowserSupport,
+  checkRemoteWavPlaybackSupport,
   ES_AR_VOICE_APPROX_SIZE_MB,
 } from '../lib/voiceEngine';
 import { isRemoteArgentineTtsConfigured } from '../lib/remoteVoiceService';
@@ -30,6 +31,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const [useRemoteArgentine, setUseRemoteArgentine] = useState(false);
   const [remoteConsent, setRemoteConsent] = useState(false);
   const neuralBrowserSupported = checkNeuralEngineBrowserSupport();
+  const remoteWavPlaybackSupported = checkRemoteWavPlaybackSupport();
   const remoteConfigured = isRemoteArgentineTtsConfigured();
 
   const {
@@ -103,9 +105,14 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
     // Remota (si aplica) antes que la voz no argentina; nunca automática.
     const showRemoteOffer =
-      !useRemoteArgentine && (remoteConfigured || !neuralBrowserSupported || hasError);
+      !useRemoteArgentine &&
+      remoteWavPlaybackSupported &&
+      (remoteConfigured || !neuralBrowserSupported || hasError);
     const showDeviceLastResort =
       !useRemoteArgentine && (!neuralBrowserSupported || hasError);
+    const canUseDeviceFallback = showDeviceLastResort && canSpeak;
+    const hasNoCompatibleAudioPlayer =
+      showDeviceLastResort && !showRemoteOffer && !canSpeak;
     const deviceAfterRemote = showRemoteOffer && showDeviceLastResort;
     const deviceInline = showDeviceLastResort && !showRemoteOffer;
 
@@ -172,11 +179,26 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           <div className="fallback-notice" role="alert">
             Este navegador no puede usar la voz argentina en tu dispositivo. Si hay una
             opción remota, aparece abajo antes que cualquier voz que no sea argentina.
-            {deviceInline && (
+            {deviceInline && canUseDeviceFallback && (
               <div className="player-controls">{deviceFallbackButton}</div>
+            )}
+            {hasNoCompatibleAudioPlayer && (
+              <p className="field-hint">
+                No hay ningún reproductor de audio compatible en este entorno: no se
+                puede usar la voz remota WAV ni la voz del dispositivo. Podés leer el
+                guion en pantalla o volver a revisión.
+              </p>
             )}
           </div>
         )}
+        {!useRemoteArgentine &&
+          !remoteWavPlaybackSupported &&
+          (remoteConfigured || !neuralBrowserSupported || hasError) && (
+            <p className="fallback-notice" role="status">
+              La voz argentina remota no se ofrece en este navegador porque no se
+              detecta reproducción WAV compatible.
+            </p>
+          )}
 
         {!useRemoteArgentine &&
           neuralBrowserSupported &&
@@ -251,7 +273,13 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                   Reintentar remoto
                 </button>
               )}
-              {deviceInline && deviceFallbackButton}
+              {deviceInline && canUseDeviceFallback && deviceFallbackButton}
+              {hasNoCompatibleAudioPlayer && (
+                <p className="field-hint">
+                  No hay ningún reproductor de audio compatible en este entorno: no se
+                  puede usar la voz remota WAV ni la voz del dispositivo.
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -311,8 +339,13 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 </div>
               </>
             )}
-            {deviceAfterRemote && (
+            {deviceAfterRemote && canUseDeviceFallback && (
               <div className="player-controls">{deviceFallbackButton}</div>
+            )}
+            {deviceAfterRemote && hasNoCompatibleAudioPlayer && (
+              <p className="field-hint">
+                Tampoco hay una voz del dispositivo compatible para usar como fallback.
+              </p>
             )}
           </div>
         )}
