@@ -9,6 +9,7 @@ import type {
   VoiceVariant,
 } from '../types';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { DeviceCompatibilityPanel } from './DeviceCompatibilityPanel';
 import { VoiceEngineStatusPanel } from './VoiceEngineStatus';
 
 export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
@@ -279,6 +280,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
       </fieldset>
 
       <VoiceEngineStatusPanel />
+      <DeviceCompatibilityPanel />
     </StepLayout>
   );
 }

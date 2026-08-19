@@ -143,6 +143,13 @@ iOS/Safari), el WAV queda expuesto en un reproductor HTML nativo visible y con u
 botón de reintento que requiere un gesto. Así la reproducción no depende de que una
 promesa asíncrona conserve el gesto original.
 
+En el check-in y en reproducción también aparece “Compatibilidad de este dispositivo”:
+son comprobaciones locales de HTMLAudioElement/WAV, WebAssembly, Cache Storage,
+TextDecoder, Web Speech y configuración del endpoint. “Configurado / opt-in” no
+significa que el servidor esté disponible; el diagnóstico nunca hace un request ni
+incluye guion, diario, perfil o la URL del endpoint. Se puede copiar para comparar
+resultados entre celulares y PCs.
+
 ### Voz remota (sitio publicado y local)
 
 El sitio publicado incrusta
@@ -220,7 +227,7 @@ de conexión directa permanecen deshabilitados: no hay OAuth ni cuentas conectad
 | ---------------------- | ------------------------------------------------------------------------ |
 | `npm run format:check` | ✅                                                                       |
 | `npm run lint`         | ✅                                                                       |
-| `npm test`             | ✅ 163 tests (unitarias + flujo React + servidor mockeado; sin API real) |
+| `npm test`             | ✅ 172 tests (unitarias + flujo React + servidor mockeado; sin API real) |
 | `npm run build`        | ✅                                                                       |
 | `voice-service` tests  | ✅ 3 tests (`ARG_TTS_BACKEND=mock`, sin modelo ni deploy)                |
 | `npm audit --omit=dev` | (no re-ejecutado en este handoff)                                        |

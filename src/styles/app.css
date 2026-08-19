@@ -1224,6 +1224,60 @@ fieldset.field {
   margin: 0.2rem 0;
 }
 
+/* ---------- Device compatibility panel ---------- */
+
+.device-compat-section {
+  margin-top: var(--space-sm);
+}
+
+.device-compat-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-top: var(--space-sm);
+}
+
+.device-compat-actions .btn {
+  width: 100%;
+}
+
+.device-compat-badge.is-compatible {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
+}
+
+.device-compat-badge.is-no-compatible {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-strong);
+}
+
+.device-compat-badge.is-configured-opt-in {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+}
+
+.device-compat-badge.is-unverified {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+@media (min-width: 640px) {
+  .device-compat-actions {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .device-compat-actions .btn {
+    width: auto;
+    flex-shrink: 0;
+  }
+}
+
 /* ---------- Delete confirm ---------- */
 
 .delete-confirm {

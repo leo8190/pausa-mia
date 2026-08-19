@@ -80,6 +80,9 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
         screen.getByText(/motores de voz en este dispositivo/i),
       ).toBeInTheDocument();
     });
+    expect(
+      screen.getByRole('heading', { name: /compatibilidad de este dispositivo/i }),
+    ).toBeInTheDocument();
   });
 
   it('moves to "ready" and offers playback only after prepare() resolves with a real Blob', async () => {
