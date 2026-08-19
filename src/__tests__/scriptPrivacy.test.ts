@@ -88,7 +88,9 @@ describe('script privacy and quality gates', () => {
     expect(withDiary.usedDetails).toContain('context:selected');
     expect(withoutDiary.usedDetails).not.toContain('context:selected');
     expect(withDiary.fullText).not.toContain(diaryText);
-    expect(withDiary.fullText).toMatch(/contexto de otras fuentes/i);
+    expect(withDiary.fullText).toMatch(
+      /elegiste traer desde otro lugar|elegiste traer desde otro lado/i,
+    );
   });
 
   it('unselected diary and excluded fields are absent from all layers', () => {

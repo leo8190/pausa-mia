@@ -21,7 +21,7 @@ import {
 } from './durationEstimator';
 import { buildSituationRecognitionPhrase } from './situationReference';
 import { getSelectedContextSources } from './contextSources';
-import { validateUsedDetailsAllowlist } from './safeUsedDetails';
+import { type SafeUsedDetailId, validateUsedDetailsAllowlist } from './safeUsedDetails';
 import { detectSensitiveOverlapInScript } from './sensitiveOverlap';
 import {
   buildAiTransmissionPayload,
@@ -77,7 +77,7 @@ const MIN_FOCUS_SEGMENTS_BY_DURATION: Record<Duration, number> = {
 const SHORTEST_DURATION: Duration = 3;
 
 /** Indicaciones de estilo por cada indicación común dentro de la expansión. */
-const FOCUS_PER_COMMON_PHRASE = 3;
+const FOCUS_PER_COMMON_PHRASE = 4;
 
 /** Estilo usado como práctica por defecto cuando la persona no eligió ninguno. */
 const FALLBACK_STYLE: MeditationStyle = 'respiracion-natural';
@@ -88,6 +88,8 @@ interface TimedPhrase {
   text: VariantPhrase;
   pauseAfterMs: number;
 }
+
+type DetailSegmentMap = Partial<Record<SafeUsedDetailId, ScriptSegment[]>>;
 
 function hashString(str: string): number {
   let hash = 0;
@@ -104,6 +106,40 @@ function pick<T>(items: T[], seed: number): T {
 
 function toSegment(phrase: TimedPhrase, variant: VoiceVariant): ScriptSegment {
   return { text: phrase.text[variant], pauseAfterMs: phrase.pauseAfterMs };
+}
+
+function addDetailSegment(
+  detailSegments: DetailSegmentMap,
+  detailId: SafeUsedDetailId,
+  segment: ScriptSegment,
+): void {
+  detailSegments[detailId] = [...(detailSegments[detailId] ?? []), segment];
+}
+
+function mergeDetailSegments(...maps: DetailSegmentMap[]): DetailSegmentMap {
+  const merged: DetailSegmentMap = {};
+  for (const map of maps) {
+    for (const [detailId, segments] of Object.entries(map) as [
+      SafeUsedDetailId,
+      ScriptSegment[],
+    ][]) {
+      if (segments.length === 0) continue;
+      merged[detailId] = [...(merged[detailId] ?? []), ...segments];
+    }
+  }
+  return merged;
+}
+
+function collectUsedDetails(
+  segments: ScriptSegment[],
+  detailSegments: DetailSegmentMap,
+): SafeUsedDetailId[] {
+  const segmentTexts = new Set(segments.map((segment) => normalizeText(segment.text)));
+  return (Object.entries(detailSegments) as [SafeUsedDetailId, ScriptSegment[]][])
+    .filter(([, detailGroup]) =>
+      detailGroup.some((segment) => segmentTexts.has(normalizeText(segment.text))),
+    )
+    .map(([detailId]) => detailId);
 }
 
 // ---------------------------------------------------------------------------
@@ -163,29 +199,58 @@ const EXPERIENCE_ADAPTATION: Record<Experience, TimedPhrase> = {
   'primera-vez': {
     text: {
       'es-AR':
-        'Si es tu primera vez con una pausa así, no hay una forma correcta de hacerla: alcanza con acompañar la voz.',
+        'Si es tu primera vez con una pausa así, no hace falta hacerlo perfecto: alcanza con probarla a tu ritmo.',
       'es-neutro':
-        'Si es tu primera vez con una pausa así, no hay una forma correcta de hacerla: basta con acompañar la voz.',
+        'Si es tu primera vez con una pausa así, no hace falta hacerlo perfecto: basta con probarla a tu ritmo.',
     },
     pauseAfterMs: 4000,
   },
   basica: {
     text: {
       'es-AR':
-        'Ya hiciste esto otras veces, así que no hace falta explicar cada paso: cuando algo se vuelva confuso, quedate con la última indicación.',
+        'Ya conocés la base de esta práctica, así que no hace falta explicar cada paso desde cero.',
       'es-neutro':
-        'Ya hiciste esto otras veces, así que no hace falta explicar cada paso: cuando algo se vuelva confuso, quédate con la última indicación.',
+        'Ya conoces la base de esta práctica, así que no hace falta explicar cada paso desde cero.',
     },
     pauseAfterMs: 4000,
   },
   habitual: {
     text: {
       'es-AR':
-        'Confiá en tu práctica habitual: si algo de esto no te sirve, ajustalo sin pedir permiso.',
+        'Podés apoyarte en tu práctica habitual y ajustar lo que no te sirva sin pedir permiso.',
       'es-neutro':
-        'Confía en tu práctica habitual: si algo de esto no te sirve, ajústalo sin pedir permiso.',
+        'Puedes apoyarte en tu práctica habitual y ajustar lo que no te sirva sin pedir permiso.',
     },
     pauseAfterMs: 3500,
+  },
+};
+
+const EXPERIENCE_PRACTICE_SUPPORT: Record<Experience, TimedPhrase> = {
+  'primera-vez': {
+    text: {
+      'es-AR': 'Tomá una sola indicación por vez. Si te perdés, volvé a esa y alcanza.',
+      'es-neutro':
+        'Toma una sola indicación por vez. Si te pierdes, vuelve a esa y basta.',
+    },
+    pauseAfterMs: 5500,
+  },
+  basica: {
+    text: {
+      'es-AR':
+        'Si una indicación te sirve, quedate con ella unos instantes antes de pasar a la siguiente.',
+      'es-neutro':
+        'Si una indicación te sirve, quédate con ella unos instantes antes de pasar a la siguiente.',
+    },
+    pauseAfterMs: 6000,
+  },
+  habitual: {
+    text: {
+      'es-AR':
+        'Si algo de la voz sobra, podés dejarlo de fondo y seguir el hilo de tu práctica.',
+      'es-neutro':
+        'Si algo de la voz sobra, puedes dejarlo de fondo y seguir el hilo de tu práctica.',
+    },
+    pauseAfterMs: 6000,
   },
 };
 
@@ -193,8 +258,8 @@ function buildArrivalBlock(
   checkIn: CheckInData,
   excluded: Set<string>,
   variant: VoiceVariant,
-): { segments: ScriptSegment[]; details: string[] } {
-  const details: string[] = [];
+): { segments: ScriptSegment[]; detailSegments: DetailSegmentMap } {
+  const detailSegments: DetailSegmentMap = {};
   const segments: ScriptSegment[] = [];
   const seed = hashString(JSON.stringify(checkIn));
 
@@ -215,25 +280,28 @@ function buildArrivalBlock(
 
   if (!excluded.has('name') && checkIn.name.trim()) {
     const name = checkIn.name.trim();
-    details.push('name');
-    segments.push({
+    const segment = {
       text: `Gracias por darte este rato, ${name}.`,
       pauseAfterMs: 2500,
-    });
+    };
+    segments.push(segment);
+    addDetailSegment(detailSegments, 'name', segment);
   }
 
   if (!excluded.has('moment') && checkIn.moment) {
-    details.push('moment');
-    segments.push({
+    const segment = {
       text: pick(MOMENT_ARRIVAL[checkIn.moment], seed)[variant],
       pauseAfterMs: 3500,
-    });
+    };
+    segments.push(segment);
+    addDetailSegment(detailSegments, 'moment', segment);
   }
 
   const experience = checkIn.experience as Experience | '';
   if (!excluded.has('experience') && experience) {
-    details.push('experience');
-    segments.push(toSegment(EXPERIENCE_ADAPTATION[experience], variant));
+    const segment = toSegment(EXPERIENCE_ADAPTATION[experience], variant);
+    segments.push(segment);
+    addDetailSegment(detailSegments, 'experience', segment);
   }
 
   if (checkIn.duration > SHORTEST_DURATION) {
@@ -244,7 +312,7 @@ function buildArrivalBlock(
     segments.push({ text: settle, pauseAfterMs: 4500 });
   }
 
-  return { segments, details };
+  return { segments, detailSegments };
 }
 
 // ---------------------------------------------------------------------------
@@ -319,41 +387,45 @@ function buildRecognitionBlock(
   excluded: Set<string>,
   variant: VoiceVariant,
   contextSources: ContextSource[],
-): { segments: ScriptSegment[]; details: string[] } {
-  const details: string[] = [];
+): { segments: ScriptSegment[]; detailSegments: DetailSegmentMap } {
+  const detailSegments: DetailSegmentMap = {};
   const segments: ScriptSegment[] = [];
 
   if (!excluded.has('perceivedState') && checkIn.perceivedState) {
-    details.push('perceivedState');
-    segments.push({
+    const segment = {
       text: STATE_RECOGNITION[checkIn.perceivedState][variant],
       pauseAfterMs: 5000,
-    });
+    };
+    segments.push(segment);
+    addDetailSegment(detailSegments, 'perceivedState', segment);
   }
 
   if (!excluded.has('recentSituation') && checkIn.recentSituation.trim()) {
-    details.push('recentSituation:present');
-    segments.push({
+    const segment = {
       text: buildSituationRecognitionPhrase(variant),
       pauseAfterMs: 5500,
-    });
+    };
+    segments.push(segment);
+    addDetailSegment(detailSegments, 'recentSituation:present', segment);
   }
 
   if (getSelectedContextSources(contextSources).length > 0) {
-    details.push('context:selected');
     const contextPhrase =
       variant === 'es-AR'
-        ? 'También traés contexto de otras fuentes que elegiste incluir, sin repetirlo literalmente.'
-        : 'También traes contexto de otras fuentes que elegiste incluir, sin repetirlo literalmente.';
-    segments.push({ text: contextPhrase, pauseAfterMs: 3500 });
+        ? 'También puede acompañarte algo que elegiste traer desde otro lado, sin ponerlo en palabras.'
+        : 'También puede acompañarte algo que elegiste traer desde otro lugar, sin ponerlo en palabras.';
+    const segment = { text: contextPhrase, pauseAfterMs: 3500 };
+    segments.push(segment);
+    addDetailSegment(detailSegments, 'context:selected', segment);
   }
 
   if (!excluded.has('intention') && checkIn.intention) {
-    details.push('intention');
-    segments.push({
+    const segment = {
       text: INTENTION_RECOGNITION[checkIn.intention][variant],
       pauseAfterMs: 4000,
-    });
+    };
+    segments.push(segment);
+    addDetailSegment(detailSegments, 'intention', segment);
   }
 
   if (segments.length === 0) {
@@ -366,7 +438,7 @@ function buildRecognitionBlock(
     });
   }
 
-  return { segments, details };
+  return { segments, detailSegments };
 }
 
 // ---------------------------------------------------------------------------
@@ -1489,6 +1561,7 @@ interface FocusComposition {
   opening: ScriptSegment[];
   /** Indicaciones específicas de estilo e intención, en orden de uso. */
   phrases: ScriptSegment[];
+  detailSegments: DetailSegmentMap;
 }
 
 function buildFocusComposition(
@@ -1503,11 +1576,22 @@ function buildFocusComposition(
     !excluded.has('intention') && checkIn.intention
       ? (checkIn.intention as Intention)
       : '';
-
-  const opening: ScriptSegment[] = [toSegment(STYLE_INTRO[practiceStyle], variant)];
+  const experience =
+    !excluded.has('experience') && checkIn.experience
+      ? (checkIn.experience as Experience)
+      : '';
+  const detailSegments: DetailSegmentMap = {};
+  const styleIntro = toSegment(STYLE_INTRO[practiceStyle], variant);
+  const opening: ScriptSegment[] = [styleIntro];
+  addDetailSegment(detailSegments, 'style', styleIntro);
   const bridge = intention ? FOCUS_BRIDGES[`${practiceStyle}|${intention}`] : undefined;
   if (bridge && checkIn.duration > SHORTEST_DURATION) {
     opening.push(toSegment(bridge, variant));
+  }
+  if (experience && checkIn.duration > SHORTEST_DURATION) {
+    const support = toSegment(EXPERIENCE_PRACTICE_SUPPORT[experience], variant);
+    opening.push(support);
+    addDetailSegment(detailSegments, 'experience', support);
   }
 
   const stylePhrases = STYLE_FOCUS[practiceStyle].map((phrase) =>
@@ -1517,7 +1601,11 @@ function buildFocusComposition(
     ? INTENTION_FOCUS[intention].map((phrase) => toSegment(phrase, variant))
     : [];
 
-  return { opening, phrases: weaveFocus(stylePhrases, intentionPhrases) };
+  return {
+    opening,
+    phrases: weaveFocus(stylePhrases, intentionPhrases),
+    detailSegments,
+  };
 }
 
 function rotate<T>(items: T[], seed: number): T[] {
@@ -1818,11 +1906,14 @@ export function generateScript(
     duration,
   );
 
-  const usedDetails = [...arrival.details, ...recognition.details];
-  if (!excluded.has('style') && checkIn.style) {
-    usedDetails.push('style');
-  }
-  const uniqueDetails = usedDetails.filter((d, i, arr) => arr.indexOf(d) === i);
+  const uniqueDetails = collectUsedDetails(
+    allSegments,
+    mergeDetailSegments(
+      arrival.detailSegments,
+      recognition.detailSegments,
+      focus.detailSegments,
+    ),
+  );
 
   const intentionLabel = checkIn.intention
     ? INTENTION_LABELS[checkIn.intention]

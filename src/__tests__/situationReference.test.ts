@@ -8,8 +8,8 @@ describe('situationReference', () => {
 
     expect(phraseAr).not.toContain('relacionado con');
     expect(phraseNeutro).not.toContain('relacionado con');
-    expect(phraseAr).toMatch(/situación reciente/i);
-    expect(phraseAr).toMatch(/no hace falta nombrarla/i);
-    expect(phraseNeutro).toMatch(/no hace falta nombrarla/i);
+    expect(phraseAr).toMatch(/ocupa espacio/i);
+    expect(phraseAr).toMatch(/no hace falta contarlo de nuevo/i);
+    expect(phraseNeutro).toMatch(/no hace falta contarlo de nuevo/i);
   });
 });
