@@ -8,6 +8,7 @@ import {
   parseImportedContent,
 } from '../lib/contextSources';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { FutureIntegrations } from './FutureIntegrations';
 
 export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { contextSources } = sessionApi.session;
@@ -149,6 +150,8 @@ export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
           </li>
         ))}
       </ul>
+
+      <FutureIntegrations sessionApi={sessionApi} />
     </StepLayout>
   );
 }

@@ -1,7 +1,6 @@
 import { PRICE_OPTIONS, type PriceOption } from '../types';
 import type { SessionApi } from '../hooks/useSession';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
-import { FutureIntegrations } from './FutureIntegrations';
 
 export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { rating, selectedPrice, wouldRepeat } = sessionApi.session;
@@ -104,7 +103,11 @@ export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
         </p>
       </div>
 
-      <FutureIntegrations />
+      <p className="field-hint">
+        Las fuentes que podés agregar (perfil, calendario, diario, redes) se encuentran
+        en el paso "Contexto adicional". Las conexiones en línea equivalentes siguen
+        desactivadas hasta que exista una configuración real.
+      </p>
     </StepLayout>
   );
 }

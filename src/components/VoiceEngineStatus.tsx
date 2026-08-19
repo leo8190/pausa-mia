@@ -6,7 +6,13 @@ import { getVoiceEngineStatuses, type VoiceEngineStatus } from '../lib/voiceEngi
  * este dispositivo/navegador concreto. Nunca afirma que un motor funciona
  * cuando no pudo verificarse.
  */
-export function VoiceEngineStatusPanel() {
+export function VoiceEngineStatusPanel({
+  refreshKey,
+}: {
+  /** Cambiar este valor (por ejemplo, el estado del reproductor neuronal) fuerza a
+   * releer el estado real, para reflejar una verificación recién ocurrida. */
+  refreshKey?: string | number;
+} = {}) {
   const [statuses, setStatuses] = useState<VoiceEngineStatus[] | null>(null);
 
   useEffect(() => {
@@ -17,7 +23,7 @@ export function VoiceEngineStatusPanel() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   if (!statuses) return null;
 

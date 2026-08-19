@@ -5,21 +5,26 @@
 }
 
 :root {
-  /* Paleta serena: verde salvia como color principal, arena cálida como acento. */
-  --color-bg: #f6f3ec;
-  --color-bg-glow-1: rgba(91, 124, 110, 0.14);
-  --color-bg-glow-2: rgba(196, 168, 130, 0.12);
+  /* Paleta serena y premium: verde salvia profundo + arena cálida como acento. */
+  --color-bg: #f4f1e9;
+  --color-bg-glow-1: rgba(79, 116, 102, 0.16);
+  --color-bg-glow-2: rgba(196, 168, 130, 0.16);
+  --color-bg-glow-3: rgba(63, 92, 122, 0.08);
   --color-surface: #ffffff;
-  --color-surface-muted: #f8f6f1;
+  --color-surface-muted: #f7f5ee;
+  --color-surface-raised: #fffefb;
   --color-primary: #4f7466;
-  --color-primary-dark: #395a4e;
+  --color-primary-dark: #33544a;
+  --color-primary-darker: #24443b;
   --color-primary-soft: rgba(79, 116, 102, 0.12);
-  --color-primary-soft-strong: rgba(79, 116, 102, 0.22);
-  --color-text: #232a27;
+  --color-primary-soft-strong: rgba(79, 116, 102, 0.24);
+  --color-text: #1f2624;
   --color-text-muted: #5b6560;
-  --color-border: #dfe4dd;
+  --color-text-subtle: #7b847e;
+  --color-border: #e2e6de;
   --color-border-strong: #c7d0c8;
   --color-accent: #b6935f;
+  --color-accent-dark: #8f6e40;
   --color-accent-soft: rgba(182, 147, 95, 0.16);
   --color-danger: #9a4b45;
   --color-danger-bg: #fbf0ee;
@@ -37,25 +42,33 @@
   --space-md: 1.5rem;
   --space-lg: 2rem;
   --space-xl: 3rem;
+  --space-2xl: 4rem;
 
-  --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 22px;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --radius-xl: 32px;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 1px 3px rgba(35, 42, 39, 0.06);
-  --shadow-md: 0 8px 24px rgba(35, 42, 39, 0.08);
-  --shadow-lg: 0 20px 45px rgba(35, 42, 39, 0.12);
+  --shadow-xs: 0 1px 2px rgba(23, 32, 28, 0.05);
+  --shadow-sm: 0 2px 6px rgba(23, 32, 28, 0.06);
+  --shadow-md: 0 10px 28px -6px rgba(23, 32, 28, 0.14);
+  --shadow-lg: 0 28px 60px -12px rgba(23, 32, 28, 0.22);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
   --shadow-focus: 0 0 0 4px var(--color-primary-soft-strong);
 
   --font:
-    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    'Avenir Next', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-display: var(--font);
   --max-width: 600px;
   --touch-target: 44px;
 
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --motion-fast: 150ms;
-  --motion-base: 220ms;
+  --motion-base: 240ms;
+  --motion-slow: 420ms;
 
   color-scheme: light;
 }
@@ -63,16 +76,32 @@
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--font);
   background:
-    radial-gradient(circle at 12% -10%, var(--color-bg-glow-1), transparent 55%),
-    radial-gradient(circle at 100% 0%, var(--color-bg-glow-2), transparent 45%),
+    radial-gradient(
+      ellipse 70% 55% at 15% -10%,
+      var(--color-bg-glow-1),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 105% 0%,
+      var(--color-bg-glow-2),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 80% 60% at 50% 115%,
+      var(--color-bg-glow-3),
+      transparent 60%
+    ),
     var(--color-bg);
+  background-attachment: fixed;
   color: var(--color-text);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -81,30 +110,33 @@ body {
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
+  isolation: isolate;
 }
 
 h1,
 h2,
 h3,
 h4 {
-  line-height: 1.25;
+  line-height: 1.22;
   font-weight: 650;
-  letter-spacing: -0.01em;
-  color: var(--color-primary-dark);
+  letter-spacing: -0.015em;
+  color: var(--color-primary-darker);
+  font-family: var(--font-display);
 }
 
 h1 {
-  font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  font-size: clamp(1.3rem, 1.15rem + 0.7vw, 1.6rem);
   margin: 0;
 }
 
 h2 {
-  font-size: clamp(1.2rem, 1.05rem + 0.7vw, 1.5rem);
-  margin: 0 0 0.5rem;
+  font-size: clamp(1.3rem, 1.1rem + 0.9vw, 1.7rem);
+  margin: 0 0 0.6rem;
 }
 
 h3 {
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   margin: 0 0 0.5rem;
 }
 
@@ -125,6 +157,31 @@ a {
 ul,
 ol {
   padding-left: 1.25rem;
+}
+
+::selection {
+  background: var(--color-primary-soft-strong);
+  color: var(--color-primary-darker);
+}
+
+/* Scrollbar styling (progressive enhancement, no functional dependency) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
 }
 
 :focus-visible {
@@ -164,6 +221,10 @@ ol {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {
