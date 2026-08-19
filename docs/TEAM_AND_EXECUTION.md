@@ -16,8 +16,14 @@ consentimiento, minimización de datos, seguridad de bienestar y preguntas de pr
 
 ## Dirección de crecimiento y monetización
 
-**Grok Bot — Dirección de Crecimiento y Señales de Mercado.** Investiga oferta, precio
-experimental, embudo y criterios de continuidad o descarte. No inventa tráfico.
+**ChatGPT Work y Codex — Dirección de Producto y Crecimiento.** Mantienen el embudo,
+priorizan la próxima acción y separan visitas, intención y pago real.
+
+**Grok Bot — Dirección de Distribución Orgánica y Señales de Mercado.** Investiga
+oportunidades y prepara borradores cuando su canal tenga entrega válida. No inventa
+tráfico; Codex cubre esta función cuando Grok no esté disponible.
+
+El sistema operativo completo está en [`LEON_GROWTH_OS.md`](LEON_GROWTH_OS.md).
 
 ## Ingeniería de producto
 
