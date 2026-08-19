@@ -49,6 +49,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     resume: resumeNeural,
     stop: stopNeural,
     restart: restartNeural,
+    mountNativeAudioElement,
   } = useArgentineVoicePlayer(argentineMode);
 
   const useNeuralEngine = wantsArgentineNeural && !useDeviceFallback;
@@ -81,8 +82,10 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     const isPlaying = neuralState.status === 'playing';
     const isPaused = neuralState.status === 'paused';
     const isStoppedAfterPlay = neuralState.status === 'stopped';
+    const needsNativePlay = neuralState.status === 'needs-native-play';
     const hasError = neuralState.status === 'error';
-    const canPlayback = isReady || isPlaying || isPaused || isStoppedAfterPlay;
+    const canPlayback =
+      isReady || isPlaying || isPaused || isStoppedAfterPlay || needsNativePlay;
     const progressPct =
       neuralState.progress && neuralState.progress.total > 0
         ? Math.min(
@@ -149,10 +152,11 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
         {!useRemoteArgentine && !neuralBrowserSupported && (
           <div className="fallback-notice" role="alert">
-            Este navegador no soporta WebAssembly, AudioContext o Cache Storage,
-            necesarios para la voz argentina neuronal local. Podés usar la opción remota
-            (si está configurada), una voz del dispositivo (no argentina) o volver a
-            intentarlo en Chrome, Edge, Safari o Firefox actualizados.
+            Este navegador no soporta WebAssembly, Cache Storage, TextDecoder o
+            reproducción WAV (HTMLAudioElement), necesarios para la voz argentina
+            neuronal local. Podés usar la opción remota (si está configurada), una voz
+            del dispositivo (no argentina) o volver a intentarlo en Chrome, Edge, Safari
+            o Firefox actualizados.
             <div className="player-controls">
               <button
                 type="button"
@@ -321,6 +325,37 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
           {canPlayback && (
             <div className="player-dock">
+              {needsNativePlay && (
+                <div
+                  className="native-audio-fallback"
+                  role="region"
+                  aria-label="Reproducción con controles del dispositivo"
+                >
+                  <p className="field-hint" role="status">
+                    Tu navegador bloqueó el inicio automático del audio (política de
+                    autoplay). Usá el reproductor nativo o el botón de abajo para
+                    iniciar el WAV con un gesto explícito. Pausar, Continuar, Detener y
+                    Reiniciar siguen disponibles.
+                  </p>
+                  <div
+                    className="native-audio-host"
+                    ref={(host) => {
+                      mountNativeAudioElement(host);
+                    }}
+                  />
+                  <div className="player-controls">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={resumeNeural}
+                      aria-label="Reproducir con controles del dispositivo"
+                    >
+                      Reproducir con controles del dispositivo
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div
                 className="player-controls"
                 role="group"
@@ -330,7 +365,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                     : 'Controles de reproducción de voz argentina'
                 }
               >
-                {!isPlaying && !isPaused && (
+                {!isPlaying && !isPaused && !needsNativePlay && (
                   <button
                     type="button"
                     className="btn btn-primary"
@@ -346,7 +381,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                       : 'Reproducir voz argentina'}
                   </button>
                 )}
-                {isPlaying && (
+                {(isPlaying || needsNativePlay) && (
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -366,7 +401,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                     Continuar
                   </button>
                 )}
-                {(isPlaying || isPaused) && (
+                {(isPlaying || isPaused || needsNativePlay) && (
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -387,7 +422,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               </div>
 
               <p
-                className={`player-status${isPlaying ? ' player-status--playing' : ''}${isReady && !isPlaying && !isPaused && !isStoppedAfterPlay ? ' player-status--ready' : ''}`}
+                className={`player-status${isPlaying ? ' player-status--playing' : ''}${isReady && !isPlaying && !isPaused && !isStoppedAfterPlay && !needsNativePlay ? ' player-status--ready' : ''}`}
                 role="status"
               >
                 Estado: {isReady && 'Listo'}
@@ -395,6 +430,8 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                   `Reproduciendo segmento ${neuralState.currentSegmentIndex + 1} de ${script.segments.length}`}
                 {isPaused && 'Pausado'}
                 {isStoppedAfterPlay && 'Detenido'}
+                {needsNativePlay &&
+                  `Audio listo — usá el control nativo (segmento ${neuralState.currentSegmentIndex + 1} de ${script.segments.length})`}
               </p>
             </div>
           )}
