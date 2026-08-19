@@ -14,6 +14,9 @@ export const MAX_REMOTE_TTS_SEGMENT_CHARS = 800;
  */
 export const REMOTE_TTS_TIMEOUT_MS = 45_000;
 
+/** Espera breve antes de repetir una única falla transitoria del servicio. */
+export const REMOTE_TTS_RETRY_DELAY_MS = 350;
+
 export type RemoteTtsRequestBody = {
   text: string;
 };
@@ -25,11 +28,19 @@ export type RemoteTtsJsonError = {
 
 export class RemoteVoiceError extends Error {
   readonly code: string;
+  readonly status: number | undefined;
+  readonly retryable: boolean;
 
-  constructor(message: string, code: string) {
+  constructor(
+    message: string,
+    code: string,
+    options?: { status?: number; retryable?: boolean },
+  ) {
     super(message);
     this.name = 'RemoteVoiceError';
     this.code = code;
+    this.status = options?.status;
+    this.retryable = options?.retryable ?? false;
   }
 }
 
@@ -118,6 +129,7 @@ function classifyFetchFailure(err: unknown): RemoteVoiceError {
     return new RemoteVoiceError(
       'Sin conexión a internet. No se pudo contactar el servicio de voz remota.',
       'offline',
+      { retryable: true },
     );
   }
 
@@ -126,6 +138,7 @@ function classifyFetchFailure(err: unknown): RemoteVoiceError {
     return new RemoteVoiceError(
       'No se pudo contactar el servicio de voz remota. Revisá la conexión o que el origen esté permitido (CORS).',
       'cors',
+      { retryable: true },
     );
   }
 
@@ -134,33 +147,39 @@ function classifyFetchFailure(err: unknown): RemoteVoiceError {
       ? `No se pudo contactar el servicio de voz remota: ${err.message}`
       : 'No se pudo contactar el servicio de voz remota.',
     'network_error',
+    { retryable: true },
   );
 }
 
-/**
- * POST JSON `{ text }` al endpoint configurado. Devuelve un `Blob` `audio/wav`.
- * No envía nada si el endpoint está vacío.
- * Aplica timeout explícito y abort limpio; respeta `options.signal` externo.
- */
-export async function synthesizeRemoteArgentineVoice(
-  text: string,
-  options?: { signal?: AbortSignal; timeoutMs?: number },
-): Promise<Blob> {
-  const endpoint = getArgentineTtsEndpoint();
-  if (!endpoint) {
-    throw new RemoteVoiceError(
-      'No hay un endpoint remoto configurado (VITE_ARGENTINE_TTS_ENDPOINT).',
-      'endpoint_missing',
+function waitBeforeRetry(ms: number, external?: AbortSignal): Promise<void> {
+  if (external?.aborted) {
+    return Promise.reject(
+      new RemoteVoiceError('La solicitud de voz remota se canceló.', 'aborted'),
     );
   }
 
-  assertRemoteTextLimits(text);
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      external?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timeoutId);
+      external?.removeEventListener('abort', onAbort);
+      reject(new RemoteVoiceError('La solicitud de voz remota se canceló.', 'aborted'));
+    };
+    external?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
-  const url = `${endpoint}/v1/tts`;
-  const body: RemoteTtsRequestBody = { text: text.trim() };
+async function synthesizeRemoteTtsAttempt(
+  url: string,
+  body: RemoteTtsRequestBody,
+  options: { signal?: AbortSignal; timeoutMs: number },
+): Promise<Blob> {
   const { signal, didTimeout, cleanup } = createRemoteTtsAbortSignal(
-    options?.signal,
-    options?.timeoutMs ?? REMOTE_TTS_TIMEOUT_MS,
+    options.signal,
+    options.timeoutMs,
   );
 
   let response: Response;
@@ -206,7 +225,11 @@ export async function synthesizeRemoteArgentineVoice(
         // conservar mensaje genérico
       }
     }
-    throw new RemoteVoiceError(message, code);
+    throw new RemoteVoiceError(message, code, {
+      status: response.status,
+      retryable:
+        response.status === 502 || response.status === 503 || response.status === 504,
+    });
   }
 
   if (!contentType.includes('audio/wav') && !contentType.includes('audio/x-wav')) {
@@ -225,4 +248,58 @@ export async function synthesizeRemoteArgentineVoice(
   }
 
   return new Blob([blob], { type: 'audio/wav' });
+}
+
+/**
+ * POST JSON `{ text }` al endpoint configurado. Devuelve un `Blob` `audio/wav`.
+ * No envía nada si el endpoint está vacío.
+ * Aplica timeout explícito y abort limpio; respeta `options.signal` externo.
+ */
+export async function synthesizeRemoteArgentineVoice(
+  text: string,
+  options?: { signal?: AbortSignal; timeoutMs?: number },
+): Promise<Blob> {
+  const endpoint = getArgentineTtsEndpoint();
+  if (!endpoint) {
+    throw new RemoteVoiceError(
+      'No hay un endpoint remoto configurado (VITE_ARGENTINE_TTS_ENDPOINT).',
+      'endpoint_missing',
+    );
+  }
+
+  assertRemoteTextLimits(text);
+
+  const url = `${endpoint}/v1/tts`;
+  const body: RemoteTtsRequestBody = { text: text.trim() };
+  const timeoutMs = options?.timeoutMs ?? REMOTE_TTS_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
+  let attempts = 0;
+
+  while (true) {
+    const remainingMs = Math.max(1, deadline - Date.now());
+    try {
+      return await synthesizeRemoteTtsAttempt(url, body, {
+        signal: options?.signal,
+        timeoutMs: remainingMs,
+      });
+    } catch (err) {
+      if (
+        !(err instanceof RemoteVoiceError) ||
+        !err.retryable ||
+        attempts >= 1 ||
+        Date.now() >= deadline
+      ) {
+        throw err;
+      }
+      attempts += 1;
+      const delayMs = Math.min(
+        REMOTE_TTS_RETRY_DELAY_MS,
+        Math.max(1, deadline - Date.now()),
+      );
+      await waitBeforeRetry(delayMs, options?.signal);
+      if (Date.now() >= deadline) {
+        throw err;
+      }
+    }
+  }
 }

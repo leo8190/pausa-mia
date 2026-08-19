@@ -8,6 +8,7 @@ import {
   MAX_REMOTE_TTS_SEGMENT_CHARS,
   MAX_REMOTE_TTS_TOTAL_CHARS,
   REMOTE_TTS_TIMEOUT_MS,
+  REMOTE_TTS_RETRY_DELAY_MS,
   RemoteVoiceError,
   synthesizeRemoteArgentineVoice,
 } from '../lib/remoteVoiceService';
@@ -76,6 +77,42 @@ describe('remoteVoiceService', () => {
     );
   });
 
+  it('retries once after a transient 503 and keeps the same text', async () => {
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+    vi.useFakeTimers();
+    const wav = new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ error: 'Servicio iniciándose', code: 'warming_up' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'audio/wav' },
+        blob: async () => wav,
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promise = synthesizeRemoteArgentineVoice('Respirá despacio.');
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(REMOTE_TTS_RETRY_DELAY_MS);
+    const result = await promise;
+
+    expect(result.type).toBe('audio/wav');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
+      JSON.stringify({ text: 'Respirá despacio.' }),
+    );
+    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
+      JSON.stringify({ text: 'Respirá despacio.' }),
+    );
+  });
+
   it('surfaces abort and JSON errors clearly', async () => {
     vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
 
@@ -89,21 +126,41 @@ describe('remoteVoiceService', () => {
       synthesizeRemoteArgentineVoice('Hola', { signal: abortController.signal }),
     ).rejects.toMatchObject({ code: 'aborted' });
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: false,
-        status: 413,
-        headers: {
-          get: () => 'application/json',
-        },
-        json: async () => ({ error: 'Texto demasiado largo', code: 'text_too_long' }),
-      }),
-    );
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 413,
+      headers: {
+        get: () => 'application/json',
+      },
+      json: async () => ({ error: 'Texto demasiado largo', code: 'text_too_long' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
     await expect(synthesizeRemoteArgentineVoice('Hola')).rejects.toMatchObject({
       message: 'Texto demasiado largo',
       code: 'text_too_long',
     });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels the retry wait when the external signal aborts', async () => {
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+    vi.useFakeTimers();
+    const external = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ error: 'Gateway temporal', code: 'bad_gateway' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promise = synthesizeRemoteArgentineVoice('Hola', { signal: external.signal });
+    await Promise.resolve();
+    await Promise.resolve();
+    external.abort();
+
+    await expect(promise).rejects.toMatchObject({ code: 'aborted' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('aborts fetch on timeout and reports a clear timeout error', async () => {
