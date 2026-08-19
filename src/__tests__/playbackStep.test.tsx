@@ -4,6 +4,7 @@ import { PlaybackStep } from '../components/PlaybackStep';
 import type { SessionApi } from '../hooks/useSession';
 import type { SessionState } from '../types';
 import * as voiceEngine from '../lib/voiceEngine';
+import * as remoteVoice from '../lib/remoteVoiceService';
 
 function makeSessionApi(voiceVariant: 'es-AR' | 'es-neutro'): SessionApi {
   return {
@@ -55,6 +56,7 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     }
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -135,5 +137,61 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
         screen.getByText(/motores de voz en este dispositivo/i),
       ).toBeInTheDocument();
     });
+  });
+
+  it('offers remote voice only after local failure, with consent unchecked and button disabled', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
+      new Error('El modelo no se pudo descargar.'),
+    );
+
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /usar voz argentina remota/i }),
+      ).toBeInTheDocument();
+    });
+
+    const consent = screen.getByRole('checkbox', {
+      name: /acepto enviar sólo el texto del guion/i,
+    });
+    expect(consent).not.toBeChecked();
+    expect(
+      screen.getByRole('button', { name: /usar voz argentina remota/i }),
+    ).toBeDisabled();
+
+    fireEvent.click(consent);
+    expect(
+      screen.getByRole('button', { name: /usar voz argentina remota/i }),
+    ).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /usar voz argentina remota/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/estás usando la voz argentina remota/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('explains missing remote endpoint instead of enabling silent remote use', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(false);
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
+      new Error('fallo local'),
+    );
+
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/falta configurar el servicio remoto/i),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole('button', { name: /usar voz argentina remota/i }),
+    ).not.toBeInTheDocument();
   });
 });

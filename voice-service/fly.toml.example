@@ -1,0 +1,37 @@
+# Ejemplo de bajo costo / autostop para Fly.io — NO desplegado desde este repo.
+# ADVERTENCIA DE COSTOS: fly deploy / máquinas / volumen / egress pueden generar gasto.
+# Ajustá app name, región y secretos localmente. No gasta cuota hasta que ejecutes fly deploy.
+#
+# Requisitos previos (manuales):
+#   1. fly auth login
+#   2. Descargar modelo (scripts/download-model.sh) y crear un volumen o imagen con /models
+#   3. Instalar binario piper en la imagen o volume
+#   4. fly secrets set ARG_ALLOWED_ORIGINS=https://tu-frontend.example
+#
+# Luego: fly launch --no-deploy && fly deploy  (sólo si Leonardo lo autoriza)
+
+app = "argentine-tts-example"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8787"
+  ARG_TTS_BACKEND = "piper"
+  ARG_MAX_TEXT_CHARS = "800"
+  PIPER_MODEL_PATH = "/models/es_AR-daniela-high.onnx"
+  PIPER_CONFIG_PATH = "/models/es_AR-daniela-high.onnx.json"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpus = 1

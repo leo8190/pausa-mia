@@ -6,6 +6,7 @@ import {
   checkNeuralEngineBrowserSupport,
   ES_AR_VOICE_APPROX_SIZE_MB,
 } from '../lib/voiceEngine';
+import { isRemoteArgentineTtsConfigured } from '../lib/remoteVoiceService';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 import { VoiceEngineStatusPanel } from './VoiceEngineStatus';
 
@@ -22,7 +23,11 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   // dispositivo (no argentina) tras un fallo de la voz neuronal, o si eligió
   // español neutro, se usa el motor Web Speech de siempre.
   const [useDeviceFallback, setUseDeviceFallback] = useState(false);
+  // Ruta remota opcional: nunca automática; requiere consentimiento visible.
+  const [useRemoteArgentine, setUseRemoteArgentine] = useState(false);
+  const [remoteConsent, setRemoteConsent] = useState(false);
   const neuralBrowserSupported = checkNeuralEngineBrowserSupport();
+  const remoteConfigured = isRemoteArgentineTtsConfigured();
 
   const {
     playerState,
@@ -35,6 +40,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     restart: restartWebSpeech,
   } = useSpeechPlayer(checkIn.voiceVariant);
 
+  const argentineMode = useRemoteArgentine ? 'remote' : 'local';
   const {
     state: neuralState,
     prepare: prepareNeural,
@@ -43,7 +49,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     resume: resumeNeural,
     stop: stopNeural,
     restart: restartNeural,
-  } = useArgentineVoicePlayer();
+  } = useArgentineVoicePlayer(argentineMode);
 
   const useNeuralEngine = wantsArgentineNeural && !useDeviceFallback;
 
@@ -55,10 +61,17 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
   useEffect(() => {
     // Al cambiar de guion o de variante, se descarta cualquier confirmación
-    // previa de fallback: cada sesión de reproducción vuelve a pedirla si
-    // corresponde, en vez de recordar silenciosamente una decisión pasada.
+    // previa de fallback o remoto: cada sesión vuelve a pedirla si corresponde.
     setUseDeviceFallback(false);
+    setUseRemoteArgentine(false);
+    setRemoteConsent(false);
   }, [script, checkIn.voiceVariant]);
+
+  useEffect(() => {
+    if (useRemoteArgentine && neuralState.status === 'idle') {
+      void prepareNeural();
+    }
+  }, [useRemoteArgentine, neuralState.status, prepareNeural]);
 
   if (!script) return null;
 
@@ -80,10 +93,17 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           )
         : null;
 
+    const showRemoteOffer =
+      !useRemoteArgentine && (!neuralBrowserSupported || hasError);
+
     return (
       <StepLayout
         title="Reproducción"
-        lead="Voz argentina neuronal real (es_AR-daniela-high), generada en tu navegador."
+        lead={
+          useRemoteArgentine
+            ? 'Voz argentina remota (WAV servido por tu endpoint). El guion se envía sólo tras tu consentimiento.'
+            : 'Voz argentina neuronal real (es_AR-daniela-high), generada en tu navegador.'
+        }
         cardClassName={isPlaying ? 'step-card--active' : undefined}
         actions={
           <>
@@ -110,12 +130,30 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       >
         <VoiceEngineStatusPanel refreshKey={neuralState.status} />
 
-        {!neuralBrowserSupported && (
+        {useRemoteArgentine && (
+          <div className="fallback-notice" role="status">
+            Estás usando la voz argentina remota. Sólo se envía el texto del guion (sin
+            diario, perfil ni fuentes).{' '}
+            <button
+              type="button"
+              className="btn btn-secondary btn-inline"
+              onClick={() => {
+                stopNeural();
+                setUseRemoteArgentine(false);
+                setRemoteConsent(false);
+              }}
+            >
+              Volver a la voz local
+            </button>
+          </div>
+        )}
+
+        {!useRemoteArgentine && !neuralBrowserSupported && (
           <div className="fallback-notice" role="alert">
             Este navegador no soporta WebAssembly, AudioContext o Cache Storage,
-            necesarios para la voz argentina neuronal. Podés usar una voz del
-            dispositivo (no argentina) o volver a intentarlo en Chrome, Edge, Safari o
-            Firefox actualizados.
+            necesarios para la voz argentina neuronal local. Podés usar la opción remota
+            (si está configurada), una voz del dispositivo (no argentina) o volver a
+            intentarlo en Chrome, Edge, Safari o Firefox actualizados.
             <div className="player-controls">
               <button
                 type="button"
@@ -128,30 +166,32 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           </div>
         )}
 
-        {neuralBrowserSupported && neuralState.status === 'idle' && (
-          <div
-            className="voice-engine-section"
-            role="region"
-            aria-label="Preparar voz argentina"
-          >
-            <p className="field-hint">
-              La primera vez descarga el modelo real (aprox.{' '}
-              {ES_AR_VOICE_APPROX_SIZE_MB} MB) y lo prueba con una frase corta antes de
-              mostrarlo como listo. Quedará en caché local para próximas sesiones.
-            </p>
-            <div className="player-controls">
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => void prepareNeural()}
-              >
-                Preparar voz argentina
-              </button>
+        {!useRemoteArgentine &&
+          neuralBrowserSupported &&
+          neuralState.status === 'idle' && (
+            <div
+              className="voice-engine-section"
+              role="region"
+              aria-label="Preparar voz argentina"
+            >
+              <p className="field-hint">
+                La primera vez descarga el modelo real (aprox.{' '}
+                {ES_AR_VOICE_APPROX_SIZE_MB} MB) y lo prueba con una frase corta antes
+                de mostrarlo como listo. Quedará en caché local para próximas sesiones.
+              </p>
+              <div className="player-controls">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void prepareNeural()}
+                >
+                  Preparar voz argentina
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {isPreparing && (
+        {!useRemoteArgentine && isPreparing && (
           <div className="voice-engine-section" role="status" aria-live="polite">
             <p className="field-hint">
               Preparando voz argentina
@@ -170,18 +210,35 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           </div>
         )}
 
+        {useRemoteArgentine && isPreparing && (
+          <p className="field-hint" role="status">
+            Preparando voz argentina remota…
+          </p>
+        )}
+
         {hasError && (
           <div className="fallback-notice" role="alert">
-            No se pudo preparar o reproducir la voz argentina neuronal:{' '}
-            {neuralState.error}
+            No se pudo preparar o reproducir la voz argentina
+            {useRemoteArgentine ? ' remota' : ' neuronal'}: {neuralState.error}
             <div className="player-controls">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => void prepareNeural()}
-              >
-                Reintentar
-              </button>
+              {!useRemoteArgentine && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => void prepareNeural()}
+                >
+                  Reintentar
+                </button>
+              )}
+              {useRemoteArgentine && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => void prepareNeural()}
+                >
+                  Reintentar remoto
+                </button>
+              )}
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -190,6 +247,59 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 Usar voz del dispositivo (no es argentina)
               </button>
             </div>
+          </div>
+        )}
+
+        {showRemoteOffer && (
+          <div
+            className="voice-engine-section"
+            role="region"
+            aria-label="Voz argentina remota opcional"
+          >
+            <p className="field-hint">
+              Opción remota (no automática): un servidor propio puede sintetizar el
+              mismo modelo Piper y devolver un WAV reproducible en este dispositivo.
+            </p>
+            {!remoteConfigured ? (
+              <p className="fallback-notice" role="status">
+                Falta configurar el servicio remoto. Definí{' '}
+                <code>VITE_ARGENTINE_TTS_ENDPOINT</code> en tu entorno local (ver README
+                y <code>voice-service/</code>) y reiniciá el frontend. Sin ese valor no
+                se envía ningún texto.
+              </p>
+            ) : (
+              <>
+                <label className="checkbox-option" htmlFor="consent-remote-tts">
+                  <input
+                    type="checkbox"
+                    id="consent-remote-tts"
+                    checked={remoteConsent}
+                    onChange={(e) => setRemoteConsent(e.target.checked)}
+                    aria-describedby="consent-remote-tts-hint"
+                  />
+                  <span>
+                    Acepto enviar sólo el texto del guion al servidor de voz para
+                    sintetizarlo. No se envían diario, perfil ni fuentes.
+                    <span id="consent-remote-tts-hint" className="field-hint">
+                      Esta casilla no está marcada por defecto.
+                    </span>
+                  </span>
+                </label>
+                <div className="player-controls">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!remoteConsent}
+                    onClick={() => {
+                      stopNeural();
+                      setUseRemoteArgentine(true);
+                    }}
+                  >
+                    Usar voz argentina remota
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -212,16 +322,26 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           <div
             className="player-controls"
             role="group"
-            aria-label="Controles de reproducción de voz argentina"
+            aria-label={
+              useRemoteArgentine
+                ? 'Controles de reproducción de voz argentina remota'
+                : 'Controles de reproducción de voz argentina'
+            }
           >
             {!isPlaying && !isPaused && (
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => playNeural(script.segments)}
-                aria-label="Reproducir voz argentina"
+                aria-label={
+                  useRemoteArgentine
+                    ? 'Reproducir voz argentina remota'
+                    : 'Reproducir voz argentina'
+                }
               >
-                Reproducir voz argentina
+                {useRemoteArgentine
+                  ? 'Reproducir voz argentina remota'
+                  : 'Reproducir voz argentina'}
               </button>
             )}
             {isPlaying && (

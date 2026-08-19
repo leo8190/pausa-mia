@@ -1,0 +1,22 @@
+{
+  "name": "argentine-voice-service",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Servicio opcional POST /v1/tts para voz argentina Piper es_AR-daniela-high",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "tsx --test test/*.test.ts",
+    "download-model": "bash scripts/download-model.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "~5.7.2"
+  }
+}

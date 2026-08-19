@@ -1,22 +1,22 @@
-// Reproductor de la voz argentina neuronal real (Piper/ONNX,
-// `es_AR-daniela-high`). Paralelo a `useSpeechPlayer` (Web Speech), pero la
-// fuente de audio es un `Blob` generado por inferencia real en el navegador
-// (`voiceEngine.synthesizeArgentineVoice`), no una voz del sistema.
+// Reproductor de la voz argentina neuronal (Piper local u opcionalmente remoto).
+// Paralelo a `useSpeechPlayer` (Web Speech): la fuente es un `Blob` WAV reproducido
+// con HTMLAudioElement, no una voz del sistema.
 //
-// Ciclo de vida explícito, sin pasos ocultos:
-// 1. `idle`      — todavía no se preparó nada.
-// 2. `preparing` — descargando/cargando el modelo (progreso visible).
-// 3. `ready`     — la preparación produjo un `Blob` de audio real: ya se
-//                  puede reproducir.
-// 4. `playing` / `paused` / `stopped` — reproducción de los segmentos.
-// 5. `error`     — la preparación o la síntesis fallaron; el mensaje describe
-//                  la causa. Nunca se cae en silencio a otra voz: quien use
-//                  este hook debe ofrecer, de forma explícita, una voz del
-//                  dispositivo marcada como "no argentina".
+// Modo `local` (por defecto): inferencia Piper/ONNX en el navegador.
+// Modo `remote`: POST del texto del segmento a VITE_ARGENTINE_TTS_ENDPOINT.
+// El modo remoto nunca se activa solo: lo elige la UI tras fallo/incompatibilidad
+// local y consentimiento explícito.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ScriptSegment } from '../types';
 import { synthesizeArgentineVoice, type Progress } from '../lib/voiceEngine';
+import {
+  assertRemoteSessionTextLimits,
+  isRemoteArgentineTtsConfigured,
+  synthesizeRemoteArgentineVoice,
+} from '../lib/remoteVoiceService';
 import { registerSpeechCancel } from '../lib/speechController';
+
+export type ArgentineVoiceMode = 'local' | 'remote';
 
 export type ArgentineVoiceStatus =
   'idle' | 'preparing' | 'ready' | 'playing' | 'paused' | 'stopped' | 'error';
@@ -26,6 +26,7 @@ export interface ArgentineVoicePlayerState {
   progress: Progress | null;
   error: string | null;
   currentSegmentIndex: number;
+  mode: ArgentineVoiceMode;
 }
 
 function toErrorMessage(err: unknown): string {
@@ -33,14 +34,16 @@ function toErrorMessage(err: unknown): string {
   return String(err);
 }
 
-export function useArgentineVoicePlayer() {
+export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   const [state, setState] = useState<ArgentineVoicePlayerState>({
     status: 'idle',
     progress: null,
     error: null,
     currentSegmentIndex: 0,
+    mode,
   });
 
+  const modeRef = useRef(mode);
   const segmentsRef = useRef<ScriptSegment[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
@@ -50,6 +53,7 @@ export function useArgentineVoicePlayer() {
   const remainingPauseMsRef = useRef(0);
   const pauseStartTimeRef = useRef(0);
   const pendingNextIndexRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const releaseObjectUrl = useCallback(() => {
     if (objectUrlRef.current) {
@@ -65,6 +69,13 @@ export function useArgentineVoicePlayer() {
     }
   }, []);
 
+  const abortInFlight = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  }, []);
+
   const teardownAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.onended = null;
@@ -75,30 +86,93 @@ export function useArgentineVoicePlayer() {
     releaseObjectUrl();
   }, [releaseObjectUrl]);
 
+  const resetPlaybackFlags = useCallback(() => {
+    stoppedRef.current = false;
+    betweenSegmentsRef.current = false;
+    clearPauseTimer();
+    abortInFlight();
+    teardownAudio();
+  }, [abortInFlight, clearPauseTimer, teardownAudio]);
+
+  // Al cambiar de local ↔ remoto se descarta audio y estado previos.
+  useEffect(() => {
+    if (modeRef.current === mode) return;
+    modeRef.current = mode;
+    stoppedRef.current = true;
+    betweenSegmentsRef.current = false;
+    clearPauseTimer();
+    abortInFlight();
+    teardownAudio();
+    setState({
+      status: 'idle',
+      progress: null,
+      error: null,
+      currentSegmentIndex: 0,
+      mode,
+    });
+  }, [mode, abortInFlight, clearPauseTimer, teardownAudio]);
+
   /**
-   * Descarga/cachea el modelo y ejecuta una síntesis real de prueba.
-   * `ready` sólo se alcanza si esa síntesis devolvió un `Blob`; un `HEAD`
-   * exitoso nunca es suficiente.
+   * Local: descarga/cachea el modelo y ejecuta una síntesis de prueba.
+   * Remoto: verifica endpoint configurado; no envía el guion (ni frase de prueba).
    */
   const prepare = useCallback(async (): Promise<boolean> => {
     stoppedRef.current = false;
     setState({
       status: 'preparing',
-      progress: { loaded: 0, total: 0 },
+      progress: mode === 'local' ? { loaded: 0, total: 0 } : null,
       error: null,
       currentSegmentIndex: 0,
+      mode,
     });
+
     try {
+      if (mode === 'remote') {
+        if (!isRemoteArgentineTtsConfigured()) {
+          throw new Error(
+            'No hay un endpoint remoto configurado (VITE_ARGENTINE_TTS_ENDPOINT).',
+          );
+        }
+        setState((prev) => ({ ...prev, status: 'ready', error: null, mode }));
+        return true;
+      }
+
       await synthesizeArgentineVoice('Hola. Esta es la voz argentina.', (progress) =>
         setState((prev) => ({ ...prev, progress })),
       );
-      setState((prev) => ({ ...prev, status: 'ready', error: null }));
+      setState((prev) => ({ ...prev, status: 'ready', error: null, mode }));
       return true;
     } catch (err) {
-      setState((prev) => ({ ...prev, status: 'error', error: toErrorMessage(err) }));
+      setState((prev) => ({
+        ...prev,
+        status: 'error',
+        error: toErrorMessage(err),
+        mode,
+      }));
       return false;
     }
-  }, []);
+  }, [mode]);
+
+  const synthesizeSegment = useCallback(
+    async (text: string): Promise<Blob> => {
+      if (mode === 'remote') {
+        abortInFlight();
+        const controller = new AbortController();
+        abortRef.current = controller;
+        try {
+          return await synthesizeRemoteArgentineVoice(text, {
+            signal: controller.signal,
+          });
+        } finally {
+          if (abortRef.current === controller) {
+            abortRef.current = null;
+          }
+        }
+      }
+      return synthesizeArgentineVoice(text);
+    },
+    [abortInFlight, mode],
+  );
 
   const playSegment = useCallback(
     async (index: number) => {
@@ -120,10 +194,11 @@ export function useArgentineVoicePlayer() {
         status: 'playing',
         currentSegmentIndex: index,
         error: null,
+        mode,
       }));
 
       try {
-        const blob = await synthesizeArgentineVoice(segments[index].text);
+        const blob = await synthesizeSegment(segments[index].text);
         if (stoppedRef.current) return;
 
         teardownAudio();
@@ -147,7 +222,10 @@ export function useArgentineVoicePlayer() {
             setState((prev) => ({
               ...prev,
               status: 'error',
-              error: 'No se pudo reproducir el audio generado por la voz argentina.',
+              error:
+                mode === 'remote'
+                  ? 'No se pudo reproducir el audio WAV del servicio remoto.'
+                  : 'No se pudo reproducir el audio generado por la voz argentina.',
             }));
           }
         };
@@ -163,17 +241,33 @@ export function useArgentineVoicePlayer() {
         }
       }
     },
-    [teardownAudio],
+    [mode, synthesizeSegment, teardownAudio],
   );
 
   const play = useCallback(
     (segments: ScriptSegment[]) => {
       stoppedRef.current = false;
-      segmentsRef.current = segments;
       clearPauseTimer();
+      abortInFlight();
+
+      if (mode === 'remote') {
+        try {
+          assertRemoteSessionTextLimits(segments.map((s) => s.text).join('\n'));
+        } catch (err) {
+          setState((prev) => ({
+            ...prev,
+            status: 'error',
+            error: toErrorMessage(err),
+            mode,
+          }));
+          return;
+        }
+      }
+
+      segmentsRef.current = segments;
       void playSegment(0);
     },
-    [clearPauseTimer, playSegment],
+    [abortInFlight, clearPauseTimer, mode, playSegment],
   );
 
   const pause = useCallback(() => {
@@ -207,17 +301,15 @@ export function useArgentineVoicePlayer() {
     stoppedRef.current = true;
     betweenSegmentsRef.current = false;
     clearPauseTimer();
+    abortInFlight();
     teardownAudio();
     setState((prev) => ({ ...prev, status: 'stopped' }));
-  }, [clearPauseTimer, teardownAudio]);
+  }, [abortInFlight, clearPauseTimer, teardownAudio]);
 
   const restart = useCallback(() => {
-    stoppedRef.current = false;
-    betweenSegmentsRef.current = false;
-    clearPauseTimer();
-    teardownAudio();
+    resetPlaybackFlags();
     void playSegment(0);
-  }, [clearPauseTimer, playSegment, teardownAudio]);
+  }, [playSegment, resetPlaybackFlags]);
 
   useEffect(() => {
     const unregister = registerSpeechCancel(stop);
@@ -225,6 +317,7 @@ export function useArgentineVoicePlayer() {
       unregister();
       stoppedRef.current = true;
       clearPauseTimer();
+      abortInFlight();
       teardownAudio();
     };
     // Se registra/limpia una sola vez por instancia del hook.
