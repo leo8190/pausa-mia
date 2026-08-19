@@ -13,6 +13,12 @@ interface ImportMetaEnv {
    * variable se usa la URL pública por defecto equivalente.
    */
   readonly VITE_PIPER_ES_AR_VOICE_CONFIG_URL?: string;
+  /**
+   * Base URL opcional del servicio remoto de voz argentina (`POST /v1/tts`).
+   * Vacío por defecto: no se envía ningún texto. Sólo se usa tras consentimiento
+   * explícito en la UI cuando Piper local no está disponible o falla.
+   */
+  readonly VITE_ARGENTINE_TTS_ENDPOINT?: string;
 }
 
 interface ImportMeta {

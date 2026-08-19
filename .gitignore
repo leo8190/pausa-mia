@@ -21,6 +21,10 @@ dist/
 *.wav
 *.webm
 
+# Modelos Piper del voice-service (no versionar ~114 MB)
+voice-service/models/
+voice-service/dist/
+
 # Sistema operativo y editores
 .DS_Store
 Thumbs.db

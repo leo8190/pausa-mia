@@ -1,0 +1,14 @@
+# Modelos Piper (no versionar binarios ~114 MB)
+models/
+*.onnx
+!*.onnx.json
+
+# Build y dependencias
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store
