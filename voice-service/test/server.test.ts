@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { describe, it } from 'node:test';
 import { loadConfig } from '../src/config.ts';
 import { validateText } from '../src/limits.ts';
+import { buildPiperCliArgs } from '../src/piper.ts';
 import { createVoiceServer } from '../src/server.ts';
-import { buildSilentWav } from '../src/wav.ts';
+import { buildSilentWav, wrapPcm16MonoToWav } from '../src/wav.ts';
+
+const voiceServiceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 describe('voice-service limits', () => {
   it('rejects empty and oversized text', () => {
@@ -24,6 +30,45 @@ describe('voice-service wav mock', () => {
     assert.equal(a.equals(b), true);
     assert.equal(a.subarray(0, 4).toString('ascii'), 'RIFF');
     assert.equal(a.subarray(8, 12).toString('ascii'), 'WAVE');
+  });
+
+  it('wraps raw PCM from piper --output_raw as WAV', () => {
+    const pcm = Buffer.from([0, 0, 1, 0]);
+    const wav = wrapPcm16MonoToWav(pcm, 22050);
+    assert.equal(wav.subarray(0, 4).toString('ascii'), 'RIFF');
+    assert.equal(wav.readUInt32LE(24), 22050);
+    assert.equal(wav.subarray(44).equals(pcm), true);
+  });
+});
+
+describe('voice-service piper CLI', () => {
+  it('passes --model, --config and --output_raw', () => {
+    assert.deepEqual(
+      buildPiperCliArgs({
+        modelPath: '/models/es_AR-daniela-high.onnx',
+        configPath: '/models/es_AR-daniela-high.onnx.json',
+      }),
+      [
+        '--model',
+        '/models/es_AR-daniela-high.onnx',
+        '--config',
+        '/models/es_AR-daniela-high.onnx.json',
+        '--output_raw',
+      ],
+    );
+  });
+});
+
+describe('voice-service Docker image recipe', () => {
+  it('installs piper-tts and bakes es_AR-daniela-high into /models', () => {
+    const dockerfile = readFileSync(join(voiceServiceRoot, 'Dockerfile'), 'utf8');
+    assert.match(dockerfile, /piper-tts==1\.6\.0/);
+    assert.match(dockerfile, /ARG HF_REVISION/);
+    assert.match(dockerfile, /\/models/);
+    assert.match(dockerfile, /es_AR-daniela-high\.onnx/);
+    assert.match(dockerfile, /es_AR-daniela-high\.onnx\.json/);
+    assert.match(dockerfile, /huggingface\.co\/rhasspy\/piper-voices/);
+    assert.equal(/^VOLUME\b/m.test(dockerfile), false);
   });
 });
 

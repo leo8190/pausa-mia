@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Descarga y fija el modelo Piper es_AR-daniela-high desde Hugging Face.
-# No se ejecuta en CI ni en despliegues de este repo: es un paso manual local.
+# Paso manual local (el Dockerfile hace la misma descarga a /models en el build).
+# No se ejecuta en CI ni en despliegues de este repo.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
