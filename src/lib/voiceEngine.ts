@@ -40,6 +40,7 @@ import {
   type ProgressCallback,
 } from './piperEngine';
 import { isRemoteArgentineTtsConfigured } from './remoteVoiceService';
+import { normalizeTextForTts } from './ttsPronunciation';
 
 export type { Progress };
 
@@ -71,7 +72,10 @@ function hasWindow(): boolean {
 
 export function checkWebSpeechEngineSupport(): boolean {
   return (
-    hasWindow() && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window
+    hasWindow() &&
+    'speechSynthesis' in window &&
+    Boolean(window.speechSynthesis) &&
+    'SpeechSynthesisUtterance' in window
   );
 }
 
@@ -311,7 +315,7 @@ export async function synthesizeArgentineVoice(
   }
 
   const { ort, session, modelConfig } = cachedSession;
-  const blob = await synthesizeWithSession(text, {
+  const blob = await synthesizeWithSession(normalizeTextForTts(text), {
     ort,
     ortSession: session,
     modelConfig,

@@ -190,7 +190,7 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
                   title={onlineConnector.reason}
                   aria-disabled="true"
                 >
-                  {source.onlineConnectionLabel}
+                  {source.onlineConnectionLabel} (desactivada)
                 </button>
               </div>
 

@@ -1,4 +1,8 @@
 import type { VoiceSelection, VoiceVariant } from '../types';
+import { normalizeTextForTts } from './ttsPronunciation';
+
+/** Velocidad calma por defecto para Web Speech (~20 % más lenta que rate 1). */
+export const CALM_SPEECH_RATE = 0.8;
 
 const ARGENTINE_LOCALES = ['es-AR', 'es_AR'];
 
@@ -130,9 +134,9 @@ export interface SpeechPlayerState {
 export function createUtterance(
   text: string,
   voice: SpeechSynthesisVoice | null,
-  rate = 0.9,
+  rate = CALM_SPEECH_RATE,
 ): SpeechSynthesisUtterance {
-  const utterance = new SpeechSynthesisUtterance(text);
+  const utterance = new SpeechSynthesisUtterance(normalizeTextForTts(text));
   utterance.rate = rate;
   utterance.pitch = 1;
   if (voice) {

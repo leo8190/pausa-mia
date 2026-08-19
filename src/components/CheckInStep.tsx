@@ -9,8 +9,7 @@ import type {
   VoiceVariant,
 } from '../types';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
-import { DeviceCompatibilityPanel } from './DeviceCompatibilityPanel';
-import { VoiceEngineStatusPanel } from './VoiceEngineStatus';
+import { TechnicalVoiceDetails } from './TechnicalVoiceDetails';
 
 export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { checkIn } = sessionApi.session;
@@ -285,14 +284,15 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           ))}
         </div>
         <p className="field-hint">
-          Elegimos la mejor voz disponible en tu dispositivo para la variante elegida.
-          Si tu navegador no tiene una voz argentina real, te avisamos antes de
-          reproducir en vez de presentar otra voz como argentina.
+          Español argentino queda siempre disponible como opción. En reproducción se usa
+          la voz neuronal local cuando el navegador la admite; si configuraste un
+          endpoint remoto, también podés elegirlo con consentimiento explícito. Español
+          neutro usa la voz del dispositivo. No afirmamos que funcione en todos los
+          navegadores ni enviamos texto sin tu permiso.
         </p>
       </fieldset>
 
-      <VoiceEngineStatusPanel />
-      <DeviceCompatibilityPanel />
+      <TechnicalVoiceDetails />
     </StepLayout>
   );
 }

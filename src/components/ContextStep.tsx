@@ -96,33 +96,6 @@ export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
         longitud y quitar cualquier entrada. No se simulan cuentas conectadas.
       </p>
 
-      <div
-        className={`field context-import-drop${fileDrop.active ? ' is-active' : ''}`}
-        {...fileDrop.handlers}
-      >
-        <label htmlFor="context-import">Importar archivo local (texto o JSON)</label>
-        <input
-          id="context-import"
-          ref={fileInputRef}
-          type="file"
-          accept=".txt,.json,.md"
-          multiple
-          onChange={(e) => {
-            if (e.target.files) handleImport(e.target.files);
-            e.target.value = '';
-          }}
-        />
-        <p className="field-hint">
-          Solo se leen los archivos que elegís. Podés seleccionar varios. Máximo{' '}
-          {CONTEXT_SOURCE_MAX_LENGTH} caracteres por entrada.
-        </p>
-        {importNotice && <p className="field-hint">{importNotice}</p>}
-      </div>
-
-      <button type="button" className="btn btn-secondary" onClick={addManualSource}>
-        Agregar otra fuente manual
-      </button>
-
       <ul className="context-list" aria-label="Fuentes de contexto">
         {contextSources.map((source) => (
           <li className="context-item" key={source.id}>
@@ -183,7 +156,37 @@ export function ContextStep({ sessionApi }: { sessionApi: SessionApi }) {
         ))}
       </ul>
 
-      <FutureIntegrations sessionApi={sessionApi} />
+      <button type="button" className="btn btn-secondary" onClick={addManualSource}>
+        Agregar otra fuente manual
+      </button>
+
+      <details className="collapsible-details">
+        <summary>Agregar contexto opcional</summary>
+        <div
+          className={`field context-import-drop${fileDrop.active ? ' is-active' : ''}`}
+          {...fileDrop.handlers}
+        >
+          <label htmlFor="context-import">Importar archivo local (texto o JSON)</label>
+          <input
+            id="context-import"
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.json,.md"
+            multiple
+            onChange={(e) => {
+              if (e.target.files) handleImport(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <p className="field-hint">
+            Solo se leen los archivos que elegís. Podés seleccionar varios. Máximo{' '}
+            {CONTEXT_SOURCE_MAX_LENGTH} caracteres por entrada.
+          </p>
+          {importNotice && <p className="field-hint">{importNotice}</p>}
+        </div>
+
+        <FutureIntegrations sessionApi={sessionApi} />
+      </details>
     </StepLayout>
   );
 }

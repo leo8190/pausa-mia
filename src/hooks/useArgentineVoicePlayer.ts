@@ -22,6 +22,7 @@ import {
   synthesizeRemoteArgentineVoice,
 } from '../lib/remoteVoiceService';
 import { registerSpeechCancel } from '../lib/speechController';
+import { normalizeTextForTts } from '../lib/ttsPronunciation';
 
 export type ArgentineVoiceMode = 'local' | 'remote';
 
@@ -244,7 +245,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       abortRef.current = controller;
       try {
         if (mode === 'remote') {
-          return await synthesizeRemoteArgentineVoice(text, {
+          return await synthesizeRemoteArgentineVoice(normalizeTextForTts(text), {
             signal: controller.signal,
           });
         }

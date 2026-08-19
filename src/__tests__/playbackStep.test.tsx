@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { PlaybackStep } from '../components/PlaybackStep';
 import type { SessionApi } from '../hooks/useSession';
 import type { SessionState } from '../types';
@@ -79,10 +79,16 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
       expect(
         screen.getByText(/motores de voz en este dispositivo/i),
       ).toBeInTheDocument();
+      expect(screen.getByText(/voz del dispositivo lista/i)).toBeInTheDocument();
     });
     expect(
       screen.getByRole('heading', { name: /compatibilidad de este dispositivo/i }),
     ).toBeInTheDocument();
+    const technical = screen
+      .getByText(/información técnica \(opcional\)/i)
+      .closest('details');
+    expect(technical).toBeTruthy();
+    expect(technical).not.toHaveAttribute('open');
   });
 
   it('moves to "ready" and offers playback only after prepare() resolves with a real Blob', async () => {
@@ -268,6 +274,60 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     expect(
       screen.queryByRole('button', { name: /usar voz argentina remota/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('offers remote before the non-argentine device voice after a local failure', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
+      new Error('fallo local'),
+    );
+
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/no se pudo preparar o reproducir/i)).toBeInTheDocument();
+    });
+
+    const remoteRegion = screen.getByRole('region', {
+      name: /voz argentina remota opcional/i,
+    });
+    const remoteButton = within(remoteRegion).getByRole('button', {
+      name: /usar voz argentina remota/i,
+    });
+    const deviceButton = within(remoteRegion).getByRole('button', {
+      name: /usar voz del dispositivo \(no es argentina\)/i,
+    });
+
+    expect(
+      remoteButton.compareDocumentPosition(deviceButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('checkbox', {
+        name: /acepto enviar sólo el texto del guion/i,
+      }),
+    ).not.toBeChecked();
+  });
+
+  it('shows a clear read-script action when Web Speech is unavailable for neutro', async () => {
+    vi.spyOn(voiceEngine, 'checkWebSpeechEngineSupport').mockReturnValue(false);
+    const sessionApi = makeSessionApi('es-neutro');
+
+    render(<PlaybackStep sessionApi={sessionApi} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /leer el guion/i }),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeDisabled();
+    expect(
+      screen.getByText(/lectura en pantalla \(sin audio del dispositivo\)/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /leer el guion/i }));
+    expect(sessionApi.setStep).toHaveBeenCalledWith('review');
   });
 
   it('switching to remote cancels a local prepare and ignores a late local ready', async () => {

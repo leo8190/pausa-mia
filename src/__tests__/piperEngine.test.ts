@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   fetchWithProgress,
   pcmToWav,
+  resolveSereneLengthScale,
+  SERENE_CADENCE_SCALE,
   splitIntoChunks,
   synthesizeWithSession,
   type OrtLike,
@@ -10,6 +12,16 @@ import {
 } from '../lib/piperEngine';
 
 describe('piperEngine', () => {
+  describe('serene cadence', () => {
+    it('multiplies model length_scale by the serene factor within safe bounds', () => {
+      expect(SERENE_CADENCE_SCALE).toBeCloseTo(1.18, 2);
+      expect(resolveSereneLengthScale(1)).toBeCloseTo(1.18, 5);
+      expect(resolveSereneLengthScale(1.1)).toBeCloseTo(1.1 * SERENE_CADENCE_SCALE, 5);
+      expect(resolveSereneLengthScale(0.1)).toBeGreaterThanOrEqual(0.5);
+      expect(resolveSereneLengthScale(10)).toBeLessThanOrEqual(3);
+    });
+  });
+
   describe('splitIntoChunks', () => {
     it('returns an empty array for empty text', () => {
       expect(splitIntoChunks('   ')).toEqual([]);
@@ -119,6 +131,19 @@ describe('piperEngine', () => {
       };
     }
 
+    function makeOrt(): OrtLike {
+      return {
+        InferenceSession: { create: vi.fn() },
+        Tensor: class {
+          constructor(
+            public type: string,
+            public data: unknown,
+            public dims?: number[],
+          ) {}
+        } as unknown as OrtLike['Tensor'],
+      };
+    }
+
     it('rejects empty text before touching the ONNX session', async () => {
       const ortSession: OrtSessionLike = { run: vi.fn() };
       const ort: OrtLike = {
@@ -141,20 +166,10 @@ describe('piperEngine', () => {
         .fn()
         .mockResolvedValue({ output: { data: new Float32Array([0, 0.2, -0.2]) } });
       const ortSession: OrtSessionLike = { run };
-      const ort: OrtLike = {
-        InferenceSession: { create: vi.fn() },
-        Tensor: class {
-          constructor(
-            public type: string,
-            public data: unknown,
-            public dims?: number[],
-          ) {}
-        } as unknown as OrtLike['Tensor'],
-      };
       const phonemize = vi.fn().mockResolvedValue([1, 2, 3]);
 
       const blob = await synthesizeWithSession('Hola. Respirá.', {
-        ort,
+        ort: makeOrt(),
         ortSession,
         modelConfig: makeModelConfig(),
         phonemize,
@@ -164,6 +179,41 @@ describe('piperEngine', () => {
       expect(blob.type).toBe('audio/x-wav');
       expect(run).toHaveBeenCalledTimes(1);
       expect(phonemize).toHaveBeenCalledWith('Hola. Respirá.', 'es-419');
+      const feeds = run.mock.calls[0][0] as Record<string, { data?: number[] }>;
+      expect(feeds.scales?.data?.[1]).toBe(resolveSereneLengthScale(1));
+    });
+
+    it('puts the serene length_scale into the scales tensor', async () => {
+      const run = vi
+        .fn()
+        .mockResolvedValue({ output: { data: new Float32Array([0]) } });
+      const ortSession: OrtSessionLike = { run };
+
+      await synthesizeWithSession('Calmá el ritmo.', {
+        ort: makeOrt(),
+        ortSession,
+        modelConfig: makeModelConfig({
+          inference: { noise_scale: 0.5, length_scale: 1.05, noise_w: 0.7 },
+        }),
+        phonemize: vi.fn().mockResolvedValue([1]),
+      });
+
+      const feeds = run.mock.calls[0][0] as Record<string, { data?: number[] }>;
+      expect(feeds.scales?.data).toEqual([0.5, resolveSereneLengthScale(1.05), 0.7]);
+      expect(feeds.scales?.data?.[1]).toBeCloseTo(1.05 * SERENE_CADENCE_SCALE, 5);
+    });
+
+    it('normalizes pronunciation before phonemizing', async () => {
+      const phonemize = vi.fn().mockResolvedValue([1]);
+      await synthesizeWithSession('Calmá el ritmo.', {
+        ort: makeOrt(),
+        ortSession: {
+          run: vi.fn().mockResolvedValue({ output: { data: new Float32Array([0]) } }),
+        },
+        modelConfig: makeModelConfig(),
+        phonemize,
+      });
+      expect(phonemize).toHaveBeenCalledWith('Calmá el rit-mo.', 'es-419');
     });
 
     it('adds a speaker id tensor only when the model declares multiple speakers', async () => {
@@ -171,18 +221,8 @@ describe('piperEngine', () => {
         .fn()
         .mockResolvedValue({ output: { data: new Float32Array([0]) } });
       const ortSession: OrtSessionLike = { run };
-      const ort: OrtLike = {
-        InferenceSession: { create: vi.fn() },
-        Tensor: class {
-          constructor(
-            public type: string,
-            public data: unknown,
-            public dims?: number[],
-          ) {}
-        } as unknown as OrtLike['Tensor'],
-      };
       await synthesizeWithSession('Hola', {
-        ort,
+        ort: makeOrt(),
         ortSession,
         modelConfig: makeModelConfig({ speaker_id_map: { daniela: 0 } }),
         phonemize: vi.fn().mockResolvedValue([1]),

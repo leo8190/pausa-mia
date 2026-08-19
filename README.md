@@ -136,9 +136,11 @@ cuando la preparación produjo audio real. Si `VITE_ARGENTINE_TTS_ENDPOINT` est�
 configurado, la alternativa remota (WAV estándar, sin descargar el modelo local)
 queda visible al mismo tiempo, con casilla desmarcada. Si la preparación o la
 reproducción fallan (o el navegador no soporta WASM/ONNX), se muestra el error
-explícito, el botón "Usar voz del dispositivo (no es argentina)" y —sin endpoint—
-el aviso de servicio faltante. Web Speech y el remoto **nunca** se activan
-automáticamente.
+explícito y —si hay endpoint— la remota **antes** de "Usar voz del dispositivo
+(no es argentina)"; sin endpoint, el aviso de servicio faltante y después la voz
+no argentina. Web Speech y el remoto **nunca** se activan automáticamente. Sin
+Web Speech (p. ej. español neutro en un navegador sin síntesis), "Reproducir"
+queda deshabilitado y aparece "Leer el guion".
 
 Si el navegador bloquea `audio.play()` por una política de autoplay (frecuente en
 iOS/Safari), el WAV queda expuesto en un reproductor HTML nativo visible y con un
@@ -231,7 +233,7 @@ cuentas conectadas.
 | ---------------------- | ------------------------------------------------------------------------ |
 | `npm run format:check` | ✅                                                                       |
 | `npm run lint`         | ✅                                                                       |
-| `npm test`             | ✅ 180 tests (unitarias + flujo React + servidor mockeado; sin API real) |
+| `npm test`             | ✅ 203 tests (unitarias + flujo React + servidor mockeado; sin API real) |
 | `npm run build`        | ✅                                                                       |
 | `voice-service` tests  | ✅ 3 tests (`ARG_TTS_BACKEND=mock`, sin modelo ni deploy)                |
 | `npm audit --omit=dev` | (no re-ejecutado en este handoff)                                        |

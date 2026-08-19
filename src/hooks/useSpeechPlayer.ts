@@ -8,8 +8,15 @@ import {
 } from '../lib/voiceService';
 import type { VoiceVariant } from '../types';
 import { registerSpeechCancel } from '../lib/speechController';
+import { checkWebSpeechEngineSupport } from '../lib/voiceEngine';
+
+function getSpeechSynthesis(): SpeechSynthesis | null {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return null;
+  return window.speechSynthesis;
+}
 
 export function useSpeechPlayer(voiceVariant: VoiceVariant) {
+  const speechSupported = checkWebSpeechEngineSupport();
   const [playerState, setPlayerState] = useState<SpeechPlayerState>({
     status: 'idle',
     currentSegmentIndex: 0,
@@ -34,6 +41,14 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
   };
 
   const loadVoices = useCallback(() => {
+    if (!checkWebSpeechEngineSupport()) {
+      voiceRef.current = null;
+      setFallbackMessage(
+        'Este navegador no ofrece síntesis de voz. Podés leer el guion en pantalla.',
+      );
+      setVoicesReady(false);
+      return;
+    }
     const voices = getAvailableVoices();
     const selection = selectVoice(voiceVariant, voices);
     voiceRef.current = selection.voice;
@@ -43,16 +58,19 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
 
   useEffect(() => {
     loadVoices();
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    const synthesis = getSpeechSynthesis();
+    if (synthesis) {
+      synthesis.onvoiceschanged = loadVoices;
       return () => {
-        window.speechSynthesis.onvoiceschanged = null;
+        synthesis.onvoiceschanged = null;
       };
     }
   }, [loadVoices]);
 
   const speakSegment = useCallback((index: number) => {
     if (stoppedRef.current) return;
+    const synthesis = getSpeechSynthesis();
+    if (!synthesis) return;
     const segments = segmentsRef.current;
     if (index >= segments.length) {
       betweenSegmentsRef.current = false;
@@ -82,15 +100,20 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
       }
     };
 
-    window.speechSynthesis.speak(utterance);
+    synthesis.speak(utterance);
   }, []);
 
   const play = useCallback(
     (segments: ScriptSegment[]) => {
+      const synthesis = getSpeechSynthesis();
+      if (!synthesis) {
+        loadVoices();
+        return;
+      }
       stoppedRef.current = false;
       segmentsRef.current = segments;
       loadVoices();
-      window.speechSynthesis.cancel();
+      synthesis.cancel();
       clearPauseTimer();
       betweenSegmentsRef.current = false;
       indexRef.current = 0;
@@ -108,7 +131,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
           (Date.now() - pauseStartTimeRef.current),
       );
     } else {
-      window.speechSynthesis.pause();
+      getSpeechSynthesis()?.pause();
     }
     setPlayerState((prev) => ({ ...prev, status: 'paused' }));
   }, []);
@@ -120,7 +143,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
         speakSegment(pendingNextIndexRef.current);
       }, remainingPauseMsRef.current);
     } else {
-      window.speechSynthesis.resume();
+      getSpeechSynthesis()?.resume();
     }
     setPlayerState((prev) => ({ ...prev, status: 'playing' }));
   }, [speakSegment]);
@@ -128,25 +151,29 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
   const stop = useCallback(() => {
     stoppedRef.current = true;
     betweenSegmentsRef.current = false;
-    window.speechSynthesis.cancel();
+    getSpeechSynthesis()?.cancel();
     clearPauseTimer();
     setPlayerState({ status: 'stopped', currentSegmentIndex: indexRef.current });
   }, []);
 
   const restart = useCallback(() => {
+    if (!getSpeechSynthesis()) {
+      loadVoices();
+      return;
+    }
     stoppedRef.current = false;
     betweenSegmentsRef.current = false;
-    window.speechSynthesis.cancel();
+    getSpeechSynthesis()?.cancel();
     clearPauseTimer();
     speakSegment(0);
-  }, [speakSegment]);
+  }, [loadVoices, speakSegment]);
 
   useEffect(() => {
     const unregister = registerSpeechCancel(stop);
     return () => {
       unregister();
       stoppedRef.current = true;
-      window.speechSynthesis.cancel();
+      getSpeechSynthesis()?.cancel();
       clearPauseTimer();
     };
   }, [stop]);
@@ -155,6 +182,8 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
     playerState,
     fallbackMessage,
     voicesReady,
+    speechSupported,
+    canSpeak: speechSupported && voicesReady,
     play,
     pause,
     resume,

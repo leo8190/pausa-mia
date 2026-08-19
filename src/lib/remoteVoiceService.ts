@@ -8,6 +8,12 @@ export const MAX_REMOTE_TTS_TOTAL_CHARS = 12_000;
 /** Límite por segmento individual (POST /v1/tts). */
 export const MAX_REMOTE_TTS_SEGMENT_CHARS = 800;
 
+/**
+ * Timeout del POST /v1/tts. Cubre cold start típico del servicio remoto sin
+ * dejar la petición colgada indefinidamente en móviles.
+ */
+export const REMOTE_TTS_TIMEOUT_MS = 45_000;
+
 export type RemoteTtsRequestBody = {
   text: string;
 };
@@ -63,12 +69,82 @@ export function assertRemoteSessionTextLimits(fullText: string): void {
 }
 
 /**
+ * Combina un AbortSignal externo con un timeout propio.
+ * Al dispararse el timeout o el abort externo, cancela el fetch (sin dejar
+ * requests colgadas). `cleanup` debe llamarse siempre al terminar.
+ */
+export function createRemoteTtsAbortSignal(
+  external?: AbortSignal,
+  timeoutMs: number = REMOTE_TTS_TIMEOUT_MS,
+): {
+  signal: AbortSignal;
+  didTimeout: () => boolean;
+  cleanup: () => void;
+} {
+  const controller = new AbortController();
+  let timedOut = false;
+
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  const onExternalAbort = () => {
+    controller.abort();
+  };
+
+  if (external) {
+    if (external.aborted) {
+      controller.abort();
+    } else {
+      external.addEventListener('abort', onExternalAbort);
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    didTimeout: () => timedOut,
+    cleanup: () => {
+      clearTimeout(timeoutId);
+      if (external) {
+        external.removeEventListener('abort', onExternalAbort);
+      }
+    },
+  };
+}
+
+function classifyFetchFailure(err: unknown): RemoteVoiceError {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return new RemoteVoiceError(
+      'Sin conexión a internet. No se pudo contactar el servicio de voz remota.',
+      'offline',
+    );
+  }
+
+  const message = err instanceof Error ? err.message : '';
+  if (/failed to fetch|networkerror|load failed|cors|access-control/i.test(message)) {
+    return new RemoteVoiceError(
+      'No se pudo contactar el servicio de voz remota. Revisá la conexión o que el origen esté permitido (CORS).',
+      'cors',
+    );
+  }
+
+  return new RemoteVoiceError(
+    err instanceof Error
+      ? `No se pudo contactar el servicio de voz remota: ${err.message}`
+      : 'No se pudo contactar el servicio de voz remota.',
+    'network_error',
+  );
+}
+
+/**
  * POST JSON `{ text }` al endpoint configurado. Devuelve un `Blob` `audio/wav`.
  * No envía nada si el endpoint está vacío.
+ * Aplica timeout explícito y abort limpio; respeta `options.signal` externo.
  */
 export async function synthesizeRemoteArgentineVoice(
   text: string,
-  options?: { signal?: AbortSignal },
+  options?: { signal?: AbortSignal; timeoutMs?: number },
 ): Promise<Blob> {
   const endpoint = getArgentineTtsEndpoint();
   if (!endpoint) {
@@ -82,6 +158,10 @@ export async function synthesizeRemoteArgentineVoice(
 
   const url = `${endpoint}/v1/tts`;
   const body: RemoteTtsRequestBody = { text: text.trim() };
+  const { signal, didTimeout, cleanup } = createRemoteTtsAbortSignal(
+    options?.signal,
+    options?.timeoutMs ?? REMOTE_TTS_TIMEOUT_MS,
+  );
 
   let response: Response;
   try {
@@ -92,18 +172,24 @@ export async function synthesizeRemoteArgentineVoice(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
-      signal: options?.signal,
+      signal,
     });
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    if (
+      (err instanceof DOMException && err.name === 'AbortError') ||
+      (err instanceof Error && err.name === 'AbortError')
+    ) {
+      if (didTimeout()) {
+        throw new RemoteVoiceError(
+          'La solicitud de voz remota agotó el tiempo de espera. Probá de nuevo en unos segundos.',
+          'timeout',
+        );
+      }
       throw new RemoteVoiceError('La solicitud de voz remota se canceló.', 'aborted');
     }
-    throw new RemoteVoiceError(
-      err instanceof Error
-        ? `No se pudo contactar el servicio de voz remota: ${err.message}`
-        : 'No se pudo contactar el servicio de voz remota.',
-      'network_error',
-    );
+    throw classifyFetchFailure(err);
+  } finally {
+    cleanup();
   }
 
   const contentType = response.headers.get('content-type') ?? '';

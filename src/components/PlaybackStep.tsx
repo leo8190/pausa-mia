@@ -11,8 +11,7 @@ import {
 } from '../lib/voiceEngine';
 import { isRemoteArgentineTtsConfigured } from '../lib/remoteVoiceService';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
-import { DeviceCompatibilityPanel } from './DeviceCompatibilityPanel';
-import { VoiceEngineStatusPanel } from './VoiceEngineStatus';
+import { TechnicalVoiceDetails } from './TechnicalVoiceDetails';
 
 function formatMb(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1);
@@ -37,6 +36,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     playerState,
     fallbackMessage,
     voicesReady,
+    canSpeak,
     play: playWebSpeech,
     pause: pauseWebSpeech,
     resume: resumeWebSpeech,
@@ -101,8 +101,23 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           )
         : null;
 
+    // Remota (si aplica) antes que la voz no argentina; nunca automática.
     const showRemoteOffer =
       !useRemoteArgentine && (remoteConfigured || !neuralBrowserSupported || hasError);
+    const showDeviceLastResort =
+      !useRemoteArgentine && (!neuralBrowserSupported || hasError);
+    const deviceAfterRemote = showRemoteOffer && showDeviceLastResort;
+    const deviceInline = showDeviceLastResort && !showRemoteOffer;
+
+    const deviceFallbackButton = (
+      <button
+        type="button"
+        className="btn btn-secondary"
+        onClick={() => setUseDeviceFallback(true)}
+      >
+        Usar voz del dispositivo (no es argentina)
+      </button>
+    );
 
     return (
       <StepLayout
@@ -155,20 +170,13 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
         {!useRemoteArgentine && !neuralBrowserSupported && (
           <div className="fallback-notice" role="alert">
-            Este navegador no soporta WebAssembly, Cache Storage, TextDecoder o
-            reproducción WAV (HTMLAudioElement), necesarios para la voz argentina
-            neuronal local. Podés usar la opción remota (si está configurada), una voz
-            del dispositivo (no argentina) o volver a intentarlo en Chrome, Edge, Safari
-            o Firefox actualizados.
-            <div className="player-controls">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setUseDeviceFallback(true)}
-              >
-                Usar voz del dispositivo (no es argentina)
-              </button>
-            </div>
+            Este navegador no admite la voz argentina local (hace falta WebAssembly,
+            caché, TextDecoder y reproducción WAV). No afirmamos compatibilidad en todos
+            los dispositivos. Si hay endpoint remoto configurado, aparece abajo antes
+            que cualquier voz no argentina.
+            {deviceInline && (
+              <div className="player-controls">{deviceFallbackButton}</div>
+            )}
           </div>
         )}
 
@@ -245,13 +253,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                   Reintentar remoto
                 </button>
               )}
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setUseDeviceFallback(true)}
-              >
-                Usar voz del dispositivo (no es argentina)
-              </button>
+              {deviceInline && deviceFallbackButton}
             </div>
           </div>
         )}
@@ -306,6 +308,9 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                   </button>
                 </div>
               </>
+            )}
+            {deviceAfterRemote && (
+              <div className="player-controls">{deviceFallbackButton}</div>
             )}
           </div>
         )}
@@ -487,8 +492,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           )}
         </div>
 
-        <VoiceEngineStatusPanel refreshKey={neuralState.status} />
-        <DeviceCompatibilityPanel />
+        <TechnicalVoiceDetails refreshKey={neuralState.status} />
       </StepLayout>
     );
   }
@@ -543,11 +547,24 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         </div>
       )}
 
-      {!voicesReady && (
-        <p className="field-hint">
-          No se detectaron voces de síntesis. Podés leer el guion en la pantalla
-          anterior.
-        </p>
+      {!canSpeak && (
+        <div className="fallback-notice" role="status">
+          {!voicesReady
+            ? 'No hay síntesis de voz usable en este navegador. Podés leer el guion abajo o volver a la pantalla de revisión.'
+            : 'La síntesis de voz no está lista todavía.'}
+          <div className="player-controls">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                stopWebSpeech();
+                sessionApi.setStep('review');
+              }}
+            >
+              Leer el guion
+            </button>
+          </div>
+        </div>
       )}
 
       <div className="player-stage">
@@ -581,6 +598,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 type="button"
                 className="btn btn-primary"
                 onClick={() => playWebSpeech(script.segments)}
+                disabled={!canSpeak}
                 aria-label="Reproducir"
               >
                 Reproducir
@@ -623,6 +641,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 stopWebSpeech();
                 restartWebSpeech();
               }}
+              disabled={!canSpeak}
               aria-label="Reiniciar"
             >
               Reiniciar
@@ -633,17 +652,18 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             className={`player-status${isPlaying ? ' player-status--playing' : ''}${playerState.status === 'idle' ? ' player-status--ready' : ''}`}
             role="status"
           >
-            Estado: {playerState.status === 'idle' && 'Listo'}
-            {playerState.status === 'playing' &&
+            Estado: {!canSpeak && 'Lectura en pantalla (sin audio del dispositivo)'}
+            {canSpeak && playerState.status === 'idle' && 'Listo'}
+            {canSpeak &&
+              playerState.status === 'playing' &&
               `Reproduciendo segmento ${playerState.currentSegmentIndex + 1} de ${script.segments.length}`}
-            {playerState.status === 'paused' && 'Pausado'}
-            {playerState.status === 'stopped' && 'Detenido'}
+            {canSpeak && playerState.status === 'paused' && 'Pausado'}
+            {canSpeak && playerState.status === 'stopped' && 'Detenido'}
           </p>
         </div>
       </div>
 
-      <VoiceEngineStatusPanel />
-      <DeviceCompatibilityPanel />
+      <TechnicalVoiceDetails />
     </StepLayout>
   );
 }

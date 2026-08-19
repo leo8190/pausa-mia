@@ -1466,7 +1466,8 @@ fieldset.field {
   font-family: var(--font);
 }
 
-.technical-json-details {
+.technical-json-details,
+.collapsible-details {
   margin-bottom: var(--space-sm);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -1474,7 +1475,8 @@ fieldset.field {
   background: var(--color-surface-muted);
 }
 
-.technical-json-details summary {
+.technical-json-details summary,
+.collapsible-details summary {
   cursor: pointer;
   font-weight: 650;
   font-size: 0.9rem;
@@ -1484,10 +1486,19 @@ fieldset.field {
   align-items: center;
 }
 
-.technical-json-details summary:focus-visible {
+.technical-json-details summary:focus-visible,
+.collapsible-details summary:focus-visible {
   outline: 2px solid var(--color-primary-dark);
   outline-offset: 3px;
   border-radius: 4px;
+}
+
+.collapsible-details > *:not(summary) {
+  margin-top: 0.75rem;
+}
+
+.voice-availability-summary {
+  margin-bottom: var(--space-xs);
 }
 
 .technical-json {

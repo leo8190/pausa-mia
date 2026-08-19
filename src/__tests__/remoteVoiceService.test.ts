@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   assertRemoteSessionTextLimits,
   assertRemoteTextLimits,
+  createRemoteTtsAbortSignal,
   getArgentineTtsEndpoint,
   isRemoteArgentineTtsConfigured,
   MAX_REMOTE_TTS_SEGMENT_CHARS,
   MAX_REMOTE_TTS_TOTAL_CHARS,
+  REMOTE_TTS_TIMEOUT_MS,
   RemoteVoiceError,
   synthesizeRemoteArgentineVoice,
 } from '../lib/remoteVoiceService';
@@ -15,6 +17,7 @@ describe('remoteVoiceService', () => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it('treats empty endpoint as unconfigured and never sends', async () => {
@@ -68,6 +71,7 @@ describe('remoteVoiceService', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ text: 'Respirá despacio.' }),
+        signal: expect.any(AbortSignal),
       }),
     );
   });
@@ -99,6 +103,89 @@ describe('remoteVoiceService', () => {
     await expect(synthesizeRemoteArgentineVoice('Hola')).rejects.toMatchObject({
       message: 'Texto demasiado largo',
       code: 'text_too_long',
+    });
+  });
+
+  it('aborts fetch on timeout and reports a clear timeout error', async () => {
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+    vi.useFakeTimers();
+
+    let capturedSignal: AbortSignal | undefined;
+    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      capturedSignal = init?.signal as AbortSignal;
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('The operation was aborted.', 'AbortError'));
+        });
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const assertion = expect(
+      synthesizeRemoteArgentineVoice('Hola', { timeoutMs: 100 }),
+    ).rejects.toMatchObject({
+      code: 'timeout',
+      message: expect.stringMatching(/tiempo de espera/i),
+    });
+    await vi.advanceTimersByTimeAsync(100);
+    await assertion;
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('preserves an external AbortSignal and still cleans up the timeout', async () => {
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+    vi.useFakeTimers();
+
+    const external = new AbortController();
+    let capturedSignal: AbortSignal | undefined;
+    const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      capturedSignal = init?.signal as AbortSignal;
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('The operation was aborted.', 'AbortError'));
+        });
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const assertion = expect(
+      synthesizeRemoteArgentineVoice('Hola', {
+        signal: external.signal,
+        timeoutMs: REMOTE_TTS_TIMEOUT_MS,
+      }),
+    ).rejects.toMatchObject({ code: 'aborted' });
+
+    external.abort();
+    await assertion;
+    expect(capturedSignal?.aborted).toBe(true);
+
+    // El timer interno no debe disparar un segundo abort tras cleanup.
+    const { signal, didTimeout, cleanup } = createRemoteTtsAbortSignal(undefined, 50);
+    cleanup();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(didTimeout()).toBe(false);
+    expect(signal.aborted).toBe(false);
+  });
+
+  it('reports offline with a clear message when navigator is offline', async () => {
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+    vi.stubGlobal('navigator', { onLine: false });
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    await expect(synthesizeRemoteArgentineVoice('Hola')).rejects.toMatchObject({
+      code: 'offline',
+      message: expect.stringMatching(/sin conexión/i),
+    });
+  });
+
+  it('reports CORS/network failure clearly when online', async () => {
+    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+    vi.stubGlobal('navigator', { onLine: true });
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    await expect(synthesizeRemoteArgentineVoice('Hola')).rejects.toMatchObject({
+      code: 'cors',
+      message: expect.stringMatching(/cors/i),
     });
   });
 });

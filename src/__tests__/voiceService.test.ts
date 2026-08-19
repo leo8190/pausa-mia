@@ -5,6 +5,7 @@ import {
   createUtterance,
   getNeutralFallbackOrder,
   isArgentineVoice,
+  CALM_SPEECH_RATE,
 } from '../lib/voiceService';
 
 function mockVoice(name: string, lang: string): SpeechSynthesisVoice {
@@ -65,6 +66,18 @@ describe('voiceService', () => {
     expect(utterance.text).toBe('Hola');
     expect(utterance.rate).toBe(0.85);
     expect(utterance.voice).toBe(voice);
+  });
+
+  it('uses the calm speech rate by default, including for Spanish-neutral fallback', () => {
+    expect(CALM_SPEECH_RATE).toBeCloseTo(0.8, 2);
+    const utterance = createUtterance('Hola', mockVoice('Paulina', 'es-MX'));
+    expect(utterance.rate).toBe(CALM_SPEECH_RATE);
+  });
+
+  it('applies TTS pronunciation hints without exposing them as a second script', () => {
+    const utterance = createUtterance('Calmá el ritmo.', mockVoice('Diego', 'es-AR'));
+    expect(utterance.text).toContain('rit-mo');
+    expect(utterance.text).not.toBe('Calmá el ritmo.');
   });
 
   it('neutral fallback order includes es-419', () => {

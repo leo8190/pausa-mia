@@ -14,6 +14,23 @@
 // `@diffusionstudio/piper-wasm`, ambos MIT), sin empaquetarlos en el build:
 // se cargan bajo demanda desde CDN, igual que el modelo de voz.
 
+import { normalizeTextForTts } from './ttsPronunciation';
+
+/**
+ * Cadencia serena de meditación: multiplica el `length_scale` del modelo
+ * (~18 % más lento). Valores > 1 alargan el audio en Piper.
+ */
+export const SERENE_CADENCE_SCALE = 1.18;
+
+const MIN_LENGTH_SCALE = 0.5;
+const MAX_LENGTH_SCALE = 3;
+
+/** Aplica la cadencia serena al length_scale del modelo, con límites seguros. */
+export function resolveSereneLengthScale(modelLengthScale: number): number {
+  const scaled = modelLengthScale * SERENE_CADENCE_SCALE;
+  return Math.min(MAX_LENGTH_SCALE, Math.max(MIN_LENGTH_SCALE, scaled));
+}
+
 export interface Progress {
   loaded: number;
   total: number;
@@ -294,13 +311,14 @@ export async function synthesizeWithSession(
   const pcms: Float32Array[] = [];
 
   for (const chunk of chunks) {
-    const phonemeIds = await phonemize(chunk, modelConfig.espeak.voice);
+    const spokenChunk = normalizeTextForTts(chunk);
+    const phonemeIds = await phonemize(spokenChunk, modelConfig.espeak.voice);
     const feeds: Record<string, unknown> = {
       input: new ort.Tensor('int64', phonemeIds, [1, phonemeIds.length]),
       input_lengths: new ort.Tensor('int64', [phonemeIds.length]),
       scales: new ort.Tensor('float32', [
         modelConfig.inference.noise_scale,
-        modelConfig.inference.length_scale,
+        resolveSereneLengthScale(modelConfig.inference.length_scale),
         modelConfig.inference.noise_w,
       ]),
     };
