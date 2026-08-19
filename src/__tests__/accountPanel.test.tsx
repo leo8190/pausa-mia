@@ -9,6 +9,7 @@ function jsonResponse(body: unknown, ok = true) {
 describe('AccountPanel', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('mantiene el modo invitado como opción principal y oculta el formulario', async () => {
@@ -64,5 +65,132 @@ describe('AccountPanel', () => {
 
     await waitFor(() => expect(screen.getByText(/usr-demo/i)).toBeInTheDocument());
     expect(screen.queryByDisplayValue('secreta-123')).not.toBeInTheDocument();
+  });
+
+  it('muestra estado de conectores para cuenta autenticada', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/api/account/status')) {
+          return jsonResponse({
+            authenticated: true,
+            mode: 'account',
+            user: {
+              id: 'usr-a',
+              displayName: 'Leonardo',
+              locale: 'es-AR',
+              status: 'active',
+            },
+          });
+        }
+        if (url.endsWith('/api/connectors/providers')) {
+          return jsonResponse({
+            providers: [
+              {
+                provider: 'google_calendar',
+                state: 'disconnected',
+                configured: true,
+              },
+              {
+                provider: 'google_drive',
+                state: 'connected',
+                configured: true,
+              },
+            ],
+          });
+        }
+        return jsonResponse({});
+      }),
+    );
+
+    render(<AccountPanel locale="es-AR" />);
+    await waitFor(() =>
+      expect(screen.getByText(/hola, leonardo/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByText(/conectar google \(opcional\)/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByText(/google calendar/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/google drive/i).length).toBeGreaterThan(0);
+    });
+    expect(screen.getByText(/^desconectada$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^conectada$/i)).toBeInTheDocument();
+  });
+
+  it('registra consentimiento, llama oauth start y abre authorizationUrl', async () => {
+    const openMock = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/api/account/status')) {
+        return jsonResponse({
+          authenticated: true,
+          mode: 'account',
+          user: {
+            id: 'usr-b',
+            displayName: 'Pausa',
+            locale: 'es-AR',
+            status: 'active',
+          },
+        });
+      }
+      if (url.endsWith('/api/connectors/providers')) {
+        return jsonResponse({
+          providers: [
+            {
+              provider: 'google_calendar',
+              state: 'disconnected',
+              configured: true,
+            },
+            {
+              provider: 'google_drive',
+              state: 'disconnected',
+              configured: true,
+            },
+          ],
+        });
+      }
+      if (url.endsWith('/api/connectors/google_calendar/consents')) {
+        expect(init?.method).toBe('POST');
+        const body = JSON.parse(String(init?.body));
+        expect(body.purpose).toMatch(/eventos próximos/i);
+        expect(body.scopes).toContain(
+          'https://www.googleapis.com/auth/calendar.readonly',
+        );
+        return jsonResponse({ provider: 'google_calendar', consent: { id: 'cons-1' } });
+      }
+      if (url.endsWith('/api/connectors/google_calendar/oauth/start')) {
+        expect(init?.method).toBe('POST');
+        return jsonResponse({
+          authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=test-1',
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<AccountPanel locale="es-AR" />);
+    await waitFor(() =>
+      expect(screen.getByText(/conectar google \(opcional\)/i)).toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /conectar google calendar/i }),
+      ).toBeInTheDocument(),
+    );
+
+    const consentToggles = screen.getAllByRole('checkbox');
+    fireEvent.click(consentToggles[0]);
+    fireEvent.click(screen.getByRole('button', { name: /conectar google calendar/i }));
+
+    await waitFor(() => {
+      expect(openMock).toHaveBeenCalledWith(
+        expect.stringContaining('accounts.google.com'),
+        '_blank',
+        'noopener,noreferrer',
+      );
+    });
+    expect(
+      screen.getByText(/abrimos google calendar en una pestaña nueva/i),
+    ).toBeInTheDocument();
   });
 });

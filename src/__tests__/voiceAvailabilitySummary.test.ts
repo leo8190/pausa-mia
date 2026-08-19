@@ -39,6 +39,22 @@ describe('summarizeVoiceAvailability', () => {
     expect(text).toMatch(/voz argentina se puede preparar/i);
   });
 
+  it('mentions both local and remote Argentine options when endpoint is configured', () => {
+    const text = summarizeVoiceAvailability([
+      status('web-speech', { supported: true, available: true }),
+      status('neural-piper-es-ar', { supported: true, available: false }),
+      status('remote-wav-es-ar', {
+        supported: true,
+        configured: true,
+        available: false,
+      }),
+    ]);
+    expect(text).toMatch(/voz del dispositivo lista/i);
+    expect(text).toMatch(/voz argentina local/i);
+    expect(text).toMatch(/remota con consentimiento/i);
+    expect(text).not.toMatch(/universal|siempre/i);
+  });
+
   it('falls back to reading on screen when nothing is available', () => {
     const text = summarizeVoiceAvailability([
       status('web-speech', { supported: false, available: false }),

@@ -561,6 +561,52 @@
   font-size: 1.08rem;
 }
 
+.account-connectors {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.account-connectors h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--color-text);
+}
+
+.account-connector-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-surface-raised) 84%, transparent);
+}
+
+.account-connector-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.account-connector-state {
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-darker);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.account-connector-state.is-warning {
+  background: color-mix(in srgb, #efd8a9 70%, transparent);
+  color: #7a4e14;
+}
+
 /* ---------- Buttons ---------- */
 
 .btn {

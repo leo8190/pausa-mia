@@ -267,6 +267,12 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               dispositivo (aprox. {ES_AR_VOICE_APPROX_SIZE_MB} MB). El audio se genera
               en un servidor propio y no se activa solo: hace falta tu consentimiento.
             </p>
+            <p className="field-hint">
+              Compatibilidad real: en Safari/iOS y algunos Android el inicio automático
+              puede bloquearse hasta tocar reproducir; en Chrome y Edge suele iniciar
+              sin pasos extra. Si hay bloqueo, mostramos controles nativos HTMLAudio
+              para continuar manualmente.
+            </p>
             {!remoteConfigured ? (
               <p className="fallback-notice" role="status">
                 Esta opción remota no está disponible en esta copia de la app. Falta
@@ -337,6 +343,11 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 Tu navegador bloqueó el inicio automático del audio. Usá el reproductor
                 nativo o el botón de abajo para iniciar el WAV. Pausar, Continuar,
                 Detener y Reiniciar siguen disponibles.
+              </p>
+              <p className="field-hint">
+                Esto puede pasar en Safari (iOS/macOS), algunos Android y WebViews; no
+                implica falla del guion ni del servidor. En Chrome/Edge de escritorio
+                suele suceder menos, pero no se puede garantizar universalidad.
               </p>
               <div
                 className="native-audio-host"

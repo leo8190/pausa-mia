@@ -48,3 +48,29 @@ Para local:
 6. `POST /api/connectors/:provider/oauth/revoke` revoca token en Google y limpia secreto local.
 
 El backend nunca devuelve `access_token`, `refresh_token` ni secretos de cliente al navegador.
+
+## Flujo de interfaz (cuenta autenticada)
+
+La UI productiva en `AccountPanel` usa exclusivamente estas rutas:
+
+1. `GET /api/connectors/providers` para mostrar estado por proveedor:
+   - `connected` -> "Conectada"
+   - `disconnected`/`revoked`/`error` -> "Desconectada"
+   - `configured=false` -> "No configurado"
+2. `POST /api/connectors/:provider/consents` para registrar consentimiento explícito con:
+   - propósito visible
+   - scopes visibles
+   - evidencia textual de consentimiento
+3. `POST /api/connectors/:provider/oauth/start` para obtener `authorizationUrl`.
+4. Apertura de `authorizationUrl` en nueva pestaña (`window.open`) sin exponer tokens.
+
+Si `window.open` es bloqueado por el navegador, la UI muestra el enlace manual para continuar.
+
+## Variables de frontend para producción
+
+- `VITE_ACCOUNT_API_URL`: URL base del backend de cuentas/conectores. Si queda vacía,
+  el frontend usa rutas relativas (`/api/...`) en el mismo origen.
+- `VITE_ARGENTINE_TTS_ENDPOINT`: endpoint de voz argentina remota (`/v1/tts`) usado
+  sólo con consentimiento explícito en `PlaybackStep`.
+
+Estas variables no deben contener secretos.

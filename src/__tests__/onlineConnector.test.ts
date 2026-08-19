@@ -5,10 +5,11 @@ import {
 } from '../lib/onlineConnector';
 
 describe('onlineConnector', () => {
-  it('never reports OAuth active when the prototype has no flow implementation', () => {
+  it('keeps OAuth inactive in context-step imports and points to account panel', () => {
     const status = getOnlineConnectorStatus();
     expect(isOnlineConnectorActive()).toBe(false);
     expect(status.active).toBe(false);
-    expect(status.reason).toMatch(/OAuth|conexión/i);
+    expect(status.configured).toBe(true);
+    expect(status.reason).toMatch(/cuenta autenticada|bienvenida/i);
   });
 });

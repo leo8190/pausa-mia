@@ -21,12 +21,10 @@ const emptyFeedback = (): SourceFeedback => ({
 });
 
 /**
- * Sección "Fuentes que podés agregar": reemplaza la lista puramente
- * desactivada anterior por opciones accionables con consentimiento explícito
- * por fuente. Cada fuente se agrega importando un archivo local (nunca por
- * OAuth) y queda visible en la lista de fuentes de contexto, donde se puede
- * incluir, previsualizar o quitar. Las conexiones en línea equivalentes
- * quedan siempre deshabilitadas.
+ * Sección "Fuentes que podés agregar": opciones accionables con consentimiento
+ * por fuente, usando importación local de archivos. OAuth existe a nivel de
+ * cuenta, pero en este paso se mantiene desactivado para priorizar control
+ * explícito por archivo.
  */
 export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
   const { contextSources } = sessionApi.session;
@@ -121,10 +119,9 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
       <h3>Fuentes que podés agregar</h3>
       <p className="field-hint">
         Cada fuente se agrega importando un archivo exportado por vos mismo/a, sólo para
-        esta sesión. No pedimos ni usamos OAuth, ni enviamos nada a servidores de
-        terceros. Después de agregarla, la vas a ver en la lista de fuentes de arriba,
-        con casilla para incluirla en el guion y opción de quitarla en cualquier
-        momento.
+        esta sesión. En este paso no iniciamos OAuth ni enviamos datos a terceros.
+        Después de agregarla, la vas a ver en la lista de fuentes de arriba, con casilla
+        para incluirla en el guion y opción de quitarla en cualquier momento.
       </p>
       <p className="field-hint" role="status">
         Estado de conexiones online: {onlineConnector.reason}
@@ -149,8 +146,8 @@ export function FutureIntegrations({ sessionApi }: { sessionApi: SessionApi }) {
               <p className="field-hint">{source.description}</p>
               <p className="field-hint">
                 Sin conexión online: elegí un archivo local exportado por vos. El botón
-                de conexión en línea queda desactivado a propósito; este prototipo no
-                implementa OAuth ni credenciales.
+                de conexión en línea queda desactivado a propósito en este paso; si
+                querés conectar Google, hacelo desde el panel de cuenta en Bienvenida.
               </p>
 
               <div className="addable-source-actions">

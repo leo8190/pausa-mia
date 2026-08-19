@@ -13,6 +13,10 @@ export function summarizeVoiceAvailability(statuses: VoiceEngineStatus[]): strin
     return 'La voz argentina de meditación está lista en este dispositivo.';
   }
 
+  if (neural?.supported && remote?.configured && webSpeech?.available) {
+    return 'Hay una voz del dispositivo lista. Podés usar voz argentina local al preparar, o la remota con consentimiento.';
+  }
+
   if (neural?.supported && webSpeech?.available) {
     return 'Hay una voz del dispositivo lista. La voz argentina se puede preparar cuando reproduzcas.';
   }

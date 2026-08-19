@@ -158,6 +158,21 @@ sesión server-side local y OAuth Google para `google_calendar` y `google_drive`
 Proveedores incluidos en el contrato inicial: `google_calendar`, `google_drive`,
 `social_networks`.
 
+### UI de conectores para cuenta autenticada
+
+En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
+
+- Se muestran `google_calendar` y `google_drive` con estado visible:
+  - `connected` -> "Conectada"
+  - `disconnected`/`revoked`/`error` -> "Desconectada"
+  - `configured=false` -> "No configurado"
+- La conexión exige consentimiento explícito por proveedor (casilla desmarcada).
+- Antes de abrir Google se registra consentimiento por API:
+  `POST /api/connectors/:provider/consents` (propósito + scopes + evidencia).
+- Después se llama `POST /api/connectors/:provider/oauth/start` y se abre
+  `authorizationUrl` en una pestaña nueva.
+- El frontend nunca maneja tokens OAuth ni secretos.
+
 ### Variables de entorno nuevas (servidor)
 
 - `ACCOUNT_DB_PATH` — ruta SQLite local.
@@ -292,7 +307,18 @@ exportaciones de Instagram, Facebook, X, LinkedIn o TikTok. Se pueden elegir var
 archivos, soltarlos en la zona de importación y, cuando corresponde, leer CSV. Se
 interpretan en el navegador, se pueden quitar antes de generar y no se envían a
 servidores. Los botones de conexión directa del frontend permanecen deshabilitados por
-ahora; el flujo OAuth real vive en el backend para la siguiente integración de UI.
+ahora en este paso; el flujo OAuth real se gestiona desde el panel de cuenta
+autenticada en Bienvenida.
+
+### Configuración de producción (frontend)
+
+Variables recomendadas para publicar:
+
+- `VITE_ACCOUNT_API_URL=https://<tu-backend-cuentas>` para cuentas, sesión y conectores.
+- `VITE_ARGENTINE_TTS_ENDPOINT=https://<tu-servicio-voz>` para voz es-AR remota opt-in.
+- `VITE_BASE_PATH=/` o `/pausa-mia/` según subruta de despliegue.
+
+Ninguna variable `VITE_*` debe incluir secretos (`client_secret`, tokens o claves).
 
 ## Pausa de seguridad — Argentina
 
