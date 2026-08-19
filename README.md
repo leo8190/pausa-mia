@@ -429,16 +429,16 @@ sitio y, si se elige, para descargar el modelo Piper local o usar el TTS argenti
 remoto tras consentimiento. Sin conexión no hay reproducción TTS garantizada; el
 guion puede leerse en pantalla cuando ya esté generado en la sesión actual.
 
-### Qué queda fuera del sitio publicado
+### Qué queda fuera del sitio publicado actual
 
 - El servidor local de IA (`server/`) no se despliega: Pages sirve sólo archivos estáticos.
 - Sin `/api` disponible, `isAvailable()` falla de forma controlada y el sitio publicado
   usa el **motor local por reglas**. La voz argentina Piper sí puede descargarse bajo
   demanda desde el repositorio público del modelo, únicamente después de que la
   persona lo solicita.
-- No se agregan OAuth, claves, cuentas, pagos ni analítica. El único envío
-  opcional a un tercero es el texto del guion al TTS remoto de Fly, y sólo tras
-  consentimiento explícito.
+- La publicación estática actual todavía no incluye backend de cuentas, OAuth,
+  pagos ni analítica. El único envío opcional a un tercero es el texto del guion al
+  TTS remoto de Fly, y sólo tras consentimiento explícito.
 - Los artefactos de audio de `artifacts/` quedan ignorados por Git y no viajan al build.
 
 ### Publicación verificada
@@ -474,10 +474,11 @@ verificó después de una ejecución exitosa de GitHub Actions.
   `docs/REMOTE_ARGENTINE_VOICE_DEVICE_VERIFICATION.md`.
 - El detector de seguridad es conservador por frases, no evalúa riesgo clínico.
 - El modo IA requiere servidor local y proveedor configurado; no se incluyen claves. Sigue experimental hasta una prueba real autorizada.
-- No hay checkout, cuentas, OAuth real ni envío de diario/perfil. El sitio publicado
-  apunta a `https://pausa-mia-voz-ar.fly.dev` y sólo envía texto del guion tras
-  consentimiento (nunca en silencio; con endpoint la oferta remota es visible en
-  es-AR junto a Piper local).
+- El backend local ya tiene cuentas opcionales y sesiones seguras, pero el sitio
+  publicado todavía no las expone; tampoco hay checkout ni OAuth real. No se envía
+  diario/perfil. El sitio publicado apunta a `https://pausa-mia-voz-ar.fly.dev` y
+  sólo envía texto del guion tras consentimiento (nunca en silencio; con endpoint la
+  oferta remota es visible en es-AR junto a Piper local).
 - OAuth (Google, redes) se muestra desactivado como función futura.
 
 ## Límites del producto
@@ -490,6 +491,7 @@ verificó después de una ejecución exitosa de GitHub Actions.
 ## Licencia
 
 Prototipo de León Developments en fase de prueba pública controlada. No se despliegan
-claves, servidor IA, OAuth, datos del diario ni cuentas. La voz remota del sitio
-publicado usa `https://pausa-mia-voz-ar.fly.dev` (autostop/costo en Fly) y exige
-consentimiento; en local el endpoint sigue vacío salvo `.env`.
+claves, el servidor IA ni OAuth sin configurar primero credenciales y revisión de
+seguridad. La voz remota del sitio publicado usa
+`https://pausa-mia-voz-ar.fly.dev` (autostop/costo en Fly) y exige consentimiento; en
+local el endpoint sigue vacío salvo `.env`.
