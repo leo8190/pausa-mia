@@ -59,5 +59,9 @@ despliega ni modifica secretos.
 - iOS Safari puede restringir autoplay hasta gesto de usuario (el botón de
   reproducir cubre el gesto).
 - Cold start en Fly con autostop puede tardar varios segundos en el primer
-  request: documentar latencia medida, no estimada.
+  request: en una medición real del 2026-08-20, el primer POST frío tardó
+  25,96 s y los siguientes 2,6–2,7 s. Desde el warm-up publicado, la demora se
+  muestra al elegir la voz (3,6 s en una sesión cálida) y el primer Play llegó a
+  `audio.play()` en 2,87 s; una sesión fría puede trasladar la espera al estado
+  «Preparando», no ocultarla.
 - `mock` no valida calidad argentina; sólo la tubería HTTP + UI.
