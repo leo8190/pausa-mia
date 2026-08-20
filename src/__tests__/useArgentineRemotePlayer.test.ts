@@ -3,6 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import {
   argentineWavDownloadName,
   isAutoplayPolicyError,
+  REMOTE_WARMUP_TEXT,
   useArgentineVoicePlayer,
   type ArgentineVoiceMode,
 } from '../hooks/useArgentineVoicePlayer';
@@ -56,6 +57,7 @@ describe('useArgentineVoicePlayer — remoto', () => {
   it('prepare remoto exige endpoint y no llama Piper local', async () => {
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(false);
     const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
+    const remoteSpy = vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice');
 
     const { result } = renderHook(() => useArgentineVoicePlayer('remote'));
     let ok = true;
@@ -65,6 +67,31 @@ describe('useArgentineVoicePlayer — remoto', () => {
     expect(ok).toBe(false);
     expect(result.current.state.status).toBe('error');
     expect(result.current.state.error).toMatch(/endpoint remoto/i);
+    expect(localSpy).not.toHaveBeenCalled();
+    expect(remoteSpy).not.toHaveBeenCalled();
+  });
+
+  it('prepare remoto hace warm-up con frase fija y no usa texto del guion', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' }),
+    );
+    const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
+
+    const { result } = renderHook(() => useArgentineVoicePlayer('remote'));
+    await act(async () => {
+      await result.current.prepare();
+    });
+
+    expect(result.current.state.status).toBe('ready');
+    expect(remoteVoice.synthesizeRemoteArgentineVoice).toHaveBeenCalledWith(
+      REMOTE_WARMUP_TEXT,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(remoteVoice.synthesizeRemoteArgentineVoice).not.toHaveBeenCalledWith(
+      expect.stringMatching(/Respirá\./i),
+      expect.anything(),
+    );
     expect(localSpy).not.toHaveBeenCalled();
   });
 
@@ -89,7 +116,13 @@ describe('useArgentineVoicePlayer — remoto', () => {
     await waitFor(() => {
       expect(result.current.state.status).toBe('playing');
     });
-    expect(remoteVoice.synthesizeRemoteArgentineVoice).toHaveBeenCalledWith(
+    expect(remoteVoice.synthesizeRemoteArgentineVoice).toHaveBeenNthCalledWith(
+      1,
+      REMOTE_WARMUP_TEXT,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(remoteVoice.synthesizeRemoteArgentineVoice).toHaveBeenNthCalledWith(
+      2,
       'Respirá.',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
@@ -142,6 +175,63 @@ describe('useArgentineVoicePlayer — remoto', () => {
       expect(result.current.state.status).toBe('playing');
     });
     expect(result.current.state.nativeControlsRequired).toBe(true);
+  });
+
+  it('aborts remote warm-up when switching back to local mode', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    let capturedSignal: AbortSignal | undefined;
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockImplementation(
+      async (_text, options) => {
+        capturedSignal = options?.signal;
+        return await new Promise<Blob>((resolve, reject) => {
+          options?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true },
+          );
+          // Pendiente hasta abort para simular warm-up en curso.
+          setTimeout(
+            () => resolve(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' })),
+            5_000,
+          );
+        });
+      },
+    );
+
+    const { result, rerender } = renderHook(
+      ({ mode }: { mode: ArgentineVoiceMode }) => useArgentineVoicePlayer(mode),
+      { initialProps: { mode: 'remote' as ArgentineVoiceMode } },
+    );
+    act(() => {
+      void result.current.prepare();
+    });
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('preparing');
+    });
+
+    rerender({ mode: 'local' });
+    await waitFor(() => {
+      expect(result.current.state.mode).toBe('local');
+      expect(result.current.state.status).toBe('idle');
+    });
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it('keeps remote in error when warm-up fails', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockRejectedValue(
+      new remoteVoice.RemoteVoiceError('Servicio remoto caído', 'network_error'),
+    );
+
+    const { result } = renderHook(() => useArgentineVoicePlayer('remote'));
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.prepare();
+    });
+
+    expect(ok).toBe(false);
+    expect(result.current.state.status).toBe('error');
+    expect(result.current.state.error).toMatch(/Servicio remoto caído/i);
   });
 
   it('changing from local to remote ignores a late local prepare', async () => {

@@ -26,6 +26,9 @@ import { normalizeTextForTts } from '../lib/ttsPronunciation';
 
 export type ArgentineVoiceMode = 'local' | 'remote';
 
+/** Frase fija para precalentar remoto sin exponer texto del guion. */
+export const REMOTE_WARMUP_TEXT = 'Hola. Esta es una pausa argentina.';
+
 export type ArgentineVoiceStatus =
   | 'idle'
   | 'preparing'
@@ -187,7 +190,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
 
   /**
    * Local: descarga/cachea el modelo y ejecuta una síntesis de prueba.
-   * Remoto: verifica endpoint configurado; no envía el guion (ni frase de prueba).
+   * Remoto: hace warm-up con una frase fija no sensible (sin guion).
    */
   const prepare = useCallback(async (): Promise<boolean> => {
     const requestMode = mode;
@@ -215,6 +218,9 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
             'No hay un endpoint remoto configurado (VITE_ARGENTINE_TTS_ENDPOINT).',
           );
         }
+        await synthesizeRemoteArgentineVoice(REMOTE_WARMUP_TEXT, {
+          signal: controller.signal,
+        });
         if (isStale()) return false;
         setState((prev) => ({
           ...prev,

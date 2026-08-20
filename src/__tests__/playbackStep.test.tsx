@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { PlaybackStep } from '../components/PlaybackStep';
 import type { SessionApi } from '../hooks/useSession';
 import type { SessionState } from '../types';
+import { REMOTE_WARMUP_TEXT } from '../hooks/useArgentineVoicePlayer';
 import * as voiceEngine from '../lib/voiceEngine';
 import * as remoteVoice from '../lib/remoteVoiceService';
 
@@ -192,9 +193,9 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
   it('requires remote consent before switching, then prepares remote playback controls', async () => {
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
     const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
-    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
-      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' }),
-    );
+    const remoteSpy = vi
+      .spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice')
+      .mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' }));
 
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
 
@@ -224,6 +225,12 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
         screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
       ).toBeInTheDocument();
     });
+    expect(remoteSpy).toHaveBeenCalledTimes(1);
+    expect(remoteSpy).toHaveBeenNthCalledWith(
+      1,
+      REMOTE_WARMUP_TEXT,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
 
     fireEvent.click(
       screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
@@ -231,6 +238,11 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
     });
+    expect(remoteSpy).toHaveBeenNthCalledWith(
+      2,
+      'Cerrá los ojos y respirá.',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     fireEvent.click(screen.getByRole('button', { name: /pausar/i }));
     expect(screen.getByRole('button', { name: /^continuar$/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /detener/i }));
@@ -239,7 +251,7 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
     });
-    expect(remoteVoice.synthesizeRemoteArgentineVoice).toHaveBeenCalled();
+    expect(remoteSpy).toHaveBeenCalled();
     expect(localSpy).not.toHaveBeenCalled();
   });
 
@@ -288,9 +300,9 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
     const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
-    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
-      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' }),
-    );
+    const remoteSpy = vi
+      .spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice')
+      .mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' }));
 
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
 
@@ -343,11 +355,20 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
         screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
       ).toBeInTheDocument();
     });
+    expect(remoteSpy).toHaveBeenNthCalledWith(
+      1,
+      REMOTE_WARMUP_TEXT,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     fireEvent.click(
       screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
     );
     await waitFor(() => {
-      expect(remoteVoice.synthesizeRemoteArgentineVoice).toHaveBeenCalled();
+      expect(remoteSpy).toHaveBeenNthCalledWith(
+        2,
+        'Cerrá los ojos y respirá.',
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
     });
     expect(localSpy).not.toHaveBeenCalled();
     expect(
@@ -463,6 +484,9 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
 
   it('switching to remote cancels a local prepare and ignores a late local ready', async () => {
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([9, 9, 9])], { type: 'audio/wav' }),
+    );
     let resolveLocal: ((blob: Blob) => void) | undefined;
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockImplementation(
       () =>
