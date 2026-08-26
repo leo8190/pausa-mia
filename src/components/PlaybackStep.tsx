@@ -11,6 +11,7 @@ import {
   ES_AR_VOICE_APPROX_SIZE_MB,
 } from '../lib/voiceEngine';
 import { isRemoteArgentineTtsConfigured } from '../lib/remoteVoiceService';
+import { reportSessionComplete } from '../lib/visitorPing';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 import { TechnicalVoiceDetails } from './TechnicalVoiceDetails';
 
@@ -80,6 +81,37 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       void prepareNeural();
     }
   }, [useRemoteArgentine, neuralState.status, prepareNeural]);
+
+  // Reproducción natural terminada (último segmento) = sesión usada.
+  useEffect(() => {
+    if (!script) return;
+    const segmentCount = script.segments.length;
+    if (segmentCount === 0) return;
+
+    if (useNeuralEngine) {
+      if (
+        neuralState.status === 'stopped' &&
+        neuralState.currentSegmentIndex >= segmentCount
+      ) {
+        reportSessionComplete();
+      }
+      return;
+    }
+
+    if (
+      playerState.status === 'stopped' &&
+      playerState.currentSegmentIndex >= segmentCount
+    ) {
+      reportSessionComplete();
+    }
+  }, [
+    script,
+    useNeuralEngine,
+    neuralState.status,
+    neuralState.currentSegmentIndex,
+    playerState.status,
+    playerState.currentSegmentIndex,
+  ]);
 
   if (!script) return null;
 

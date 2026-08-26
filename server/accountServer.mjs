@@ -25,6 +25,7 @@ import {
 import { createGoogleOAuthService } from './googleOAuth.mjs';
 import {
   hashVisitorId,
+  isValidProductEvent,
   isValidVisitorId,
   isVisitPath,
   isVisitorsCountPath,
@@ -178,8 +179,19 @@ export function createAppHandler(options = {}) {
             return;
           }
 
+          // event opcional: por defecto pageview (compat con el ping #18).
+          const rawEvent =
+            body.event === undefined || body.event === null
+              ? 'pageview'
+              : body.event;
+          if (!isValidProductEvent(rawEvent)) {
+            sendError(res, 400, 'EVENT_INVALID');
+            return;
+          }
+
           const visitorHash = hashVisitorId(visitorId, sessionPepper);
           store.recordUniqueVisitor(visitorHash);
+          store.recordProductEvent(rawEvent, visitorHash);
           sendNoContent(res);
         } catch (error) {
           if (error instanceof Error && error.message === 'BODY_INVALID') {
@@ -201,7 +213,11 @@ export function createAppHandler(options = {}) {
           sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
           return;
         }
-        sendJson(res, 200, { uniqueVisitors: store.countUniqueVisitors() });
+        sendJson(res, 200, {
+          uniqueVisitors: store.countUniqueVisitors(),
+          pageviews: store.countProductEvents('pageview'),
+          sessionCompletes: store.countProductEvents('session_complete'),
+        });
         return;
       }
 

@@ -7,6 +7,7 @@ import { createAppHandler } from '../accountServer.mjs';
 import { createAccountStore } from '../store/createStore.mjs';
 import {
   hashVisitorId,
+  isValidProductEvent,
   isValidVisitorId,
   isVisitPath,
   isVisitorsCountPath,
@@ -45,7 +46,7 @@ async function withTestServer(callback) {
 }
 
 describe('visitors helpers', () => {
-  it('reconoce rutas y valida UUID anónimo', () => {
+  it('reconoce rutas, UUID anónimo y eventos de producto', () => {
     expect(isVisitPath('/api/visit')).toBe(true);
     expect(isVisitPath('/api/visit?x=1')).toBe(true);
     expect(isVisitPath('/api/visitors/count')).toBe(false);
@@ -53,6 +54,9 @@ describe('visitors helpers', () => {
     expect(isValidVisitorId(VISITOR_A)).toBe(true);
     expect(isValidVisitorId('not-a-uuid')).toBe(false);
     expect(isValidVisitorId('')).toBe(false);
+    expect(isValidProductEvent('pageview')).toBe(true);
+    expect(isValidProductEvent('session_complete')).toBe(true);
+    expect(isValidProductEvent('bounce')).toBe(false);
   });
 
   it('hashea el id con pepper (nunca persiste el valor en claro)', () => {
@@ -66,17 +70,20 @@ describe('visitors helpers', () => {
   });
 });
 
-describe('unique visitor endpoints', () => {
-  it('cuenta visitantes distintos y deduplica el mismo id', async () => {
+describe('unique visitor and product event endpoints', () => {
+  it('cuenta pageviews, session_complete y visitantes únicos', async () => {
     await withTestServer(async ({ port, store }) => {
       const first = await fetch(`http://127.0.0.1:${port}/api/visit`, {
         method: 'POST',
         headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: VISITOR_A }),
+        body: JSON.stringify({ id: VISITOR_A, event: 'pageview' }),
       });
       expect(first.status).toBe(204);
       expect(store.countUniqueVisitors()).toBe(1);
+      expect(store.countProductEvents('pageview')).toBe(1);
+      expect(store.countProductEvents('session_complete')).toBe(0);
 
+      // Sin event → pageview por compatibilidad con #18
       const again = await fetch(`http://127.0.0.1:${port}/api/visit`, {
         method: 'POST',
         headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
@@ -84,11 +91,20 @@ describe('unique visitor endpoints', () => {
       });
       expect(again.status).toBe(204);
       expect(store.countUniqueVisitors()).toBe(1);
+      expect(store.countProductEvents('pageview')).toBe(2);
+
+      const complete = await fetch(`http://127.0.0.1:${port}/api/visit`, {
+        method: 'POST',
+        headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: VISITOR_A, event: 'session_complete' }),
+      });
+      expect(complete.status).toBe(204);
+      expect(store.countProductEvents('session_complete')).toBe(1);
 
       const second = await fetch(`http://127.0.0.1:${port}/api/visit`, {
         method: 'POST',
         headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: VISITOR_B }),
+        body: JSON.stringify({ id: VISITOR_B, event: 'pageview' }),
       });
       expect(second.status).toBe(204);
       expect(store.countUniqueVisitors()).toBe(2);
@@ -97,13 +113,21 @@ describe('unique visitor endpoints', () => {
         `http://127.0.0.1:${port}/api/visitors/count`,
       );
       expect(countNoOrigin.status).toBe(200);
-      expect(await countNoOrigin.json()).toEqual({ uniqueVisitors: 2 });
+      expect(await countNoOrigin.json()).toEqual({
+        uniqueVisitors: 2,
+        pageviews: 3,
+        sessionCompletes: 1,
+      });
 
       const countOk = await fetch(`http://127.0.0.1:${port}/api/visitors/count`, {
         headers: { Origin: ORIGIN },
       });
       expect(countOk.status).toBe(200);
-      expect(await countOk.json()).toEqual({ uniqueVisitors: 2 });
+      expect(await countOk.json()).toEqual({
+        uniqueVisitors: 2,
+        pageviews: 3,
+        sessionCompletes: 1,
+      });
 
       const persisted = store.recordUniqueVisitor(
         hashVisitorId(VISITOR_A, 'test-pepper-for-visitors-hash'),
@@ -112,12 +136,12 @@ describe('unique visitor endpoints', () => {
     });
   });
 
-  it('exige origen allowlisted en POST y rechaza ids inválidos', async () => {
+  it('exige origen allowlisted en POST y rechaza ids o eventos inválidos', async () => {
     await withTestServer(async ({ port }) => {
       const noOrigin = await fetch(`http://127.0.0.1:${port}/api/visit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: VISITOR_A }),
+        body: JSON.stringify({ id: VISITOR_A, event: 'pageview' }),
       });
       expect(noOrigin.status).toBe(403);
 
@@ -127,17 +151,25 @@ describe('unique visitor endpoints', () => {
           Origin: 'http://evil.example',
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ id: VISITOR_A }),
+        body: JSON.stringify({ id: VISITOR_A, event: 'pageview' }),
       });
       expect(badOrigin.status).toBe(403);
 
       const badId = await fetch(`http://127.0.0.1:${port}/api/visit`, {
         method: 'POST',
         headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: 'tracking-pixel.gif' }),
+        body: JSON.stringify({ id: 'tracking-pixel.gif', event: 'pageview' }),
       });
       expect(badId.status).toBe(400);
       expect((await badId.json()).error).toBe('VISITOR_ID_INVALID');
+
+      const badEvent = await fetch(`http://127.0.0.1:${port}/api/visit`, {
+        method: 'POST',
+        headers: { Origin: ORIGIN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: VISITOR_A, event: 'questionnaire' }),
+      });
+      expect(badEvent.status).toBe(400);
+      expect((await badEvent.json()).error).toBe('EVENT_INVALID');
 
       const countBad = await fetch(`http://127.0.0.1:${port}/api/visitors/count`, {
         headers: { Origin: 'http://evil.example' },

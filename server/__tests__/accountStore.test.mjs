@@ -207,6 +207,13 @@ describe('account store', () => {
     expect(store.recordUniqueVisitor('hash-b').isNew).toBe(true);
     expect(store.countUniqueVisitors()).toBe(2);
 
+    expect(store.countProductEvents('pageview')).toBe(0);
+    store.recordProductEvent('pageview', 'hash-a');
+    store.recordProductEvent('pageview', 'hash-b');
+    store.recordProductEvent('session_complete', 'hash-a');
+    expect(store.countProductEvents('pageview')).toBe(2);
+    expect(store.countProductEvents('session_complete')).toBe(1);
+
     store.close();
     rmSync(dir, { recursive: true, force: true });
   });

@@ -211,19 +211,23 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
   (`/api/...`) en el mismo origen. En el sitio publicado apunta a
   `https://pausa-mia-api.fly.dev` y también recibe el ping de visitantes únicos.
 
-### Contador first-party de visitantes únicos
+### Contador first-party de visitantes y eventos de producto
 
-Sin GA/Plausible/Mixpanel ni copy de marketing. Al cargar la app, el cliente genera
-(o reutiliza) un UUID anónimo en `localStorage` (`pausa-mia-vid`) y hace
-`POST /api/visit` con `{ id }` hacia el API allowlisteado. El servidor guarda sólo
-`SHA-256(pepper:id)` en `unique_visitors`; no registra IP, nombres ni contenido de
-meditación. El modo demo sin API falla en silencio.
+Sin GA/Plausible/Mixpanel ni píxeles de terceros. Al cargar la app (origen
+publicado `https://leo8190.github.io/pausa-mia`), el cliente genera (o reutiliza)
+un UUID anónimo en `localStorage` (`pausa-mia-vid`) y hace `POST /api/visit` con
+`{ id, event: "pageview" }` hacia el API allowlisteado. Cuando la persona termina
+la reproducción o llega al cierre del flujo, envía `{ id, event: "session_complete" }`
+(una vez por ciclo; no al borrar sin completar). El servidor guarda sólo
+`SHA-256(pepper:id)` en `unique_visitors` y filas mínimas (`event_name` + hash) en
+`product_events`; no registra IP, nombres, cuestionario, diario, estado, guion ni
+voz. El modo demo sin API falla en silencio.
 
-Leer el total (ops; Origin opcional como health; orígenes ajenos → 403):
+Leer totales (ops; Origin opcional como health; orígenes ajenos → 403):
 
 ```bash
 curl -sS https://pausa-mia-api.fly.dev/api/visitors/count
-# {"uniqueVisitors":N}
+# {"uniqueVisitors":N,"pageviews":N,"sessionCompletes":N}
 ```
 
 Con origen allowlisted:
@@ -233,8 +237,9 @@ curl -sS -H 'Origin: https://leo8190.github.io' \
   https://pausa-mia-api.fly.dev/api/visitors/count
 ```
 
-No inventar ni copiar números de visitas: el valor válido es el que devuelve ese
-endpoint (o `COUNT(*)` sobre `unique_visitors` en el volumen Fly `/data/app.db`).
+No inventar ni copiar números: el valor válido es el que devuelve ese endpoint
+(o conteos sobre `unique_visitors` / `product_events` en el volumen Fly
+`/data/app.db`).
 
 ## Motores de voz
 
