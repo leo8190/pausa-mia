@@ -196,9 +196,7 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
 ### Deploy del servidor
 
 - Docker reproducible: `server/Dockerfile` (incluye `HEALTHCHECK` sobre
-  `/api/health`, sin exigir `Origin`).
-- `fly.toml` declara `[[http_service.checks]]` a `GET /api/health` y
-  `APP_VERSION` (respuesta `{ status, aiEnabled, version }`).
+  `/api/health`).
 - Guía y redirect URI: `docs/SERVER_OAUTH_DEPLOYMENT.md`.
 
 ### Variable de entorno opcional (frontend cuentas)

@@ -10,7 +10,6 @@ import {
   isHealthPath,
   isOriginAllowed,
   parseAllowedOrigins,
-  resolveAppVersion,
   usesOpenAiStructuredOutputs,
   validatePayload,
   validateRequestBody,
@@ -252,12 +251,9 @@ describe('server/core validators', () => {
 });
 
 describe('server integration', () => {
-  it('acepta health sin Origin e incluye version; rechaza orígenes no permitidos', async () => {
+  it('acepta health sin Origin; mantiene CORS en el resto de la API', async () => {
     const { createServer } = await import('node:http');
-    const handler = createAiServerHandler({
-      apiKey: 'test-key',
-      version: '0.1.0-test',
-    });
+    const handler = createAiServerHandler({ apiKey: 'test-key' });
     const server = createServer(handler);
 
     await new Promise((resolve) => server.listen(0, resolve));
@@ -265,12 +261,7 @@ describe('server integration', () => {
 
     const healthNoOrigin = await fetch(`http://127.0.0.1:${port}/api/health`);
     expect(healthNoOrigin.status).toBe(200);
-    const healthNoOriginBody = await healthNoOrigin.json();
-    expect(healthNoOriginBody).toEqual({
-      status: 'ok',
-      aiEnabled: true,
-      version: '0.1.0-test',
-    });
+    expect(await healthNoOrigin.json()).toEqual({ status: 'ok', aiEnabled: true });
 
     const healthWithQuery = await fetch(`http://127.0.0.1:${port}/api/health?probe=1`);
     expect(healthWithQuery.status).toBe(200);
@@ -279,8 +270,14 @@ describe('server integration', () => {
       headers: { Origin: 'http://evil.example' },
     });
     expect(healthBad.status).toBe(403);
-    const healthBadBody = await healthBad.json();
-    expect(healthBadBody.error).toBe('ORIGIN_NOT_ALLOWED');
+    expect((await healthBad.json()).error).toBe('ORIGIN_NOT_ALLOWED');
+
+    const postNoOrigin = await fetch(`http://127.0.0.1:${port}/api/generate-script`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: serializeBody(validPayload),
+    });
+    expect(postNoOrigin.status).toBe(403);
 
     const postBad = await fetch(`http://127.0.0.1:${port}/api/generate-script`, {
       method: 'POST',
@@ -297,8 +294,6 @@ describe('server integration', () => {
         headers: { Origin: origin },
       });
       expect(healthOk.status).toBe(200);
-      const healthOkBody = await healthOk.json();
-      expect(healthOkBody.version).toBe('0.1.0-test');
     }
 
     server.close();
@@ -476,12 +471,6 @@ describe('origin helpers', () => {
     const wildcard = new Set(['*']);
     expect(getCorsAllowOrigin('https://any.example', wildcard, true)).toBeNull();
     expect(getCorsAllowOrigin('https://any.example', wildcard, false)).toBe('*');
-  });
-
-  it('resolveAppVersion usa APP_VERSION o fallback 0.1.0', () => {
-    expect(resolveAppVersion({ APP_VERSION: '1.2.3' })).toBe('1.2.3');
-    expect(resolveAppVersion({ APP_VERSION: '  ' })).toBe('0.1.0');
-    expect(resolveAppVersion({})).toBe('0.1.0');
   });
 
   it('isHealthPath acepta /api/health con o sin query', () => {

@@ -10,7 +10,6 @@ COPY .env.example ./.env.example
 
 EXPOSE 3001
 
-# /api/health acepta probes sin Origin (Docker/Fly). No hace falta HEALTHCHECK_ORIGIN.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "const port=process.env.AI_SERVER_PORT||3001;fetch(`http://127.0.0.1:${port}/api/health`).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1));"
 

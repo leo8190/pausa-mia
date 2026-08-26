@@ -9,7 +9,6 @@ primary_region = "gru"
   AI_SERVER_PORT = "3001"
   ACCOUNT_DB_PATH = "/data/app.db"
   ACCOUNT_ALLOWED_ORIGINS = "https://leo8190.github.io"
-  APP_VERSION = "0.1.0"
 
 [http_service]
   internal_port = 3001
