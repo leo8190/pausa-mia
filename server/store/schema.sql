@@ -76,3 +76,9 @@ CREATE TABLE IF NOT EXISTS context_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_context_items_user_id ON context_items(user_id, created_at DESC);
+
+-- Visitantes únicos first-party: sólo hash anónimo (sin IP ni contenido).
+CREATE TABLE IF NOT EXISTS unique_visitors (
+  visitor_hash TEXT PRIMARY KEY,
+  first_seen_at TEXT NOT NULL
+);

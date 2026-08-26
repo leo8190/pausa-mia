@@ -19,6 +19,7 @@ function emptyState() {
     consents: [],
     linkedAccounts: [],
     contextItems: [],
+    uniqueVisitors: [],
   };
 }
 
@@ -265,6 +266,28 @@ export function createJsonStore(path) {
         .filter((entry) => entry.userId === userId)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .map((entry) => ({ ...entry }));
+    },
+    recordUniqueVisitor(visitorHash) {
+      if (typeof visitorHash !== 'string' || visitorHash.length === 0) {
+        return { isNew: false };
+      }
+      if (!Array.isArray(state.uniqueVisitors)) {
+        state.uniqueVisitors = [];
+      }
+      const existing = state.uniqueVisitors.find(
+        (entry) => entry.visitorHash === visitorHash,
+      );
+      if (existing) {
+        return { isNew: false, firstSeenAt: existing.firstSeenAt };
+      }
+      const firstSeenAt = nowIso();
+      state.uniqueVisitors.push({ visitorHash, firstSeenAt });
+      persist();
+      return { isNew: true, firstSeenAt };
+    },
+    countUniqueVisitors() {
+      if (!Array.isArray(state.uniqueVisitors)) return 0;
+      return state.uniqueVisitors.length;
     },
   };
 }

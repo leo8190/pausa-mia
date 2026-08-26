@@ -401,5 +401,27 @@ export async function createSqliteStore(dbPath) {
         createdAt: row.created_at,
       }));
     },
+    recordUniqueVisitor(visitorHash) {
+      if (typeof visitorHash !== 'string' || visitorHash.length === 0) {
+        return { isNew: false };
+      }
+      const existing = db
+        .prepare(
+          `SELECT visitor_hash, first_seen_at FROM unique_visitors WHERE visitor_hash = ?`,
+        )
+        .get(visitorHash);
+      if (existing) {
+        return { isNew: false, firstSeenAt: existing.first_seen_at };
+      }
+      const firstSeenAt = nowIso();
+      db.prepare(
+        `INSERT INTO unique_visitors (visitor_hash, first_seen_at) VALUES (?, ?)`,
+      ).run(visitorHash, firstSeenAt);
+      return { isNew: true, firstSeenAt };
+    },
+    countUniqueVisitors() {
+      const row = db.prepare(`SELECT COUNT(*) AS total FROM unique_visitors`).get();
+      return Number(row?.total ?? 0);
+    },
   };
 }

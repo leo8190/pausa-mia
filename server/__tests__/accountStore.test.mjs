@@ -193,4 +193,21 @@ describe('account store', () => {
     store.close();
     rmSync(dir, { recursive: true, force: true });
   });
+
+  it('persiste hashes de visitantes únicos y deduplica', async () => {
+    const dir = makeTempDir();
+    const store = await createAccountStore({
+      fallbackPath: join(dir, 'app-store.json'),
+      forceEngine: 'json',
+    });
+
+    expect(store.countUniqueVisitors()).toBe(0);
+    expect(store.recordUniqueVisitor('hash-a').isNew).toBe(true);
+    expect(store.recordUniqueVisitor('hash-a').isNew).toBe(false);
+    expect(store.recordUniqueVisitor('hash-b').isNew).toBe(true);
+    expect(store.countUniqueVisitors()).toBe(2);
+
+    store.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
 });

@@ -179,12 +179,15 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
 - `ACCOUNT_STORE_ENGINE` — `json` para forzar fallback portable.
 - `ACCOUNT_STORE_JSON_PATH` — ruta del store JSON fallback.
 - `ACCOUNT_ALLOWED_ORIGINS` — lista separada por comas para CORS en
-  `/api/account*`, `/api/connectors*`, `/api/health` y `/api/generate-script`.
+  `/api/account*`, `/api/connectors*`, `/api/visit`, `/api/visitors/count`,
+  `/api/health` y `/api/generate-script`.
   Si queda vacía usa sólo localhost/127.0.0.1 (puertos 5173/4173). Con cookies
-  (`credentials`), `*` se rechaza por seguridad.
+  (`credentials`), `*` se rechaza por seguridad. En Fly el origen publicado es
+  `https://leo8190.github.io` (la app vive en `/pausa-mia`).
 - `SESSION_PEPPER` — **obligatorio y fuerte en producción/deploy** (mínimo 32
   caracteres con diversidad). En desarrollo/test, si falta o es débil, el servidor
-  genera uno efímero con warning y nunca imprime su valor.
+  genera uno efímero con warning y nunca imprime su valor. También se usa para
+  hashear el id anónimo del contador de visitantes.
 - `GOOGLE_OAUTH_CLIENT_ID` y `GOOGLE_OAUTH_CLIENT_SECRET` — credenciales OAuth
   sólo en backend.
 - `GOOGLE_OAUTH_REDIRECT_URI_CALENDAR` y `GOOGLE_OAUTH_REDIRECT_URI_DRIVE` — URI de
@@ -203,7 +206,33 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
 
 - `VITE_ACCOUNT_API_URL` — backend de cuentas opcional para frontend (`http(s)` sin
   credenciales embebidas). Si queda vacío, el cliente usa rutas relativas
-  (`/api/...`) en el mismo origen.
+  (`/api/...`) en el mismo origen. En el sitio publicado apunta a
+  `https://pausa-mia-api.fly.dev` y también recibe el ping de visitantes únicos.
+
+### Contador first-party de visitantes únicos
+
+Sin GA/Plausible/Mixpanel ni copy de marketing. Al cargar la app, el cliente genera
+(o reutiliza) un UUID anónimo en `localStorage` (`pausa-mia-vid`) y hace
+`POST /api/visit` con `{ id }` hacia el API allowlisteado. El servidor guarda sólo
+`SHA-256(pepper:id)` en `unique_visitors`; no registra IP, nombres ni contenido de
+meditación. El modo demo sin API falla en silencio.
+
+Leer el total (ops; Origin opcional como health; orígenes ajenos → 403):
+
+```bash
+curl -sS https://pausa-mia-api.fly.dev/api/visitors/count
+# {"uniqueVisitors":N}
+```
+
+Con origen allowlisted:
+
+```bash
+curl -sS -H 'Origin: https://leo8190.github.io' \
+  https://pausa-mia-api.fly.dev/api/visitors/count
+```
+
+No inventar ni copiar números de visitas: el valor válido es el que devuelve ese
+endpoint (o `COUNT(*)` sobre `unique_visitors` en el volumen Fly `/data/app.db`).
 
 ## Motores de voz
 

@@ -23,6 +23,12 @@ import {
   SUPPORTED_CONNECTOR_PROVIDERS,
 } from './connectors.mjs';
 import { createGoogleOAuthService } from './googleOAuth.mjs';
+import {
+  hashVisitorId,
+  isValidVisitorId,
+  isVisitPath,
+  isVisitorsCountPath,
+} from './visitors.mjs';
 
 const VALID_LOCALES = new Set(['es-AR', 'es-neutro']);
 
@@ -35,13 +41,15 @@ function isSessionActive(session) {
   return session.expiresAt > nowIso();
 }
 
-function setCorsHeaders(req, res, allowedOrigins) {
+function setCorsHeaders(req, res, allowedOrigins, credentials = true) {
   const origin = req.headers.origin;
-  const allowedOrigin = getCorsAllowOrigin(origin, allowedOrigins, true);
+  const allowedOrigin = getCorsAllowOrigin(origin, allowedOrigins, credentials);
   if (allowedOrigin) {
     res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
     res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (credentials) {
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -53,6 +61,11 @@ function sendJson(res, status, body, cookie = null) {
   }
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(body));
+}
+
+function sendNoContent(res) {
+  res.writeHead(204);
+  res.end();
 }
 
 function sendError(res, status, code, cookie = null, details = undefined) {
@@ -135,6 +148,67 @@ export function createAppHandler(options = {}) {
   return async function appHandler(req, res) {
     const requestUrl = new URL(req.url ?? '/', 'http://localhost');
     const pathname = requestUrl.pathname;
+
+    // Contador first-party: CORS allowlist (sin cookies). Count permite sin Origin (ops).
+    if (isVisitPath(pathname) || isVisitorsCountPath(pathname)) {
+      setCorsHeaders(req, res, allowedOrigins, false);
+
+      if (req.method === 'OPTIONS') {
+        if (!getCorsAllowOrigin(req.headers.origin, allowedOrigins, false)) {
+          res.writeHead(403);
+          res.end();
+          return;
+        }
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      if (req.method === 'POST' && isVisitPath(pathname)) {
+        if (!getCorsAllowOrigin(req.headers.origin, allowedOrigins, false)) {
+          sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
+          return;
+        }
+
+        try {
+          const body = await readJsonBody(req);
+          const visitorId = typeof body.id === 'string' ? body.id.trim() : '';
+          if (!isValidVisitorId(visitorId)) {
+            sendError(res, 400, 'VISITOR_ID_INVALID');
+            return;
+          }
+
+          const visitorHash = hashVisitorId(visitorId, sessionPepper);
+          store.recordUniqueVisitor(visitorHash);
+          sendNoContent(res);
+        } catch (error) {
+          if (error instanceof Error && error.message === 'BODY_INVALID') {
+            sendError(res, 400, 'BODY_INVALID');
+            return;
+          }
+          if (error instanceof Error && error.message === 'BODY_TOO_LARGE') {
+            sendError(res, 413, 'BODY_TOO_LARGE');
+            return;
+          }
+          sendError(res, 500, 'INTERNAL_ERROR');
+        }
+        return;
+      }
+
+      if (req.method === 'GET' && isVisitorsCountPath(pathname)) {
+        const origin = req.headers.origin;
+        if (origin && !getCorsAllowOrigin(origin, allowedOrigins, false)) {
+          sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
+          return;
+        }
+        sendJson(res, 200, { uniqueVisitors: store.countUniqueVisitors() });
+        return;
+      }
+
+      res.writeHead(405);
+      res.end('Method not allowed');
+      return;
+    }
 
     if (pathname.startsWith('/api/account') || pathname.startsWith('/api/connectors')) {
       setCorsHeaders(req, res, allowedOrigins);
