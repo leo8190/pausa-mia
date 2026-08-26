@@ -44,13 +44,15 @@ async function readPiperSampleRate(configPath: string): Promise<number> {
 
 /** Flags del CLI piper (piper-tts 1.6.0 acepta --output_raw y --output-raw). */
 export function buildPiperCliArgs(
-  config: Pick<VoiceServiceConfig, 'modelPath' | 'configPath'>,
+  config: Pick<VoiceServiceConfig, 'modelPath' | 'configPath' | 'lengthScale'>,
 ): string[] {
   return [
     '--model',
     config.modelPath,
     '--config',
     config.configPath,
+    '--length_scale',
+    String(config.lengthScale),
     '--output_raw',
   ];
 }

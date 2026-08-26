@@ -42,17 +42,20 @@ describe('voice-service wav mock', () => {
 });
 
 describe('voice-service piper CLI', () => {
-  it('passes --model, --config and --output_raw', () => {
+  it('passes --model, --config, serene --length_scale and --output_raw', () => {
     assert.deepEqual(
       buildPiperCliArgs({
         modelPath: '/models/es_AR-daniela-high.onnx',
         configPath: '/models/es_AR-daniela-high.onnx.json',
+        lengthScale: 1.28,
       }),
       [
         '--model',
         '/models/es_AR-daniela-high.onnx',
         '--config',
         '/models/es_AR-daniela-high.onnx.json',
+        '--length_scale',
+        '1.28',
         '--output_raw',
       ],
     );

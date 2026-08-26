@@ -171,6 +171,7 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     expect(
       screen.getByRole('button', { name: /preparar voz argentina/i }),
     ).toBeInTheDocument();
+    expect(screen.getByText(/preferí la voz argentina neuronal/i)).toBeInTheDocument();
     expect(screen.getByText(/sin descargar el modelo/i)).toBeInTheDocument();
     expect(screen.getByText(/no se activa solo/i)).toBeInTheDocument();
     expect(
@@ -183,6 +184,13 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     const remoteButton = screen.getByRole('button', {
       name: /usar voz argentina remota/i,
     });
+    const prepareLocal = screen.getByRole('button', {
+      name: /preparar voz argentina/i,
+    });
+    expect(
+      remoteButton.compareDocumentPosition(prepareLocal) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     const consent = screen.getByRole('checkbox', {
       name: /acepto enviar sólo el texto del guion/i,
     });

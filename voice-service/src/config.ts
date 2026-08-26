@@ -8,6 +8,11 @@ export interface VoiceServiceConfig {
   configPath: string;
   maxTextChars: number;
   ttsRateLimitPerMinute: number;
+  /**
+   * Multiplicador Piper length_scale (>1 = más lento). Alineado con
+   * SERENE_CADENCE_SCALE del cliente (~1.28) para guiadas calmadas.
+   */
+  lengthScale: number;
 }
 
 function parseOrigins(raw: string | undefined): string[] {
@@ -26,6 +31,9 @@ function parseBoolean(raw: string | undefined, fallback: boolean): boolean {
   return fallback;
 }
 
+/** Cadencia serena por defecto (mismo factor que Piper local en el cliente). */
+export const DEFAULT_ARGENTINE_LENGTH_SCALE = 1.28;
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): VoiceServiceConfig {
   const backendRaw = (env.ARG_TTS_BACKEND ?? 'piper').toLowerCase();
   const backend = backendRaw === 'mock' ? 'mock' : 'piper';
@@ -34,6 +42,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): VoiceServiceCo
     env.ARG_TTS_RATE_LIMIT_PER_MINUTE ?? '30',
     10,
   );
+  const lengthScaleRaw = Number.parseFloat(
+    env.ARG_TTS_LENGTH_SCALE ?? String(DEFAULT_ARGENTINE_LENGTH_SCALE),
+  );
+  const lengthScale =
+    Number.isFinite(lengthScaleRaw) && lengthScaleRaw >= 0.5 && lengthScaleRaw <= 3
+      ? lengthScaleRaw
+      : DEFAULT_ARGENTINE_LENGTH_SCALE;
 
   return {
     port: Number.parseInt(env.PORT ?? '8787', 10) || 8787,
@@ -48,5 +63,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): VoiceServiceCo
       Number.isFinite(ttsRateLimitPerMinute) && ttsRateLimitPerMinute > 0
         ? ttsRateLimitPerMinute
         : 30,
+    lengthScale,
   };
 }

@@ -179,7 +179,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         {!useRemoteArgentine && !neuralBrowserSupported && (
           <div className="fallback-notice" role="alert">
             Este navegador no puede usar la voz argentina en tu dispositivo. Si hay una
-            opción remota, aparece abajo antes que cualquier voz que no sea argentina.
+            opción remota, aparece antes que cualquier voz que no sea argentina.
             {deviceInline && canUseDeviceFallback && (
               <div className="player-controls">{deviceFallbackButton}</div>
             )}
@@ -201,6 +201,75 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             </p>
           )}
 
+        {/* Remota neuronal primero cuando está disponible: evita el Web Speech
+            genérico (erres débiles) sin forzar la descarga del modelo local. */}
+        {showRemoteOffer && (
+          <div
+            className="voice-engine-section"
+            role="region"
+            aria-label="Voz argentina remota opcional"
+          >
+            <p className="field-hint">
+              Preferí la voz argentina neuronal (WAV) frente a la del navegador: sin
+              descargar el modelo en este dispositivo (aprox.{' '}
+              {ES_AR_VOICE_APPROX_SIZE_MB} MB). El audio se genera en un servidor propio
+              y no se activa solo: hace falta tu consentimiento.
+            </p>
+            <p className="field-hint">
+              Compatibilidad real: en Safari/iOS y algunos Android el inicio automático
+              puede bloquearse hasta tocar reproducir; en Chrome y Edge suele iniciar
+              sin pasos extra. Si hay bloqueo, mostramos controles nativos HTMLAudio
+              para continuar manualmente.
+            </p>
+            {!remoteConfigured ? (
+              <p className="fallback-notice" role="status">
+                Esta opción remota no está disponible en esta copia de la app. Falta
+                configurar el servicio remoto. Sin esa configuración no se envía ningún
+                texto.
+              </p>
+            ) : (
+              <>
+                <label className="checkbox-option" htmlFor="consent-remote-tts">
+                  <input
+                    type="checkbox"
+                    id="consent-remote-tts"
+                    checked={remoteConsent}
+                    onChange={(e) => setRemoteConsent(e.target.checked)}
+                    aria-describedby="consent-remote-tts-hint"
+                  />
+                  <span>
+                    Acepto enviar sólo el texto del guion al servidor de voz para
+                    sintetizarlo. No se envían diario, perfil ni fuentes.
+                    <span id="consent-remote-tts-hint" className="field-hint">
+                      Esta casilla no está marcada por defecto.
+                    </span>
+                  </span>
+                </label>
+                <div className="player-controls">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!remoteConsent}
+                    onClick={() => {
+                      setUseRemoteArgentine(true);
+                    }}
+                  >
+                    Usar voz argentina remota
+                  </button>
+                </div>
+              </>
+            )}
+            {deviceAfterRemote && canUseDeviceFallback && (
+              <div className="player-controls">{deviceFallbackButton}</div>
+            )}
+            {deviceAfterRemote && hasNoCompatibleAudioPlayer && (
+              <p className="field-hint">
+                Tampoco hay una voz del dispositivo compatible para usar como fallback.
+              </p>
+            )}
+          </div>
+        )}
+
         {!useRemoteArgentine &&
           neuralBrowserSupported &&
           neuralState.status === 'idle' && (
@@ -210,14 +279,14 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               aria-label="Preparar voz argentina"
             >
               <p className="field-hint">
-                La primera vez descarga el modelo real (aprox.{' '}
-                {ES_AR_VOICE_APPROX_SIZE_MB} MB) y lo prueba con una frase corta antes
-                de mostrarlo como listo. Quedará en caché local para próximas sesiones.
+                {remoteConfigured
+                  ? `Alternativa local: la primera vez descarga el modelo real (aprox. ${ES_AR_VOICE_APPROX_SIZE_MB} MB) y lo prueba con una frase corta. Quedará en caché para próximas sesiones. Preferible a la voz genérica del navegador.`
+                  : `La primera vez descarga el modelo real (aprox. ${ES_AR_VOICE_APPROX_SIZE_MB} MB) y lo prueba con una frase corta antes de mostrarlo como listo. Quedará en caché local para próximas sesiones.`}
               </p>
               <div className="player-controls">
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className={remoteConfigured ? 'btn btn-secondary' : 'btn btn-primary'}
                   onClick={() => void prepareNeural()}
                 >
                   Preparar voz argentina
@@ -282,72 +351,6 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 </p>
               )}
             </div>
-          </div>
-        )}
-
-        {showRemoteOffer && (
-          <div
-            className="voice-engine-section"
-            role="region"
-            aria-label="Voz argentina remota opcional"
-          >
-            <p className="field-hint">
-              Podés escuchar la voz argentina sin descargar el modelo en este
-              dispositivo (aprox. {ES_AR_VOICE_APPROX_SIZE_MB} MB). El audio se genera
-              en un servidor propio y no se activa solo: hace falta tu consentimiento.
-            </p>
-            <p className="field-hint">
-              Compatibilidad real: en Safari/iOS y algunos Android el inicio automático
-              puede bloquearse hasta tocar reproducir; en Chrome y Edge suele iniciar
-              sin pasos extra. Si hay bloqueo, mostramos controles nativos HTMLAudio
-              para continuar manualmente.
-            </p>
-            {!remoteConfigured ? (
-              <p className="fallback-notice" role="status">
-                Esta opción remota no está disponible en esta copia de la app. Falta
-                configurar el servicio remoto. Sin esa configuración no se envía ningún
-                texto.
-              </p>
-            ) : (
-              <>
-                <label className="checkbox-option" htmlFor="consent-remote-tts">
-                  <input
-                    type="checkbox"
-                    id="consent-remote-tts"
-                    checked={remoteConsent}
-                    onChange={(e) => setRemoteConsent(e.target.checked)}
-                    aria-describedby="consent-remote-tts-hint"
-                  />
-                  <span>
-                    Acepto enviar sólo el texto del guion al servidor de voz para
-                    sintetizarlo. No se envían diario, perfil ni fuentes.
-                    <span id="consent-remote-tts-hint" className="field-hint">
-                      Esta casilla no está marcada por defecto.
-                    </span>
-                  </span>
-                </label>
-                <div className="player-controls">
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={!remoteConsent}
-                    onClick={() => {
-                      setUseRemoteArgentine(true);
-                    }}
-                  >
-                    Usar voz argentina remota
-                  </button>
-                </div>
-              </>
-            )}
-            {deviceAfterRemote && canUseDeviceFallback && (
-              <div className="player-controls">{deviceFallbackButton}</div>
-            )}
-            {deviceAfterRemote && hasNoCompatibleAudioPlayer && (
-              <p className="field-hint">
-                Tampoco hay una voz del dispositivo compatible para usar como fallback.
-              </p>
-            )}
           </div>
         )}
 
