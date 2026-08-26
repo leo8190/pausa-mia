@@ -2,8 +2,8 @@ import type { CheckInData, ConsentState, SessionState } from '../types';
 import { createManualDiarySources } from './contextSources';
 import { loadPreferences } from './preferencesStorage';
 
-export function createEmptyCheckIn(): CheckInData {
-  const prefs = loadPreferences();
+/** Check-in en blanco, sin releer preferencias guardadas. */
+export function createBlankCheckIn(): CheckInData {
   return {
     name: '',
     moment: '',
@@ -12,10 +12,22 @@ export function createEmptyCheckIn(): CheckInData {
     perceivedStateOther: '',
     intention: '',
     experience: '',
-    style: prefs?.style ?? '',
+    style: '',
     avoidTopics: '',
-    duration: prefs?.duration ?? 5,
-    voiceVariant: prefs?.voiceVariant ?? 'es-neutro',
+    duration: 5,
+    voiceVariant: 'es-neutro',
+  };
+}
+
+export function createEmptyCheckIn(): CheckInData {
+  const prefs = loadPreferences();
+  const blank = createBlankCheckIn();
+  if (!prefs) return blank;
+  return {
+    ...blank,
+    style: prefs.style ?? '',
+    duration: prefs.duration ?? 5,
+    voiceVariant: prefs.voiceVariant ?? 'es-neutro',
   };
 }
 
@@ -104,8 +116,29 @@ export function getActiveCheckInFields(
   return fields;
 }
 
+/**
+ * Estado de sesión totalmente vacío. No rehidrata preferencias locales:
+ * el borrado debe dejar check-in, diario, guion y consentimientos en cero
+ * aunque `clearPreferences` aún no haya corrido.
+ */
 export function clearSession(): SessionState {
-  return createInitialSession();
+  return {
+    step: 'welcome',
+    consent: createEmptyConsent(),
+    checkIn: createBlankCheckIn(),
+    contextSources: createManualDiarySources(),
+    summaryExcluded: new Set(),
+    script: null,
+    scriptFallbackUsed: false,
+    useAiEngine: false,
+    aiAvailable: false,
+    safetyTriggered: false,
+    safetyText: '',
+    voiceFallback: null,
+    rating: null,
+    selectedPrice: null,
+    wouldRepeat: null,
+  };
 }
 
 export function isSessionEmpty(session: SessionState): boolean {

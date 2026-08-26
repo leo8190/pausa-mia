@@ -63,7 +63,9 @@ npm audit --omit=dev
     ruta remota opcional (WAV) tras consentimiento explícito, o fallback a Web
     Speech; Web Speech directo para español neutro.
 11. **Cierre** — valoración, repetición deseada y precios hipotéticos (sin checkout).
-12. **Borrado** — limpia sesión, preferencias locales y cancela audio en curso.
+12. **Borrado** — limpia sesión, preferencias locales y cancela audio en curso;
+    muestra confirmación explícita (“Borrado confirmado”) sin dejar check-in,
+    diario ni guion en pantalla.
 
 ## Arquitectura
 
@@ -328,7 +330,10 @@ interfaz como en las pruebas (`voiceService.test.ts`).
 | Diario completo a IA                             | Nunca                                 | Solo fragmentos seleccionados (máx. 200 chars/campo)                         |
 | Coincidencia vista previa / envío                | Sí                                    | Mismo `AiTransmissionPayload`; detalle “Ver datos técnicos exactos”          |
 
-**Borrar sesión** elimina datos en memoria, preferencias guardadas y cancela audio activo.
+**Borrar sesión** elimina datos en memoria, preferencias guardadas (`mam-saved-preferences`)
+y cancela audio activo (Web Speech y el mismo `HTMLAudioElement` de sesión argentina).
+La pantalla `Sesión borrada` confirma el resultado con un checklist visible; no es un
+reset silencioso.
 
 ### Fuentes adicionales
 

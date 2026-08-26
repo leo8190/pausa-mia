@@ -1,6 +1,6 @@
 # Matriz de cumplimiento del prototipo
 
-Actualizada: 19 de agosto de 2026.
+Actualizada: 26 de agosto de 2026.
 
 Estados: `IMPLEMENTADO`, `PARCIAL`, `PREPARADO`, `NO IMPLEMENTADO`, `NO VERIFICADO`.
 
@@ -20,7 +20,7 @@ Estados: `IMPLEMENTADO`, `PARCIAL`, `PREPARADO`, `NO IMPLEMENTADO`, `NO VERIFICA
 | Español neutro                                                                                | Variante lingüística, Web Speech local y acción "Leer el guion" si no hay síntesis                                                                               | `IMPLEMENTADO` localmente             | Elegir mediante escucha ciega; no confundir español de España con neutro                |
 | Sólo audio                                                                                    | Síntesis de voz del navegador; reproducción, pausa, continuación y detención verificadas                                                                         | `IMPLEMENTADO` localmente             | Voz de producción y prueba humana                                                       |
 | Seguridad de bienestar                                                                        | Detector de peligro, pausa de generación y recurso nacional oficial                                                                                              | `IMPLEMENTADO` en pruebas             | Revisión profesional y prueba de interfaz                                               |
-| Borrado de sesión                                                                             | Borra estado, preferencias y cancela audio                                                                                                                       | `IMPLEMENTADO` en código              | Verificación visual y futura revocación OAuth                                           |
+| Borrado de sesión                                                                             | Borra estado, preferencias y cancela audio; confirmación visual con checklist (`DeletedStep`, `sessionWipe.test.tsx`) | `IMPLEMENTADO`                        | Futura revocación OAuth                                                                 |
 | Equipo de León Developments sin siglas                                                        | Roles documentados en `TEAM_AND_EXECUTION.md`                                                                                                                    | `IMPLEMENTADO`                        | Mantener responsables y estados honestos                                                |
 | Código realizado por Cursor                                                                   | Implementación principal y cierre de privacidad presentes                                                                                                        | `IMPLEMENTADO` para este cierre       | GPT mantiene auditoría; futuras funciones de producto vuelven a Cursor                  |
 | Usar Claude y Hermes cuando sea posible                                                       | Intentos anteriores: Claude no disponible; Hermes rechazó por saldo insuficiente                                                                                 | `NO VERIFICADO` como aporte entregado | No reintentar sin cambio real de disponibilidad o saldo                                 |
@@ -28,7 +28,7 @@ Estados: `IMPLEMENTADO`, `PARCIAL`, `PREPARADO`, `NO IMPLEMENTADO`, `NO VERIFICA
 | Comparación de voces, precios y calidad                                                       | `VOICE_OPTIONS_2026-08-18.md`, muestras locales y protocolo ciego                                                                                                | `PREPARADO`                           | Prueba premium requiere autorización y posiblemente gasto                               |
 | Estrategia de monetización                                                                    | Oferta, precios experimentales, competencia, embudo y landing preparados                                                                                         | `PREPARADO`                           | No existe checkout ni pago real                                                         |
 | Estrategia de marketing                                                                       | Segmento, mensaje, adquisición orgánica y publicidad segura documentados                                                                                         | `PREPARADO`                           | No publicado; validar producto antes de adquirir tráfico                                |
-| Prototipo utilizable                                                                          | Flujo completo compila, pasa 203 pruebas, incluye cadencia serena, pronunciación TTS extensible, fallback argentino remoto antes de voz no argentina, diagnóstico técnico colapsado, importación múltiple/CSV y fallback WAV descargable; recorrido en navegador integrado/Chrome | `PARCIAL`                             | Prueba física en dispositivos, borrado visual, revisión profesional y prueba humana     |
+| Prototipo utilizable                                                                          | Flujo completo compila, pasa pruebas, incluye cadencia serena, pronunciación TTS extensible, fallback argentino remoto antes de voz no argentina, diagnóstico técnico colapsado, importación múltiple/CSV, fallback WAV descargable y borrado de sesión con confirmación visual | `PARCIAL`                             | Prueba física en dispositivos, revisión profesional y prueba humana                     |
 | Validación con usuarios                                                                       | Protocolo moderado preparado                                                                                                                                     | `NO IMPLEMENTADO`                     | Cinco pruebas consentidas; no usar datos íntimos reales antes del cierre técnico        |
 | Monetización demostrada                                                                       | Ningún checkout ni cobro ejecutado                                                                                                                               | `NO IMPLEMENTADO`                     | `PAGADO` exige dinero acreditado y autorización previa                                  |
 
@@ -39,7 +39,8 @@ Estados: `IMPLEMENTADO`, `PARCIAL`, `PREPARADO`, `NO IMPLEMENTADO`, `NO VERIFICA
 3. Completado: el caso sintético original confirma ausencia de frase y secuencias.
 4. Completado: revisión visual en escritorio y `390 × 844`, incluida la
    reproducción, pausa, continuación y detención.
-5. Pendiente: verificación visual del borrado de sesión.
+5. Completado: verificación visual del borrado de sesión (confirmación
+   explícita, claves locales borradas, audio de sesión detenido).
 6. Pendiente: dos revisores puntúan guiones sintéticos con la rúbrica.
 7. Pendiente: cinco personas prueban el flujo moderado.
 8. Pendiente: sólo si los umbrales se cumplen, Leonardo autoriza voz premium y

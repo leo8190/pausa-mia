@@ -123,4 +123,17 @@ describe('session deletion', () => {
     expect(cleared.selectedPrice).toBeNull();
     expect(hasStoredPreferences()).toBe(false);
   });
+
+  it('clearSession ignores leftover preferences key until clearPreferences runs', () => {
+    savePreferences({
+      duration: 10,
+      voiceVariant: 'es-AR',
+      style: 'atencion-abierta',
+    });
+    const cleared = clearSession();
+    expect(cleared.checkIn.duration).toBe(5);
+    expect(cleared.checkIn.voiceVariant).toBe('es-neutro');
+    expect(cleared.checkIn.style).toBe('');
+    expect(isSessionEmpty(cleared)).toBe(true);
+  });
 });
