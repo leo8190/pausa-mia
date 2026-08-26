@@ -7,6 +7,7 @@ import {
   createAiServerHandler,
   estimateMinutes,
   getCorsAllowOrigin,
+  isHealthPath,
   isOriginAllowed,
   parseAllowedOrigins,
   usesOpenAiStructuredOutputs,
@@ -250,7 +251,7 @@ describe('server/core validators', () => {
 });
 
 describe('server integration', () => {
-  it('rechaza orígenes no permitidos en health y generate-script', async () => {
+  it('acepta health sin Origin; mantiene CORS en el resto de la API', async () => {
     const { createServer } = await import('node:http');
     const handler = createAiServerHandler({ apiKey: 'test-key' });
     const server = createServer(handler);
@@ -258,12 +259,25 @@ describe('server integration', () => {
     await new Promise((resolve) => server.listen(0, resolve));
     const port = server.address().port;
 
+    const healthNoOrigin = await fetch(`http://127.0.0.1:${port}/api/health`);
+    expect(healthNoOrigin.status).toBe(200);
+    expect(await healthNoOrigin.json()).toEqual({ status: 'ok', aiEnabled: true });
+
+    const healthWithQuery = await fetch(`http://127.0.0.1:${port}/api/health?probe=1`);
+    expect(healthWithQuery.status).toBe(200);
+
     const healthBad = await fetch(`http://127.0.0.1:${port}/api/health`, {
       headers: { Origin: 'http://evil.example' },
     });
     expect(healthBad.status).toBe(403);
-    const healthBadBody = await healthBad.json();
-    expect(healthBadBody.error).toBe('ORIGIN_NOT_ALLOWED');
+    expect((await healthBad.json()).error).toBe('ORIGIN_NOT_ALLOWED');
+
+    const postNoOrigin = await fetch(`http://127.0.0.1:${port}/api/generate-script`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: serializeBody(validPayload),
+    });
+    expect(postNoOrigin.status).toBe(403);
 
     const postBad = await fetch(`http://127.0.0.1:${port}/api/generate-script`, {
       method: 'POST',
@@ -457,5 +471,12 @@ describe('origin helpers', () => {
     const wildcard = new Set(['*']);
     expect(getCorsAllowOrigin('https://any.example', wildcard, true)).toBeNull();
     expect(getCorsAllowOrigin('https://any.example', wildcard, false)).toBe('*');
+  });
+
+  it('isHealthPath acepta /api/health con o sin query', () => {
+    expect(isHealthPath('/api/health')).toBe(true);
+    expect(isHealthPath('/api/health?probe=1')).toBe(true);
+    expect(isHealthPath('/api/generate-script')).toBe(false);
+    expect(isHealthPath(undefined)).toBe(false);
   });
 });

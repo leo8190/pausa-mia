@@ -43,6 +43,11 @@ export function resolveAllowedOrigins(env = process.env) {
   return parseAllowedOrigins(env.ACCOUNT_ALLOWED_ORIGINS);
 }
 
+export function isHealthPath(url) {
+  if (typeof url !== 'string') return false;
+  return url.split('?', 1)[0] === '/api/health';
+}
+
 export const ALLOWED_ORIGINS = resolveAllowedOrigins();
 
 export const AI_TEXT_MAX_LENGTH = 200;
@@ -535,8 +540,10 @@ export function createAiServerHandler(options = {}) {
       return;
     }
 
-    if (req.method === 'GET' && req.url === '/api/health') {
-      if (!getCorsAllowOrigin(req.headers.origin, allowedOrigins, false)) {
+    if (req.method === 'GET' && isHealthPath(req.url)) {
+      // Probes Docker/Fly omiten Origin. Origin presente → allowlist.
+      const origin = req.headers.origin;
+      if (origin && !getCorsAllowOrigin(origin, allowedOrigins, false)) {
         sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
         return;
       }
