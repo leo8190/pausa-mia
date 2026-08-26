@@ -2,10 +2,13 @@ import { buildAccountApiUrl } from './accountApiUrl';
 
 export const VISITOR_ID_STORAGE_KEY = 'pausa-mia-vid';
 
+export type ProductEventName = 'pageview' | 'session_complete';
+
 const VISITOR_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-let pingStarted = false;
+let pageviewStarted = false;
+let sessionCompleteSent = false;
 
 export function isValidVisitorId(value: unknown): value is string {
   return typeof value === 'string' && VISITOR_ID_PATTERN.test(value);
@@ -33,16 +36,14 @@ export function getOrCreateVisitorId(
 }
 
 /**
- * Ping mínimo al API first-party. Falla en silencio (modo demo sin backend).
- * No envía diario, estado emocional, guion ni IP.
+ * Evento de producto first-party. Payload: sólo `{ id, event }`.
+ * Falla en silencio (modo demo sin backend). No envía diario, estado, guion ni IP.
  */
-export function pingUniqueVisitor(
+export function reportProductEvent(
+  event: ProductEventName,
   env: Record<string, unknown> = import.meta.env,
   fetchImpl: typeof fetch = fetch,
 ): void {
-  if (pingStarted) return;
-  pingStarted = true;
-
   const visitorId = getOrCreateVisitorId();
   if (!visitorId) return;
 
@@ -50,7 +51,7 @@ export function pingUniqueVisitor(
   void fetchImpl(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: visitorId }),
+    body: JSON.stringify({ id: visitorId, event }),
     credentials: 'omit',
     keepalive: true,
   }).catch(() => {
@@ -58,7 +59,38 @@ export function pingUniqueVisitor(
   });
 }
 
+/**
+ * pageview: app abierta. Una vez por carga de página.
+ */
+export function pingUniqueVisitor(
+  env: Record<string, unknown> = import.meta.env,
+  fetchImpl: typeof fetch = fetch,
+): void {
+  if (pageviewStarted) return;
+  pageviewStarted = true;
+  reportProductEvent('pageview', env, fetchImpl);
+}
+
+/**
+ * session_complete: reproducción terminada o llegó al cierre del flujo.
+ * Una vez por ciclo de meditación (no al borrar sin completar).
+ */
+export function reportSessionComplete(
+  env: Record<string, unknown> = import.meta.env,
+  fetchImpl: typeof fetch = fetch,
+): void {
+  if (sessionCompleteSent) return;
+  sessionCompleteSent = true;
+  reportProductEvent('session_complete', env, fetchImpl);
+}
+
+/** Permite otro session_complete tras "Nueva sesión". */
+export function allowNextSessionComplete() {
+  sessionCompleteSent = false;
+}
+
 /** Sólo para tests. */
 export function resetVisitorPingForTests() {
-  pingStarted = false;
+  pageviewStarted = false;
+  sessionCompleteSent = false;
 }

@@ -17,6 +17,7 @@ import {
 } from '../lib/scriptProvider';
 import { savePreferences, clearPreferences } from '../lib/preferencesStorage';
 import { cancelActiveSpeech } from '../lib/speechController';
+import { allowNextSessionComplete } from '../lib/visitorPing';
 import type { MeditationStyle } from '../types';
 
 export function useSession() {
@@ -171,6 +172,7 @@ export function useSession() {
 
   const resetToWelcome = useCallback(() => {
     cancelActiveSpeech();
+    allowNextSessionComplete();
     setSession(createInitialSession());
   }, []);
 

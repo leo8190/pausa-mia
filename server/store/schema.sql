@@ -82,3 +82,13 @@ CREATE TABLE IF NOT EXISTS unique_visitors (
   visitor_hash TEXT PRIMARY KEY,
   first_seen_at TEXT NOT NULL
 );
+
+-- Eventos de producto anónimos: sólo nombre + hash (sin cuestionario ni contenido).
+CREATE TABLE IF NOT EXISTS product_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_name TEXT NOT NULL,
+  visitor_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_events_name ON product_events(event_name);

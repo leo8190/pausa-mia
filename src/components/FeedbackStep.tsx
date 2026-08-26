@@ -1,9 +1,16 @@
+import { useEffect } from 'react';
 import { PRICE_OPTIONS, type PriceOption } from '../types';
 import type { SessionApi } from '../hooks/useSession';
+import { reportSessionComplete } from '../lib/visitorPing';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 
 export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { rating, selectedPrice, wouldRepeat } = sessionApi.session;
+
+  // Llegó al cierre del flujo = usó la sesión (no bounce ni wipe-only).
+  useEffect(() => {
+    reportSessionComplete();
+  }, []);
 
   return (
     <StepLayout

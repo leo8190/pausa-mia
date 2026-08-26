@@ -423,5 +423,36 @@ export async function createSqliteStore(dbPath) {
       const row = db.prepare(`SELECT COUNT(*) AS total FROM unique_visitors`).get();
       return Number(row?.total ?? 0);
     },
+    recordProductEvent(eventName, visitorHash) {
+      if (
+        typeof eventName !== 'string' ||
+        eventName.length === 0 ||
+        typeof visitorHash !== 'string' ||
+        visitorHash.length === 0
+      ) {
+        return null;
+      }
+      const createdAt = nowIso();
+      const result = db
+        .prepare(
+          `INSERT INTO product_events (event_name, visitor_hash, created_at) VALUES (?, ?, ?)`,
+        )
+        .run(eventName, visitorHash, createdAt);
+      return {
+        id: Number(result.lastInsertRowid),
+        eventName,
+        visitorHash,
+        createdAt,
+      };
+    },
+    countProductEvents(eventName) {
+      if (typeof eventName !== 'string' || eventName.length === 0) return 0;
+      const row = db
+        .prepare(
+          `SELECT COUNT(*) AS total FROM product_events WHERE event_name = ?`,
+        )
+        .get(eventName);
+      return Number(row?.total ?? 0);
+    },
   };
 }

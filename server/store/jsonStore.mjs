@@ -20,6 +20,7 @@ function emptyState() {
     linkedAccounts: [],
     contextItems: [],
     uniqueVisitors: [],
+    productEvents: [],
   };
 }
 
@@ -288,6 +289,33 @@ export function createJsonStore(path) {
     countUniqueVisitors() {
       if (!Array.isArray(state.uniqueVisitors)) return 0;
       return state.uniqueVisitors.length;
+    },
+    recordProductEvent(eventName, visitorHash) {
+      if (
+        typeof eventName !== 'string' ||
+        eventName.length === 0 ||
+        typeof visitorHash !== 'string' ||
+        visitorHash.length === 0
+      ) {
+        return null;
+      }
+      if (!Array.isArray(state.productEvents)) {
+        state.productEvents = [];
+      }
+      const entry = {
+        eventName,
+        visitorHash,
+        createdAt: nowIso(),
+      };
+      state.productEvents.push(entry);
+      persist();
+      return { ...entry };
+    },
+    countProductEvents(eventName) {
+      if (!Array.isArray(state.productEvents)) return 0;
+      if (typeof eventName !== 'string' || eventName.length === 0) return 0;
+      return state.productEvents.filter((entry) => entry.eventName === eventName)
+        .length;
     },
   };
 }
