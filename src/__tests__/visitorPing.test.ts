@@ -10,6 +10,7 @@ import {
 describe('visitorPing', () => {
   afterEach(() => {
     resetVisitorPingForTests();
+    localStorage.clear();
     vi.unstubAllEnvs();
   });
 
@@ -30,28 +31,15 @@ describe('visitorPing', () => {
     expect(isValidVisitorId('nope')).toBe(false);
   });
 
-  it('envía un POST mínimo con el id y sin credentials', async () => {
-    vi.stubEnv('VITE_ACCOUNT_API_URL', 'https://pausa-mia-api.fly.dev');
-    const store = new Map<string, string>();
-    const storage = {
-      getItem: (key: string) => store.get(key) ?? null,
-      setItem: (key: string, value: string) => {
-        store.set(key, value);
-      },
-    };
+  it('envía un POST mínimo con el id y sin credentials', () => {
     const id = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
-    getOrCreateVisitorId(storage, () => id);
-
-    // Reinyectar storage vía getOrCreate dentro de ping: mock localStorage
-    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key) => {
-      return store.get(key) ?? null;
-    });
-    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
-      store.set(key, String(value));
-    });
+    localStorage.setItem(VISITOR_ID_STORAGE_KEY, id);
 
     const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
-    pingUniqueVisitor({ VITE_ACCOUNT_API_URL: 'https://pausa-mia-api.fly.dev' }, fetchImpl);
+    pingUniqueVisitor(
+      { VITE_ACCOUNT_API_URL: 'https://pausa-mia-api.fly.dev' },
+      fetchImpl,
+    );
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
@@ -60,22 +48,24 @@ describe('visitorPing', () => {
     expect(init.credentials).toBe('omit');
     expect(init.body).toBe(JSON.stringify({ id }));
 
-    pingUniqueVisitor({ VITE_ACCOUNT_API_URL: 'https://pausa-mia-api.fly.dev' }, fetchImpl);
+    pingUniqueVisitor(
+      { VITE_ACCOUNT_API_URL: 'https://pausa-mia-api.fly.dev' },
+      fetchImpl,
+    );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-
-    getItem.mockRestore();
-    setItem.mockRestore();
   });
 
   it('no lanza si el fetch falla (modo demo)', () => {
-    vi.stubEnv('VITE_ACCOUNT_API_URL', 'https://pausa-mia-api.fly.dev');
-    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(
+    localStorage.setItem(
+      VISITOR_ID_STORAGE_KEY,
       'cccccccc-dddd-4eee-8fff-000000000000',
     );
     const fetchImpl = vi.fn().mockRejectedValue(new Error('offline'));
     expect(() =>
-      pingUniqueVisitor({ VITE_ACCOUNT_API_URL: 'https://pausa-mia-api.fly.dev' }, fetchImpl),
+      pingUniqueVisitor(
+        { VITE_ACCOUNT_API_URL: 'https://pausa-mia-api.fly.dev' },
+        fetchImpl,
+      ),
     ).not.toThrow();
-    getItem.mockRestore();
   });
 });
