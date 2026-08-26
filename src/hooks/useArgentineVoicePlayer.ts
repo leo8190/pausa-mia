@@ -465,7 +465,13 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         }));
       }
     },
-    [loadBlobIntoSessionAudio, mode, scheduleNextSegment, synthesizeSegment, teardownAudio],
+    [
+      loadBlobIntoSessionAudio,
+      mode,
+      scheduleNextSegment,
+      synthesizeSegment,
+      teardownAudio,
+    ],
   );
 
   playSegmentRef.current = playSegment;
