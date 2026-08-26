@@ -59,7 +59,7 @@ describe('scriptEngine', () => {
   it('uses categorical situation reference without literal user text', () => {
     const script = generateScript(baseCheckIn(), new Set(), genOpts);
     expect(script.fullText).not.toContain('Reunión intensa esta mañana');
-    expect(script.fullText).toMatch(/ocupa espacio/i);
+    expect(script.fullText).toMatch(/ocupa espacio|tramo de la jornada/i);
     expect(script.fullText).not.toMatch(/relacionado con/i);
     expect(script.fullText).not.toMatch(/diagnóstico|trastorno|depresión/i);
     for (const detail of script.usedDetails) {
@@ -364,9 +364,13 @@ describe('calidad editorial del guion', () => {
     for (const build of [buildCase1, buildCase2, buildCase3, buildCase8, buildCase9]) {
       const script = generateScript(build(), new Set(), genOpts);
       expect(script.fullText).not.toMatch(/contexto para comenzar/i);
+      expect(script.fullText).not.toMatch(/suficiente contexto/i);
       expect(script.fullText).not.toMatch(/orienta la práctica/i);
-      expect(script.fullText).not.toMatch(/tu intención para esta pausa es/i);
       expect(script.fullText).not.toMatch(/sin prometer un resultado/i);
+      expect(script.fullText).not.toMatch(/tu intención para esta pausa es/i);
+      expect(script.fullText).not.toMatch(/ya conoces? la base de esta práctica/i);
+      expect(script.fullText).not.toMatch(/eso alcanza para empezar/i);
+      expect(script.fullText).not.toMatch(/lo tomamos como contexto/i);
     }
   });
 
@@ -386,6 +390,7 @@ describe('calidad editorial del guion', () => {
 
     expect(script.fullText).not.toMatch(/contexto para comenzar/i);
     expect(script.fullText).not.toMatch(/orienta la práctica/i);
+    expect(script.fullText).not.toMatch(/suficiente contexto/i);
 
     for (const sequence of extractWordSequences(SYNTHETIC_WORK_SITUATION)) {
       expect(script.fullText.toLowerCase()).not.toContain(sequence);
@@ -407,6 +412,7 @@ describe('calidad editorial del guion', () => {
     expect(duplicateTexts(texts)).toEqual([]);
     expect(script.fullText).not.toMatch(ARGENTINE_MARKERS);
     expect(script.fullText.toLowerCase()).not.toContain('relájate');
+    expect(script.fullText).not.toMatch(/\btú\b/);
 
     expect(countFocus(checkIn)).toBeGreaterThanOrEqual(8);
 
@@ -426,10 +432,11 @@ describe('calidad editorial del guion', () => {
     const script = generateScript(checkIn, new Set(), genOpts);
 
     expect(isDurationWithinTolerance(script.estimatedMinutes, 5)).toBe(true);
-    expect(script.fullText).toMatch(/no hace falta explicar cada paso desde cero/i);
+    expect(script.fullText).toMatch(/algo de práctica/i);
     expect(script.fullText).toMatch(/quédate con ella unos instantes/i);
     expect(script.fullText).not.toMatch(/primera vez/i);
     expect(script.fullText).not.toMatch(/práctica habitual/i);
+    expect(script.fullText).not.toMatch(/ya conoces? la base de esta práctica/i);
     expect(script.usedDetails).toContain('experience');
 
     expect(countFocus(checkIn)).toBeGreaterThanOrEqual(4);
@@ -477,14 +484,19 @@ describe('calidad editorial del guion', () => {
     expect(script.usedDetails).not.toContain('name');
     expect(script.usedDetails).not.toContain('perceivedState');
 
-    expect(script.fullText).toMatch(/Vienes a reunir la atención en un solo lugar/);
+    expect(script.fullText).toMatch(/campo amplio|conjunto es el lugar|campo entero/i);
     expect(script.fullText).not.toMatch(
       /tu intención para esta pausa es concentrarse/i,
     );
     expect(script.fullText).not.toMatch(/no hace falta elegir un foco/i);
+    expect(script.fullText).not.toMatch(/elige un solo apoyo/i);
+    expect(script.fullText).not.toMatch(/reunir la atención en un solo lugar/i);
     expect(script.fullText).toMatch(/una atención amplia también concentra/i);
-    expect(script.fullText).toMatch(/no hace falta explicar cada paso desde cero/i);
+    expect(script.fullText).toMatch(/algo de práctica/i);
     expect(script.fullText).toMatch(/quédate con ella unos instantes/i);
+    expect(script.fullText).not.toMatch(/ya conoces? la base de esta práctica/i);
+    expect(script.fullText).not.toMatch(/mandíbula/i);
+    expect(countFocus(checkIn)).toBeGreaterThanOrEqual(4);
     expect(validateScriptQuality(script).issues).toEqual([]);
   });
 

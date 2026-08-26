@@ -208,9 +208,9 @@ const EXPERIENCE_ADAPTATION: Record<Experience, TimedPhrase> = {
   basica: {
     text: {
       'es-AR':
-        'Ya conocés la base de esta práctica, así que no hace falta explicar cada paso desde cero.',
+        'Como ya tenés algo de práctica, podés ir derecho a lo que se nota, sin una guía larga.',
       'es-neutro':
-        'Ya conoces la base de esta práctica, así que no hace falta explicar cada paso desde cero.',
+        'Como ya tienes algo de práctica, puedes ir directo a lo que se nota, sin una guía larga.',
     },
     pauseAfterMs: 4000,
   },
@@ -237,9 +237,9 @@ const EXPERIENCE_PRACTICE_SUPPORT: Record<Experience, TimedPhrase> = {
   basica: {
     text: {
       'es-AR':
-        'Si una indicación te sirve, quedate con ella unos instantes antes de pasar a la siguiente.',
+        'Cuando una indicación te sirva, quedate con ella unos instantes antes de pasar a la siguiente.',
       'es-neutro':
-        'Si una indicación te sirve, quédate con ella unos instantes antes de pasar a la siguiente.',
+        'Cuando una indicación te sirva, quédate con ella unos instantes antes de pasar a la siguiente.',
     },
     pauseAfterMs: 6000,
   },
@@ -304,7 +304,15 @@ function buildArrivalBlock(
     addDetailSegment(detailSegments, 'experience', segment);
   }
 
-  if (checkIn.duration > SHORTEST_DURATION) {
+  // En sesiones cortas o con poco contexto, el asentamiento genérico alarga el
+  // preámbulo sin aportar práctica. Se reserva para pausas más largas con más datos.
+  const hasRichContext =
+    (!excluded.has('perceivedState') && Boolean(checkIn.perceivedState)) ||
+    (!excluded.has('recentSituation') && Boolean(checkIn.recentSituation.trim()));
+  if (
+    checkIn.duration > 5 ||
+    (checkIn.duration > SHORTEST_DURATION && hasRichContext)
+  ) {
     const settle =
       variant === 'es-AR'
         ? 'No hace falta cambiar nada todavía. Alcanza con notar que estás acá.'
@@ -382,6 +390,16 @@ const INTENTION_RECOGNITION: Record<Intention, VariantPhrase> = {
   },
 };
 
+/** Cuando estilo e intención podrían contradecirse, la frase de intención cambia. */
+const INTENTION_RECOGNITION_BY_STYLE: Record<string, VariantPhrase> = {
+  'atencion-abierta|concentrarse': {
+    'es-AR':
+      'Venís a concentrarte sosteniendo un campo amplio: el conjunto es el lugar al que volvés.',
+    'es-neutro':
+      'Vienes a concentrarte sosteniendo un campo amplio: el conjunto es el lugar al que vuelves.',
+  },
+};
+
 function buildRecognitionBlock(
   checkIn: CheckInData,
   excluded: Set<string>,
@@ -401,8 +419,14 @@ function buildRecognitionBlock(
   }
 
   if (!excluded.has('recentSituation') && checkIn.recentSituation.trim()) {
+    const laborAware =
+      checkIn.moment === 'pausa-laboral'
+        ? variant === 'es-AR'
+          ? 'Venís de un tramo de la jornada que todavía pide cosas. Por estos minutos no hace falta resolverlas.'
+          : 'Vienes de un tramo de la jornada que todavía pide cosas. Por estos minutos no hace falta resolverlas.'
+        : buildSituationRecognitionPhrase(variant);
     const segment = {
-      text: buildSituationRecognitionPhrase(variant),
+      text: laborAware,
       pauseAfterMs: 5500,
     };
     segments.push(segment);
@@ -420,8 +444,15 @@ function buildRecognitionBlock(
   }
 
   if (!excluded.has('intention') && checkIn.intention) {
+    const styleKey =
+      !excluded.has('style') && checkIn.style
+        ? `${checkIn.style}|${checkIn.intention}`
+        : '';
+    const phrase =
+      (styleKey && INTENTION_RECOGNITION_BY_STYLE[styleKey]) ||
+      INTENTION_RECOGNITION[checkIn.intention];
     const segment = {
-      text: INTENTION_RECOGNITION[checkIn.intention][variant],
+      text: phrase[variant],
       pauseAfterMs: 4000,
     };
     segments.push(segment);
@@ -432,8 +463,8 @@ function buildRecognitionBlock(
     segments.push({
       text:
         variant === 'es-AR'
-          ? 'Estás acá con lo que traés, y eso alcanza para empezar.'
-          : 'Estás aquí con lo que traes, y eso alcanza para empezar.',
+          ? 'No hace falta llenar esta pausa con historia. La atención misma es el material.'
+          : 'No hace falta llenar esta pausa con historia. La atención misma es el material.',
       pauseAfterMs: 3500,
     });
   }
@@ -467,9 +498,9 @@ const STYLE_INTRO: Record<MeditationStyle, TimedPhrase> = {
   'atencion-abierta': {
     text: {
       'es-AR':
-        'La atención puede abrirse hasta ocupar toda la habitación, sin elegir un mueble en particular.',
+        'La atención puede abrirse hasta ocupar toda la habitación, sin apretar un solo punto.',
       'es-neutro':
-        'La atención puede abrirse hasta ocupar toda la habitación, sin elegir un mueble en particular.',
+        'La atención puede abrirse hasta ocupar toda la habitación, sin apretar un solo punto.',
     },
     pauseAfterMs: 6000,
   },
@@ -1007,7 +1038,7 @@ const INTENTION_FOCUS: Record<Intention, TimedPhrase[]> = {
     {
       text: {
         'es-AR': 'La prisa puede seguir existiendo mientras vos vas más despacio.',
-        'es-neutro': 'La prisa puede seguir existiendo mientras tú vas más despacio.',
+        'es-neutro': 'La prisa puede seguir existiendo mientras vas más despacio.',
       },
       pauseAfterMs: 10000,
     },
@@ -1262,6 +1293,86 @@ const INTENTION_FOCUS: Record<Intention, TimedPhrase[]> = {
   ],
 };
 
+/**
+ * Cuando el estilo pide amplitud y la intención pide foco, las indicaciones de
+ * concentración usan el campo abierto como único apoyo, no un punto estrecho.
+ */
+const INTENTION_FOCUS_BY_STYLE: Record<string, TimedPhrase[]> = {
+  'atencion-abierta|concentrarse': [
+    {
+      text: {
+        'es-AR':
+          'Concentrarte acá es sostener el campo entero: el conjunto es el apoyo, no un punto.',
+        'es-neutro':
+          'Concentrarte aquí es sostener el campo entero: el conjunto es el apoyo, no un punto.',
+      },
+      pauseAfterMs: 8500,
+    },
+    {
+      text: {
+        'es-AR':
+          'Cuando la mente se va a un detalle, volvé a la amplitud como quien vuelve a un foco.',
+        'es-neutro':
+          'Cuando la mente se va a un detalle, vuelve a la amplitud como quien vuelve a un foco.',
+      },
+      pauseAfterMs: 9000,
+    },
+    {
+      text: {
+        'es-AR':
+          'La atención se afina sola cuando deja de saltar y se queda con lo que ya está sonando.',
+        'es-neutro':
+          'La atención se afina sola cuando deja de saltar y se queda con lo que ya está sonando.',
+      },
+      pauseAfterMs: 9000,
+    },
+    {
+      text: {
+        'es-AR':
+          'Sostener la habitación entera durante un minuto ya es una forma de concentración.',
+        'es-neutro':
+          'Sostener la habitación entera durante un minuto ya es una forma de concentración.',
+      },
+      pauseAfterMs: 9500,
+    },
+    {
+      text: {
+        'es-AR':
+          'Si aparece el impulso de estrechar, notalo y dejá que la escucha vuelva a ensancharse.',
+        'es-neutro':
+          'Si aparece el impulso de estrechar, nótalo y deja que la escucha vuelva a ensancharse.',
+      },
+      pauseAfterMs: 9000,
+    },
+    {
+      text: {
+        'es-AR': 'Una atención estable también puede ser ancha: se apoya sin apretar.',
+        'es-neutro':
+          'Una atención estable también puede ser ancha: se apoya sin apretar.',
+      },
+      pauseAfterMs: 9500,
+    },
+    {
+      text: {
+        'es-AR':
+          'Cada regreso al campo amplio deja la atención un poco más junta, aunque siga abierta.',
+        'es-neutro':
+          'Cada regreso al campo amplio deja la atención un poco más junta, aunque siga abierta.',
+      },
+      pauseAfterMs: 9500,
+    },
+    {
+      text: {
+        'es-AR':
+          'No hace falta bloquear detalles: alcanza con no irse detrás de ellos.',
+        'es-neutro':
+          'No hace falta bloquear detalles: basta con no irse detrás de ellos.',
+      },
+      pauseAfterMs: 10000,
+    },
+  ],
+};
+
 // ---------------------------------------------------------------------------
 // Indicaciones comunes: sólo orientación y regreso
 // ---------------------------------------------------------------------------
@@ -1310,6 +1421,45 @@ const ORIENTATION_PHRASES: TimedPhrase[] = [
     text: {
       'es-AR': 'Nada de la postura tiene que ser perfecta para que esto funcione.',
       'es-neutro': 'Nada de la postura tiene que ser perfecta para que esto funcione.',
+    },
+    pauseAfterMs: 9000,
+  },
+];
+
+/** Orientación compatible con atención abierta: campo, escucha y espacio. */
+const OPEN_FIELD_ORIENTATION_PHRASES: TimedPhrase[] = [
+  {
+    text: {
+      'es-AR':
+        'Dejá que el campo de escucha quede un poco más ancho que el pensamiento del momento.',
+      'es-neutro':
+        'Deja que el campo de escucha quede un poco más ancho que el pensamiento del momento.',
+    },
+    pauseAfterMs: 8500,
+  },
+  {
+    text: {
+      'es-AR': 'Hay un espacio alrededor tuyo que sigue estando aunque no lo mires.',
+      'es-neutro':
+        'Hay un espacio alrededor de ti que sigue estando aunque no lo mires.',
+    },
+    pauseAfterMs: 9000,
+  },
+  {
+    text: {
+      'es-AR':
+        'Si la atención se estrecha sola, podés volver a incluir lo que está más lejos.',
+      'es-neutro':
+        'Si la atención se estrecha sola, puedes volver a incluir lo que está más lejos.',
+    },
+    pauseAfterMs: 9000,
+  },
+  {
+    text: {
+      'es-AR':
+        'Nada del entorno tiene que organizarse para que la escucha siga siendo posible.',
+      'es-neutro':
+        'Nada del entorno tiene que organizarse para que la escucha siga siendo posible.',
     },
     pauseAfterMs: 9000,
   },
@@ -1597,8 +1747,12 @@ function buildFocusComposition(
   const stylePhrases = STYLE_FOCUS[practiceStyle].map((phrase) =>
     toSegment(phrase, variant),
   );
-  const intentionPhrases = intention
-    ? INTENTION_FOCUS[intention].map((phrase) => toSegment(phrase, variant))
+  const intentionOverrideKey = intention ? `${practiceStyle}|${intention}` : '';
+  const intentionSource =
+    (intentionOverrideKey && INTENTION_FOCUS_BY_STYLE[intentionOverrideKey]) ||
+    (intention ? INTENTION_FOCUS[intention] : undefined);
+  const intentionPhrases = intentionSource
+    ? intentionSource.map((phrase) => toSegment(phrase, variant))
     : [];
 
   return {
@@ -1623,7 +1777,11 @@ function buildCommonPhrases(
   variant: VoiceVariant,
 ): ScriptSegment[] {
   const seed = hashString(`${checkIn.moment}|${checkIn.style}|${checkIn.duration}`);
-  const orientation = rotate(ORIENTATION_PHRASES, seed);
+  const orientationSource =
+    checkIn.style === 'atencion-abierta'
+      ? OPEN_FIELD_ORIENTATION_PHRASES
+      : ORIENTATION_PHRASES;
+  const orientation = rotate(orientationSource, seed);
   const returning = rotate(RETURN_PHRASES, seed + 1);
 
   const alternated: ScriptSegment[] = [];
