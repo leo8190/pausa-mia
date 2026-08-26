@@ -9,6 +9,7 @@ import {
 import type { VoiceVariant } from '../types';
 import { registerSpeechCancel } from '../lib/speechController';
 import { checkWebSpeechEngineSupport } from '../lib/voiceEngine';
+import { scalePausesForArgentineDelivery } from '../lib/voiceCadence';
 
 function getSpeechSynthesis(): SpeechSynthesis | null {
   if (typeof window === 'undefined' || !window.speechSynthesis) return null;
@@ -67,41 +68,46 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
     }
   }, [loadVoices]);
 
-  const speakSegment = useCallback((index: number) => {
-    if (stoppedRef.current) return;
-    const synthesis = getSpeechSynthesis();
-    if (!synthesis) return;
-    const segments = segmentsRef.current;
-    if (index >= segments.length) {
-      betweenSegmentsRef.current = false;
-      setPlayerState({ status: 'stopped', currentSegmentIndex: segments.length });
-      return;
-    }
-
-    const segment = segments[index];
-    indexRef.current = index;
-    betweenSegmentsRef.current = false;
-    setPlayerState({ status: 'playing', currentSegmentIndex: index });
-
-    const utterance = createUtterance(segment.text, voiceRef.current);
-    utterance.onend = () => {
+  const speakSegment = useCallback(
+    (index: number) => {
       if (stoppedRef.current) return;
-      betweenSegmentsRef.current = true;
-      pendingNextIndexRef.current = index + 1;
-      pauseStartTimeRef.current = Date.now();
-      pauseTimerRef.current = setTimeout(() => {
+      const synthesis = getSpeechSynthesis();
+      if (!synthesis) return;
+      const segments = segmentsRef.current;
+      if (index >= segments.length) {
         betweenSegmentsRef.current = false;
-        speakSegment(index + 1);
-      }, segment.pauseAfterMs);
-    };
-    utterance.onerror = () => {
-      if (!stoppedRef.current) {
-        speakSegment(index + 1);
+        setPlayerState({ status: 'stopped', currentSegmentIndex: segments.length });
+        return;
       }
-    };
 
-    synthesis.speak(utterance);
-  }, []);
+      const segment = segments[index];
+      indexRef.current = index;
+      betweenSegmentsRef.current = false;
+      setPlayerState({ status: 'playing', currentSegmentIndex: index });
+
+      const utterance = createUtterance(segment.text, voiceRef.current, {
+        voiceVariant,
+      });
+      utterance.onend = () => {
+        if (stoppedRef.current) return;
+        betweenSegmentsRef.current = true;
+        pendingNextIndexRef.current = index + 1;
+        pauseStartTimeRef.current = Date.now();
+        pauseTimerRef.current = setTimeout(() => {
+          betweenSegmentsRef.current = false;
+          speakSegment(index + 1);
+        }, segment.pauseAfterMs);
+      };
+      utterance.onerror = () => {
+        if (!stoppedRef.current) {
+          speakSegment(index + 1);
+        }
+      };
+
+      synthesis.speak(utterance);
+    },
+    [voiceVariant],
+  );
 
   const play = useCallback(
     (segments: ScriptSegment[]) => {
@@ -111,7 +117,8 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
         return;
       }
       stoppedRef.current = false;
-      segmentsRef.current = segments;
+      segmentsRef.current =
+        voiceVariant === 'es-AR' ? scalePausesForArgentineDelivery(segments) : segments;
       loadVoices();
       synthesis.cancel();
       clearPauseTimer();
@@ -119,7 +126,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
       indexRef.current = 0;
       speakSegment(0);
     },
-    [loadVoices, speakSegment],
+    [loadVoices, speakSegment, voiceVariant],
   );
 
   const pause = useCallback(() => {

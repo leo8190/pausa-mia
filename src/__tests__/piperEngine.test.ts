@@ -14,8 +14,8 @@ import {
 describe('piperEngine', () => {
   describe('serene cadence', () => {
     it('multiplies model length_scale by the serene factor within safe bounds', () => {
-      expect(SERENE_CADENCE_SCALE).toBeCloseTo(1.18, 2);
-      expect(resolveSereneLengthScale(1)).toBeCloseTo(1.18, 5);
+      expect(SERENE_CADENCE_SCALE).toBeCloseTo(1.28, 2);
+      expect(resolveSereneLengthScale(1)).toBeCloseTo(1.28, 5);
       expect(resolveSereneLengthScale(1.1)).toBeCloseTo(1.1 * SERENE_CADENCE_SCALE, 5);
       expect(resolveSereneLengthScale(0.1)).toBeGreaterThanOrEqual(0.5);
       expect(resolveSereneLengthScale(10)).toBeLessThanOrEqual(3);

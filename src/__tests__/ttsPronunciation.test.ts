@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   TTS_PRONUNCIATION_DICTIONARY,
+  normalizeTextForArgentineWebSpeech,
   normalizeTextForTts,
+  strengthenArgentineErresForWebSpeech,
 } from '../lib/ttsPronunciation';
 
 describe('ttsPronunciation', () => {
@@ -37,5 +39,29 @@ describe('ttsPronunciation', () => {
   it('leaves text without dictionary words unchanged', () => {
     const text = 'Cerrá los ojos y respirá.';
     expect(normalizeTextForTts(text)).toBe(text);
+  });
+
+  it('strengthens word-initial r and rr for Argentine Web Speech', () => {
+    expect(strengthenArgentineErresForWebSpeech('respirá')).toBe('rrespirá');
+    expect(strengthenArgentineErresForWebSpeech('Respirá')).toBe('Rrespirá');
+    expect(strengthenArgentineErresForWebSpeech('cerrar')).toBe('cerrrar');
+    expect(strengthenArgentineErresForWebSpeech('Cerrá')).toBe('Cerrrá');
+    expect(strengthenArgentineErresForWebSpeech('alrededor')).toBe('alrededor');
+    expect(strengthenArgentineErresForWebSpeech('para')).toBe('para');
+  });
+
+  it('applies dictionary then erres for Argentine Web Speech without changing visible script', () => {
+    const source = 'Calmá el ritmo y respirá.';
+    const spoken = normalizeTextForArgentineWebSpeech(source);
+    expect(source).toBe('Calmá el ritmo y respirá.');
+    expect(spoken).toContain('rit-mo');
+    expect(spoken).toContain('rrespirá');
+    expect(spoken).not.toContain(' ritmo ');
+  });
+
+  it('does not apply erre strengthening in the shared Piper dictionary path alone', () => {
+    expect(normalizeTextForTts('Cerrá los ojos y respirá.')).toBe(
+      'Cerrá los ojos y respirá.',
+    );
   });
 });

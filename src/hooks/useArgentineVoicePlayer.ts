@@ -27,6 +27,7 @@ import {
 } from '../lib/remoteVoiceService';
 import { registerSpeechCancel } from '../lib/speechController';
 import { normalizeTextForTts } from '../lib/ttsPronunciation';
+import { scalePausesForArgentineDelivery } from '../lib/voiceCadence';
 
 export type ArgentineVoiceMode = 'local' | 'remote';
 
@@ -498,7 +499,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         }
       }
 
-      segmentsRef.current = segments;
+      segmentsRef.current = scalePausesForArgentineDelivery(segments);
       void playSegment(0);
     },
     [abortInFlight, clearPauseTimer, mode, playSegment],

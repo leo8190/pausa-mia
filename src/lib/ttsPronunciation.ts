@@ -32,3 +32,48 @@ export function normalizeTextForTts(text: string): string {
     return applyHintCasing(word, hint);
   });
 }
+
+/**
+ * Refuerza erres vibrantes para el fallback Web Speech (ruta argentina).
+ * Piper ya fonemiza con espeak-ng: no usar esto en la ruta neuronal.
+ *
+ * - `rr` → `rrr` (empuja a vibrante múltiple en motores genéricos)
+ * - `r` inicial de palabra → `rr` (evita que se trague la erre inicial)
+ */
+export function strengthenArgentineErresForWebSpeech(text: string): string {
+  return text.replace(WORD_RE, (word) => {
+    const parts: string[] = [];
+    let i = 0;
+    while (i < word.length) {
+      const ch = word[i];
+      const lower = ch.toLocaleLowerCase('es');
+      if (lower === 'r') {
+        const next = word[i + 1];
+        const nextIsR = next !== undefined && next.toLocaleLowerCase('es') === 'r';
+        if (nextIsR) {
+          // rr → rrr (preservar mayúsculas del primer carácter)
+          parts.push(ch === 'R' ? 'Rrr' : 'rrr');
+          i += 2;
+          continue;
+        }
+        if (i === 0) {
+          // r inicial → rr
+          parts.push(ch === 'R' ? 'Rr' : 'rr');
+          i += 1;
+          continue;
+        }
+      }
+      parts.push(ch);
+      i += 1;
+    }
+    return parts.join('');
+  });
+}
+
+/**
+ * Texto hablado para Web Speech en variante argentina: diccionario + erres.
+ * No altera el guion visible en pantalla.
+ */
+export function normalizeTextForArgentineWebSpeech(text: string): string {
+  return strengthenArgentineErresForWebSpeech(normalizeTextForTts(text));
+}

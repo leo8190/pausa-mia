@@ -18,9 +18,10 @@ import { normalizeTextForTts } from './ttsPronunciation';
 
 /**
  * Cadencia serena de meditación: multiplica el `length_scale` del modelo
- * (~18 % más lento). Valores > 1 alargan el audio en Piper.
+ * (~28 % más lento). Valores > 1 alargan el audio en Piper. Pensado para
+ * guiadas calmadas, no para un ralentizado caricaturesco.
  */
-export const SERENE_CADENCE_SCALE = 1.18;
+export const SERENE_CADENCE_SCALE = 1.28;
 
 const MIN_LENGTH_SCALE = 0.5;
 const MAX_LENGTH_SCALE = 3;

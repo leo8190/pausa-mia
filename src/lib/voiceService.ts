@@ -1,8 +1,20 @@
 import type { VoiceSelection, VoiceVariant } from '../types';
-import { normalizeTextForTts } from './ttsPronunciation';
+import {
+  normalizeTextForArgentineWebSpeech,
+  normalizeTextForTts,
+} from './ttsPronunciation';
 
 /** Velocidad calma por defecto para Web Speech (~20 % más lenta que rate 1). */
 export const CALM_SPEECH_RATE = 0.8;
+
+/**
+ * Velocidad del fallback Web Speech en es-AR: más lenta que el neutro, sin
+ * caer en un ralentizado caricaturesco (piso práctico ~0.7).
+ */
+export const ARGENTINE_WEB_SPEECH_RATE = 0.72;
+
+/** Pitch ligeramente más bajo para el fallback Web Speech argentino. */
+export const ARGENTINE_WEB_SPEECH_PITCH = 0.95;
 
 const ARGENTINE_LOCALES = ['es-AR', 'es_AR'];
 
@@ -131,14 +143,60 @@ export interface SpeechPlayerState {
   currentSegmentIndex: number;
 }
 
+export interface CreateUtteranceOptions {
+  rate?: number;
+  pitch?: number;
+  /**
+   * Aplica refuerzo de erres (rr / r inicial) pensado para el fallback Web
+   * Speech argentino. No usar con Piper.
+   */
+  reinforceArgentineErres?: boolean;
+  /** Variante de voz: define defaults de rate/pitch/erres si no se pasan. */
+  voiceVariant?: VoiceVariant;
+}
+
+export function resolveWebSpeechProsody(variant: VoiceVariant): {
+  rate: number;
+  pitch: number;
+  reinforceArgentineErres: boolean;
+} {
+  if (variant === 'es-AR') {
+    return {
+      rate: ARGENTINE_WEB_SPEECH_RATE,
+      pitch: ARGENTINE_WEB_SPEECH_PITCH,
+      reinforceArgentineErres: true,
+    };
+  }
+  return {
+    rate: CALM_SPEECH_RATE,
+    pitch: 1,
+    reinforceArgentineErres: false,
+  };
+}
+
 export function createUtterance(
   text: string,
   voice: SpeechSynthesisVoice | null,
-  rate = CALM_SPEECH_RATE,
+  options: CreateUtteranceOptions | number = {},
 ): SpeechSynthesisUtterance {
-  const utterance = new SpeechSynthesisUtterance(normalizeTextForTts(text));
-  utterance.rate = rate;
-  utterance.pitch = 1;
+  const opts: CreateUtteranceOptions =
+    typeof options === 'number' ? { rate: options } : options;
+  const defaults = opts.voiceVariant
+    ? resolveWebSpeechProsody(opts.voiceVariant)
+    : {
+        rate: CALM_SPEECH_RATE,
+        pitch: 1,
+        reinforceArgentineErres: false,
+      };
+
+  const reinforce = opts.reinforceArgentineErres ?? defaults.reinforceArgentineErres;
+  const spoken = reinforce
+    ? normalizeTextForArgentineWebSpeech(text)
+    : normalizeTextForTts(text);
+
+  const utterance = new SpeechSynthesisUtterance(spoken);
+  utterance.rate = opts.rate ?? defaults.rate;
+  utterance.pitch = opts.pitch ?? defaults.pitch;
   if (voice) {
     utterance.voice = voice;
     utterance.lang = voice.lang;

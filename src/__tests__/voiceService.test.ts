@@ -6,6 +6,8 @@ import {
   getNeutralFallbackOrder,
   isArgentineVoice,
   CALM_SPEECH_RATE,
+  ARGENTINE_WEB_SPEECH_RATE,
+  ARGENTINE_WEB_SPEECH_PITCH,
 } from '../lib/voiceService';
 
 function mockVoice(name: string, lang: string): SpeechSynthesisVoice {
@@ -62,7 +64,7 @@ describe('voiceService', () => {
 
   it('creates utterance with voice and rate', () => {
     const voice = mockVoice('Test', 'es-AR');
-    const utterance = createUtterance('Hola', voice, 0.85);
+    const utterance = createUtterance('Hola', voice, { rate: 0.85 });
     expect(utterance.text).toBe('Hola');
     expect(utterance.rate).toBe(0.85);
     expect(utterance.voice).toBe(voice);
@@ -72,6 +74,17 @@ describe('voiceService', () => {
     expect(CALM_SPEECH_RATE).toBeCloseTo(0.8, 2);
     const utterance = createUtterance('Hola', mockVoice('Paulina', 'es-MX'));
     expect(utterance.rate).toBe(CALM_SPEECH_RATE);
+    expect(utterance.pitch).toBe(1);
+  });
+
+  it('uses slower Argentine Web Speech rate, pitch and erre hints for es-AR', () => {
+    const utterance = createUtterance('Respirá y cerrá.', mockVoice('Diego', 'es-AR'), {
+      voiceVariant: 'es-AR',
+    });
+    expect(utterance.rate).toBe(ARGENTINE_WEB_SPEECH_RATE);
+    expect(utterance.pitch).toBe(ARGENTINE_WEB_SPEECH_PITCH);
+    expect(utterance.text).toContain('Rrespirá');
+    expect(utterance.text).toContain('cerrrá');
   });
 
   it('applies TTS pronunciation hints without exposing them as a second script', () => {
