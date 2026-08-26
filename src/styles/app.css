@@ -1556,6 +1556,116 @@ fieldset.field {
   margin-top: var(--space-sm);
 }
 
+.delete-confirm-desc {
+  margin: 0.4rem 0 0.85rem;
+  color: var(--color-text-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+/* ---------- Session wipe confirmation ---------- */
+
+.step-card--deleted {
+  border-color: var(--color-success-border);
+  box-shadow:
+    var(--shadow-inset),
+    0 18px 40px -18px rgba(53, 114, 74, 0.28);
+}
+
+.wipe-confirmation {
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+  animation: wipe-confirm-in var(--motion-slow) var(--ease-out);
+}
+
+.wipe-confirmation--ok {
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+}
+
+.wipe-confirmation--warn {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+}
+
+.wipe-confirmation-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  color: var(--color-text);
+}
+
+.wipe-confirmation-lead {
+  margin: 0.55rem 0 1rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.wipe-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.wipe-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid transparent;
+  color: var(--color-text);
+}
+
+.wipe-check--ok {
+  border-color: var(--color-success-border);
+}
+
+.wipe-check--fail {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+}
+
+.wipe-check-mark {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.wipe-check--ok .wipe-check-mark {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.wipe-check--fail .wipe-check-mark {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+@keyframes wipe-confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.6rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ---------- Context sources ---------- */
 
 .context-list {

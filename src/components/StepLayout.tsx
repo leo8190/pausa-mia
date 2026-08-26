@@ -50,9 +50,14 @@ export function DeleteSessionButton({ sessionApi }: { sessionApi: SessionApi }) 
         className="delete-confirm"
         role="alertdialog"
         aria-labelledby="delete-confirm-title"
-        aria-describedby="delete-confirm-title"
+        aria-describedby="delete-confirm-desc"
       >
         <p id="delete-confirm-title">¿Borrar todos los datos de esta sesión?</p>
+        <p id="delete-confirm-desc" className="delete-confirm-desc">
+          Se vaciará el check-in, el diario y el guion, se borrarán las preferencias
+          locales y se detendrá cualquier audio en curso. Vas a ver una confirmación
+          explícita del borrado.
+        </p>
         <div className="step-actions-row">
           <button
             type="button"

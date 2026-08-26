@@ -74,7 +74,16 @@ Verificación independiente posterior:
 - No se validó una voz argentina real o premium; no existe una voz `es-AR`
   instalada en este Mac.
 - No se ejecutó una llamada real a un proveedor de inteligencia artificial.
-- El borrado visual de la sesión no se accionó en esta pasada; el código y las
-  pruebas automatizadas siguen siendo la evidencia disponible.
 - Faltan revisión humana ciega de guiones, cinco pruebas moderadas y evidencia
   de un pago real autorizado.
+
+## Seguimiento 2026-08-26 — borrado visual de sesión
+
+El camino crítico ítem 5 quedó cubierto en código y pruebas:
+
+- Confirmación explícita en `DeletedStep` (`Borrado confirmado` + checklist).
+- `deleteSession` vacía estado, borra `mam-saved-preferences` y cancela todos los
+  motores registrados (Web Speech y el `HTMLAudioElement` único de #19).
+- Evidencia automática: `src/__tests__/sessionWipe.test.tsx`.
+- Evidencia visual: recorrido en navegador con captura de la pantalla de
+  confirmación (ver artefacto del PR de borrado visual).

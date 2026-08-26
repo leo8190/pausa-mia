@@ -1,6 +1,7 @@
 import type { Duration, MeditationStyle, VoiceVariant } from '../types';
 
-const PREFERENCES_KEY = 'mam-saved-preferences';
+/** Clave única de preferencias no sensibles en localStorage. */
+export const PREFERENCES_KEY = 'mam-saved-preferences';
 
 /** Solo se guardan variante, duración y estilo. Nunca diario, situación ni estado. */
 export interface SavedPreferences {
