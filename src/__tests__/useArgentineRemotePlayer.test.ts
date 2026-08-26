@@ -54,6 +54,106 @@ describe('useArgentineVoicePlayer — remoto', () => {
     vi.restoreAllMocks();
   });
 
+  it('reuses the same HTMLAudioElement across segments (no remount per phrase)', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.spyOn(remoteVoice, 'assertRemoteSessionTextLimits').mockImplementation(() => {});
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'audio/wav' }),
+    );
+    vi.spyOn(URL, 'createObjectURL')
+      .mockReturnValueOnce('blob:seg-0')
+      .mockReturnValueOnce('blob:seg-1');
+
+    const AudioSpy = vi.spyOn(window, 'Audio');
+    const playSpy = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+
+    const { result } = renderHook(() => useArgentineVoicePlayer('remote'));
+
+    await act(async () => {
+      await result.current.prepare();
+    });
+    await act(async () => {
+      result.current.play([
+        { text: 'Primera frase.', pauseAfterMs: 0 },
+        { text: 'Segunda frase.', pauseAfterMs: 0 },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('playing');
+      expect(result.current.state.currentSegmentIndex).toBe(0);
+    });
+
+    expect(AudioSpy).toHaveBeenCalledTimes(1);
+    const firstAudio = playSpy.mock.contexts.at(-1) as HTMLAudioElement;
+    expect(firstAudio).toBeDefined();
+
+    await act(async () => {
+      firstAudio.dispatchEvent(new Event('ended'));
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.currentSegmentIndex).toBe(1);
+      expect(result.current.state.status).toBe('playing');
+    });
+
+    expect(AudioSpy).toHaveBeenCalledTimes(1);
+    const secondAudio = playSpy.mock.contexts.at(-1) as HTMLAudioElement;
+    expect(secondAudio).toBe(firstAudio);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:seg-0');
+  });
+
+  it('keeps nativeControlsRequired latched across segments after autoplay block', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.spyOn(remoteVoice, 'assertRemoteSessionTextLimits').mockImplementation(() => {});
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'audio/wav' }),
+    );
+    window.HTMLMediaElement.prototype.play = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException('Denied', 'NotAllowedError'))
+      .mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useArgentineVoicePlayer('remote'));
+
+    await act(async () => {
+      await result.current.prepare();
+    });
+    await act(async () => {
+      result.current.play([
+        { text: 'Primera.', pauseAfterMs: 0 },
+        { text: 'Segunda.', pauseAfterMs: 0 },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('needs-native-play');
+      expect(result.current.state.nativeControlsRequired).toBe(true);
+    });
+
+    window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
+    await act(async () => {
+      result.current.resume();
+    });
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('playing');
+    });
+    expect(result.current.state.nativeControlsRequired).toBe(true);
+
+    const audio = (
+      window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>
+    ).mock.contexts.at(-1) as HTMLAudioElement;
+
+    await act(async () => {
+      audio.dispatchEvent(new Event('ended'));
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.currentSegmentIndex).toBe(1);
+    });
+    expect(result.current.state.nativeControlsRequired).toBe(true);
+  });
+
   it('prepare remoto exige endpoint y no llama Piper local', async () => {
     vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(false);
     const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');

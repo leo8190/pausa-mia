@@ -12,6 +12,10 @@
 // acciones para abrirlo en el visor del dispositivo o descargarlo. El Object URL
 // es anónimo (blob:) y el nombre de descarga no incluye texto del guion.
 // Se revoca al cambiar de segmento, detener, cambiar de modo o desmontar.
+//
+// Un solo HTMLAudioElement vive toda la sesión: entre frases sólo se cambia
+// `src` y se llama `play()` sobre la misma instancia. Crear un Audio nuevo por
+// segmento rompe la cadena de gesto del navegador (Safari/iOS pide otro toque).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ScriptSegment } from '../types';
 import { synthesizeArgentineVoice, type Progress } from '../lib/voiceEngine';
@@ -151,13 +155,17 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     }
   }, []);
 
+  const clearAudioHandlers = useCallback((audio: HTMLAudioElement) => {
+    audio.onended = null;
+    audio.onerror = null;
+    audio.onplay = null;
+    audio.onpause = null;
+  }, []);
+
   const teardownAudio = useCallback(() => {
     if (audioRef.current) {
       const audio = audioRef.current;
-      audio.onended = null;
-      audio.onerror = null;
-      audio.onplay = null;
-      audio.onpause = null;
+      clearAudioHandlers(audio);
       audio.pause();
       audio.removeAttribute('src');
       if (audio.parentElement) {
@@ -166,7 +174,42 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       audioRef.current = null;
     }
     releaseObjectUrl();
-  }, [releaseObjectUrl]);
+  }, [clearAudioHandlers, releaseObjectUrl]);
+
+  /**
+   * Una sola instancia de Audio para toda la sesión. Crear `new Audio()` por
+   * frase fuerza un nuevo gesto de reproducción en Safari/iOS y WebViews.
+   */
+  const ensureAudioElement = useCallback((): HTMLAudioElement => {
+    if (audioRef.current) return audioRef.current;
+    const audio = new Audio();
+    configureAudioElementForCompatibility(audio);
+    audio.controls = true;
+    audio.setAttribute(
+      'aria-label',
+      'Reproductor nativo del audio WAV de este segmento',
+    );
+    audioRef.current = audio;
+    return audio;
+  }, []);
+
+  /** Cambia sólo el `src` del Audio existente; revoca el Object URL anterior. */
+  const loadBlobIntoSessionAudio = useCallback(
+    (blob: Blob): { audio: HTMLAudioElement; url: string } => {
+      const audio = ensureAudioElement();
+      clearAudioHandlers(audio);
+      audio.pause();
+      const previousUrl = objectUrlRef.current;
+      const url = URL.createObjectURL(blob);
+      objectUrlRef.current = url;
+      audio.src = url;
+      if (previousUrl) {
+        URL.revokeObjectURL(previousUrl);
+      }
+      return { audio, url };
+    },
+    [clearAudioHandlers, ensureAudioElement],
+  );
 
   const resetPlaybackFlags = useCallback(() => {
     stoppedRef.current = false;
@@ -323,38 +366,27 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       }
 
       betweenSegmentsRef.current = false;
+      // No resetear nativeControlsRequired: si el gesto ya exigió controles
+      // nativos, el host debe permanecer montado entre frases.
       setState((prev) => ({
         ...prev,
         status: 'playing',
         currentSegmentIndex: index,
         error: null,
         mode,
-        nativeControlsRequired: false,
       }));
 
       try {
         const blob = await synthesizeSegment(segments[index].text);
         if (stoppedRef.current || modeRef.current !== mode) return;
 
-        teardownAudio();
-        const url = URL.createObjectURL(blob);
-        objectUrlRef.current = url;
-        const audio = new Audio();
-        configureAudioElementForCompatibility(audio);
-        audio.src = url;
-        audio.controls = true;
-        audio.setAttribute(
-          'aria-label',
-          'Reproductor nativo del audio WAV de este segmento',
-        );
-        audioRef.current = audio;
+        const { audio, url } = loadBlobIntoSessionAudio(blob);
         setState((prev) => ({
           ...prev,
           currentSegmentIndex: index,
           mode,
           nativeAudioUrl: url,
           error: null,
-          nativeControlsRequired: false,
         }));
 
         audio.onended = () => {
@@ -433,7 +465,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         }));
       }
     },
-    [mode, scheduleNextSegment, synthesizeSegment, teardownAudio],
+    [loadBlobIntoSessionAudio, mode, scheduleNextSegment, synthesizeSegment, teardownAudio],
   );
 
   playSegmentRef.current = playSegment;
@@ -555,6 +587,11 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
 
   const restart = useCallback(() => {
     resetPlaybackFlags();
+    setState((prev) => ({
+      ...prev,
+      nativeAudioUrl: null,
+      nativeControlsRequired: false,
+    }));
     void playSegment(0);
   }, [playSegment, resetPlaybackFlags]);
 
