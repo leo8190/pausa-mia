@@ -12,7 +12,10 @@ docker build -f server/Dockerfile -t pausa-mia-server .
 docker run --rm -p 3001:3001 --env-file .env pausa-mia-server
 ```
 
-Healthcheck incluido: `GET /api/health` con `Origin` permitido.
+Healthcheck incluido: `GET /api/health` **sin** `Origin` (probes Docker/Fly).
+Si el cliente envía `Origin`, se valida contra la allowlist. La respuesta incluye
+`version` (`APP_VERSION` o `0.1.0`). En Fly, `fly.toml` define
+`[[http_service.checks]]` sobre esa ruta.
 
 ## Variables obligatorias para OAuth Google
 

@@ -43,6 +43,21 @@ export function resolveAllowedOrigins(env = process.env) {
   return parseAllowedOrigins(env.ACCOUNT_ALLOWED_ORIGINS);
 }
 
+/**
+ * Versión del servicio para probes de deploy/health.
+ * Preferir APP_VERSION en el entorno (p. ej. fly.toml); fallback al valor del
+ * package.json raíz del prototipo.
+ */
+export function resolveAppVersion(env = process.env) {
+  const fromEnv = typeof env.APP_VERSION === 'string' ? env.APP_VERSION.trim() : '';
+  return fromEnv || '0.1.0';
+}
+
+export function isHealthPath(url) {
+  if (typeof url !== 'string') return false;
+  return url.split('?', 1)[0] === '/api/health';
+}
+
 export const ALLOWED_ORIGINS = resolveAllowedOrigins();
 
 export const AI_TEXT_MAX_LENGTH = 200;
@@ -448,6 +463,7 @@ export function createAiServerHandler(options = {}) {
   const aiEnabled = Boolean(apiKey);
   const callProvider = options.callProvider;
   const allowedOrigins = options.allowedOrigins ?? ALLOWED_ORIGINS;
+  const version = options.version ?? resolveAppVersion(options.env ?? process.env);
 
   function setCorsHeaders(req, res) {
     const origin = req.headers.origin;
@@ -535,12 +551,15 @@ export function createAiServerHandler(options = {}) {
       return;
     }
 
-    if (req.method === 'GET' && req.url === '/api/health') {
-      if (!getCorsAllowOrigin(req.headers.origin, allowedOrigins, false)) {
+    if (req.method === 'GET' && isHealthPath(req.url)) {
+      // Docker HEALTHCHECK y Fly http_service.checks suelen omitir Origin.
+      // Si el cliente envía Origin, se sigue aplicando la allowlist.
+      const origin = req.headers.origin;
+      if (origin && !getCorsAllowOrigin(origin, allowedOrigins, false)) {
         sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
         return;
       }
-      sendJson(res, 200, { status: 'ok', aiEnabled });
+      sendJson(res, 200, { status: 'ok', aiEnabled, version });
       return;
     }
 

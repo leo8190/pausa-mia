@@ -7,8 +7,10 @@ import {
   createAiServerHandler,
   estimateMinutes,
   getCorsAllowOrigin,
+  isHealthPath,
   isOriginAllowed,
   parseAllowedOrigins,
+  resolveAppVersion,
   usesOpenAiStructuredOutputs,
   validatePayload,
   validateRequestBody,
@@ -250,13 +252,28 @@ describe('server/core validators', () => {
 });
 
 describe('server integration', () => {
-  it('rechaza orígenes no permitidos en health y generate-script', async () => {
+  it('acepta health sin Origin e incluye version; rechaza orígenes no permitidos', async () => {
     const { createServer } = await import('node:http');
-    const handler = createAiServerHandler({ apiKey: 'test-key' });
+    const handler = createAiServerHandler({
+      apiKey: 'test-key',
+      version: '0.1.0-test',
+    });
     const server = createServer(handler);
 
     await new Promise((resolve) => server.listen(0, resolve));
     const port = server.address().port;
+
+    const healthNoOrigin = await fetch(`http://127.0.0.1:${port}/api/health`);
+    expect(healthNoOrigin.status).toBe(200);
+    const healthNoOriginBody = await healthNoOrigin.json();
+    expect(healthNoOriginBody).toEqual({
+      status: 'ok',
+      aiEnabled: true,
+      version: '0.1.0-test',
+    });
+
+    const healthWithQuery = await fetch(`http://127.0.0.1:${port}/api/health?probe=1`);
+    expect(healthWithQuery.status).toBe(200);
 
     const healthBad = await fetch(`http://127.0.0.1:${port}/api/health`, {
       headers: { Origin: 'http://evil.example' },
@@ -280,6 +297,8 @@ describe('server integration', () => {
         headers: { Origin: origin },
       });
       expect(healthOk.status).toBe(200);
+      const healthOkBody = await healthOk.json();
+      expect(healthOkBody.version).toBe('0.1.0-test');
     }
 
     server.close();
@@ -457,5 +476,18 @@ describe('origin helpers', () => {
     const wildcard = new Set(['*']);
     expect(getCorsAllowOrigin('https://any.example', wildcard, true)).toBeNull();
     expect(getCorsAllowOrigin('https://any.example', wildcard, false)).toBe('*');
+  });
+
+  it('resolveAppVersion usa APP_VERSION o fallback 0.1.0', () => {
+    expect(resolveAppVersion({ APP_VERSION: '1.2.3' })).toBe('1.2.3');
+    expect(resolveAppVersion({ APP_VERSION: '  ' })).toBe('0.1.0');
+    expect(resolveAppVersion({})).toBe('0.1.0');
+  });
+
+  it('isHealthPath acepta /api/health con o sin query', () => {
+    expect(isHealthPath('/api/health')).toBe(true);
+    expect(isHealthPath('/api/health?probe=1')).toBe(true);
+    expect(isHealthPath('/api/generate-script')).toBe(false);
+    expect(isHealthPath(undefined)).toBe(false);
   });
 });
