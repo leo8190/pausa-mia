@@ -8,8 +8,11 @@ describe('situationReference', () => {
 
     expect(phraseAr).not.toContain('relacionado con');
     expect(phraseNeutro).not.toContain('relacionado con');
-    expect(phraseAr).toMatch(/ocupa espacio/i);
-    expect(phraseAr).toMatch(/no hace falta contarlo de nuevo/i);
-    expect(phraseNeutro).toMatch(/no hace falta contarlo de nuevo/i);
+    expect(phraseAr).toBe(
+      'Traés una situación reciente que elegiste tener en cuenta. No hace falta nombrarla ni resolverla durante esta pausa.',
+    );
+    expect(phraseNeutro).toBe(
+      'Traes una situación reciente que elegiste tener en cuenta. No hace falta nombrarla ni resolverla durante esta pausa.',
+    );
   });
 });

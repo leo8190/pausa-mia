@@ -22,7 +22,10 @@ import {
 import { buildSituationRecognitionPhrase } from './situationReference';
 import { getSelectedContextSources } from './contextSources';
 import { type SafeUsedDetailId, validateUsedDetailsAllowlist } from './safeUsedDetails';
-import { detectSensitiveOverlapInScript } from './sensitiveOverlap';
+import {
+  collectLocalForbiddenFreeTextSources,
+  detectSensitiveOverlapInScript,
+} from './sensitiveOverlap';
 import {
   buildAiTransmissionPayload,
   payloadToPreviewEntries,
@@ -32,6 +35,16 @@ export class ConsentRequiredError extends Error {
   constructor() {
     super('Se requiere consentimiento de procesamiento de sesión activo.');
     this.name = 'ConsentRequiredError';
+  }
+}
+
+/** El motor local intentó insertar texto libre sensible en el guion o usedDetails. */
+export class LocalFreeTextLeakError extends Error {
+  constructor() {
+    super(
+      'El motor local no puede insertar texto libre de situación, diario ni fuentes importadas.',
+    );
+    this.name = 'LocalFreeTextLeakError';
   }
 }
 
@@ -2080,6 +2093,20 @@ export function generateScript(
   const title = `Pausa de ${duration} minutos — ${intentionLabel}`;
   const fullText = allSegments.map((s) => s.text).join('\n\n');
   const estimatedMinutes = estimateMinutesFromSegments(allSegments);
+
+  const forbiddenFreeText = collectLocalForbiddenFreeTextSources(
+    checkIn,
+    excluded,
+    contextSources,
+  );
+  const freeTextLeak = detectSensitiveOverlapInScript(
+    fullText,
+    uniqueDetails,
+    forbiddenFreeText,
+  );
+  if (freeTextLeak.hasOverlap) {
+    throw new LocalFreeTextLeakError();
+  }
 
   if (
     estimatedMinutes < duration - DURATION_TOLERANCE_MINUTES &&

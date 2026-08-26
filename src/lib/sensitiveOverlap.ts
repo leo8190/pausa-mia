@@ -83,6 +83,28 @@ export function collectSensitiveSourceTexts(
   if (!excluded.has('name') && checkIn.name.trim()) {
     sources.push(checkIn.name.trim());
   }
+  if (!excluded.has('avoidTopics') && checkIn.avoidTopics.trim()) {
+    sources.push(checkIn.avoidTopics.trim());
+  }
+
+  sources.push(
+    ...collectLocalForbiddenFreeTextSources(checkIn, excluded, contextSources),
+  );
+
+  return sources.filter((text) => text.length > 0);
+}
+
+/**
+ * Texto libre que el motor local nunca debe insertar en el guion hablado ni en
+ * usedDetails. Excluye el nombre (sí se puede nombrar) y avoidTopics (se filtra).
+ */
+export function collectLocalForbiddenFreeTextSources(
+  checkIn: CheckInData,
+  excluded: Set<string>,
+  contextSources: ContextSource[] = [],
+): string[] {
+  const sources: string[] = [];
+
   if (!excluded.has('recentSituation') && checkIn.recentSituation.trim()) {
     sources.push(checkIn.recentSituation.trim());
   }
@@ -92,9 +114,6 @@ export function collectSensitiveSourceTexts(
     checkIn.perceivedStateOther.trim()
   ) {
     sources.push(checkIn.perceivedStateOther.trim());
-  }
-  if (!excluded.has('avoidTopics') && checkIn.avoidTopics.trim()) {
-    sources.push(checkIn.avoidTopics.trim());
   }
 
   for (const source of getSelectedContextSources(contextSources)) {

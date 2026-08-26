@@ -59,7 +59,9 @@ describe('scriptEngine', () => {
   it('uses categorical situation reference without literal user text', () => {
     const script = generateScript(baseCheckIn(), new Set(), genOpts);
     expect(script.fullText).not.toContain('Reunión intensa esta mañana');
-    expect(script.fullText).toMatch(/ocupa espacio|tramo de la jornada/i);
+    expect(script.fullText).toMatch(
+      /situación reciente que elegiste tener en cuenta|tramo de la jornada/i,
+    );
     expect(script.fullText).not.toMatch(/relacionado con/i);
     expect(script.fullText).not.toMatch(/diagnóstico|trastorno|depresión/i);
     for (const detail of script.usedDetails) {

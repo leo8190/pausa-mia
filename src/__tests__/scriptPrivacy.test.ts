@@ -72,6 +72,46 @@ describe('script privacy and quality gates', () => {
     }
   });
 
+  it('PENDING_SCRIPT_QUALITY_FIX: exact synthetic input stays out of local script and usedDetails', () => {
+    // Caso documentado: "Tuve varias reuniones seguidas y todavía me quedan tareas"
+    const checkIn = createEmptyCheckIn();
+    checkIn.recentSituation = SYNTHETIC_SITUATION;
+    checkIn.moment = 'ahora';
+    checkIn.perceivedState = 'acelerado';
+    checkIn.intention = 'calmar-ritmo';
+    checkIn.experience = 'basica';
+    checkIn.style = 'respiracion-natural';
+    checkIn.duration = 5;
+    checkIn.voiceVariant = 'es-AR';
+
+    const script = generateScript(checkIn, new Set(), genOpts);
+    const freeTextSources = collectSensitiveSourceTexts(checkIn, new Set(), []);
+    const quality = validateScriptQuality(script, { freeTextSources });
+
+    expect(script.fullText).not.toContain(SYNTHETIC_SITUATION);
+    expect(script.fullText).not.toMatch(/relacionado con/i);
+    expect(script.fullText).not.toMatch(/lo tomamos como contexto/i);
+    expect(script.fullText).toContain(
+      'Traés una situación reciente que elegiste tener en cuenta. No hace falta nombrarla ni resolverla durante esta pausa.',
+    );
+
+    for (const sequence of extractWordSequences(SYNTHETIC_SITUATION)) {
+      expect(script.fullText.toLowerCase()).not.toContain(sequence);
+      expect(script.usedDetails.join(' ').toLowerCase()).not.toContain(sequence);
+    }
+
+    expect(script.usedDetails).toContain('recentSituation:present');
+    expect(script.usedDetails).toContain('moment');
+    expect(script.usedDetails).toContain('perceivedState');
+    for (const detail of script.usedDetails) {
+      expect(isSafeUsedDetailId(detail)).toBe(true);
+      expect(detail).not.toMatch(/reuniones|tareas|tuve varias/i);
+    }
+
+    expect(quality.valid).toBe(true);
+    expect(quality.issues).toEqual([]);
+  });
+
   it('selected diary changes only context presence, not content in local fallback', () => {
     const diaryText = 'CENTINELA_DIARIO_SELECCIONADO_PARA_PRESENCIA_SOLAMENTE';
     const checkIn = buildEvalCase1();
