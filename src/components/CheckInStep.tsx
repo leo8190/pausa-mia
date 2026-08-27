@@ -25,17 +25,32 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
             className="btn btn-primary"
             disabled={!sessionApi.isCheckInComplete}
             aria-describedby={
-              sessionApi.isCheckInComplete ? undefined : 'checkin-incomplete-hint'
+              sessionApi.isCheckInComplete
+                ? 'start-now-hint'
+                : 'checkin-incomplete-hint'
             }
-            onClick={() => sessionApi.setStep('context')}
+            onClick={() => sessionApi.startNow()}
           >
-            Ver contexto y resumen
+            Empezar ahora
           </button>
-          {!sessionApi.isCheckInComplete && (
+          {sessionApi.isCheckInComplete ? (
+            <p id="start-now-hint" className="field-hint">
+              3 minutos, motor local y español argentino. Omitís contexto vacío y
+              resumen; se revisa el guion antes del audio.
+            </p>
+          ) : (
             <p id="checkin-incomplete-hint" className="field-hint">
               Completá momento, estado, intención, experiencia y estilo para seguir.
             </p>
           )}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={!sessionApi.isCheckInComplete}
+            onClick={() => sessionApi.setStep('context')}
+          >
+            Personalizar contexto y resumen
+          </button>
           <button
             type="button"
             className="btn btn-secondary"
