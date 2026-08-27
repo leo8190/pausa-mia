@@ -241,6 +241,13 @@ No inventar ni copiar números: el valor válido es el que devuelve ese endpoint
 (o conteos sobre `unique_visitors` / `product_events` en el volumen Fly
 `/data/app.db`).
 
+En la UI, los mismos totales aparecen (sólo lectura) dentro del panel colapsado
+**Información técnica (opcional)** → compatibilidad/diagnóstico, con etiquetas
+«Visitas únicas», «Entradas» y «Sesiones completas». Si el API no responde
+(modo demo), la fila no se muestra. El cliente acepta tanto la forma nueva
+`{ uniqueVisitors, pageviews, sessionCompletes }` como la antigua
+`{ uniqueVisitors }` por si Fly aún no desplegó la revisión de #23.
+
 ## Motores de voz
 
 La reproducción es independiente del motor de generación del guion. Hay tres motores

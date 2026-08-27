@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import {
   copyDeviceCompatibilityDiagnostic,
   detectDeviceCompatibility,
@@ -6,24 +6,50 @@ import {
   verdictLabel,
   type DeviceCompatibilityReport,
 } from '../lib/deviceCompatibility';
+import { fetchVisitorCounts, type VisitorCounts } from '../lib/visitorCounts';
 
 type CopyFeedback = 'idle' | 'copied' | 'unavailable' | 'failed';
 
 /**
  * Panel de compatibilidad por dispositivo (sin red). Complementa el panel de
  * motores: muestra APIs booleanas y si el endpoint remoto está configurado,
- * sin afirmar que el servidor funcione.
+ * sin afirmar que el servidor funcione. También puede mostrar totales
+ * first-party (sólo lectura) si el API de conteo responde.
  */
 export function DeviceCompatibilityPanel({
   report: reportProp,
+  visitorCounts: visitorCountsProp,
+  fetchCounts = fetchVisitorCounts,
 }: {
   /** Permite inyectar un informe en pruebas; en UI se detecta al montar. */
   report?: DeviceCompatibilityReport;
+  /** Permite inyectar conteos en pruebas; en UI se pide al API al montar. */
+  visitorCounts?: VisitorCounts | null;
+  /** Inyectable en pruebas; por defecto GET /api/visitors/count. */
+  fetchCounts?: typeof fetchVisitorCounts;
 } = {}) {
   const headingId = useId();
   const liveId = useId();
+  const countsHeadingId = useId();
   const report = useMemo(() => reportProp ?? detectDeviceCompatibility(), [reportProp]);
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback>('idle');
+  const [visitorCounts, setVisitorCounts] = useState<VisitorCounts | null>(
+    visitorCountsProp ?? null,
+  );
+
+  useEffect(() => {
+    if (visitorCountsProp !== undefined) {
+      setVisitorCounts(visitorCountsProp);
+      return;
+    }
+    let cancelled = false;
+    void fetchCounts().then((counts) => {
+      if (!cancelled) setVisitorCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [visitorCountsProp, fetchCounts]);
 
   async function handleCopy(): Promise<void> {
     const result = await copyDeviceCompatibilityDiagnostic(report);
@@ -69,6 +95,33 @@ export function DeviceCompatibilityPanel({
           </li>
         ))}
       </ul>
+      {visitorCounts && (
+        <div className="visitor-counts-block" aria-labelledby={countsHeadingId}>
+          <h4 id={countsHeadingId}>Totales first-party</h4>
+          <p className="field-hint">
+            Conteos anónimos del API (sin cuestionario, diario ni guion). Sólo lectura;
+            si el API no responde, esta fila no aparece.
+          </p>
+          <dl className="visitor-counts-list">
+            <div className="visitor-counts-row">
+              <dt>Visitas únicas</dt>
+              <dd>{visitorCounts.uniqueVisitors}</dd>
+            </div>
+            {visitorCounts.pageviews !== null && (
+              <div className="visitor-counts-row">
+                <dt>Entradas</dt>
+                <dd>{visitorCounts.pageviews}</dd>
+              </div>
+            )}
+            {visitorCounts.sessionCompletes !== null && (
+              <div className="visitor-counts-row">
+                <dt>Sesiones completas</dt>
+                <dd>{visitorCounts.sessionCompletes}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      )}
       <div className="device-compat-actions">
         <button
           type="button"
