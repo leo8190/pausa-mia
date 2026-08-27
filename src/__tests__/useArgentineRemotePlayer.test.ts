@@ -9,6 +9,7 @@ import {
 } from '../hooks/useArgentineVoicePlayer';
 import * as voiceEngine from '../lib/voiceEngine';
 import * as remoteVoice from '../lib/remoteVoiceService';
+import { REMOTE_ARGENTINE_PLAYBACK_RATE } from '../lib/voiceCadence';
 
 describe('isAutoplayPolicyError', () => {
   it('detects NotAllowedError from DOMException and similar messages', () => {
@@ -101,6 +102,63 @@ describe('useArgentineVoicePlayer — remoto', () => {
     const secondAudio = playSpy.mock.contexts.at(-1) as HTMLAudioElement;
     expect(secondAudio).toBe(firstAudio);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:seg-0');
+  });
+
+  it('applies serene client playbackRate on remote WAV blobs without remounting Audio', async () => {
+    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+    vi.spyOn(remoteVoice, 'assertRemoteSessionTextLimits').mockImplementation(() => {});
+    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'audio/wav' }),
+    );
+    vi.spyOn(URL, 'createObjectURL')
+      .mockReturnValueOnce('blob:rate-0')
+      .mockReturnValueOnce('blob:rate-1');
+
+    const AudioSpy = vi.spyOn(window, 'Audio');
+    const playSpy = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+
+    const { result } = renderHook(() => useArgentineVoicePlayer('remote'));
+
+    await act(async () => {
+      await result.current.prepare();
+    });
+    await act(async () => {
+      result.current.play([
+        { text: 'Primera frase.', pauseAfterMs: 0 },
+        { text: 'Segunda frase.', pauseAfterMs: 0 },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('playing');
+    });
+
+    const firstAudio = playSpy.mock.contexts.at(-1) as HTMLAudioElement;
+    expect(firstAudio.playbackRate).toBeCloseTo(REMOTE_ARGENTINE_PLAYBACK_RATE, 5);
+    expect(firstAudio.defaultPlaybackRate).toBeCloseTo(
+      REMOTE_ARGENTINE_PLAYBACK_RATE,
+      5,
+    );
+    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBeCloseTo(0.78125, 5);
+    expect(AudioSpy).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      firstAudio.dispatchEvent(new Event('ended'));
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.currentSegmentIndex).toBe(1);
+      expect(result.current.state.status).toBe('playing');
+    });
+
+    const secondAudio = playSpy.mock.contexts.at(-1) as HTMLAudioElement;
+    expect(secondAudio).toBe(firstAudio);
+    expect(secondAudio.playbackRate).toBeCloseTo(REMOTE_ARGENTINE_PLAYBACK_RATE, 5);
+    expect(secondAudio.defaultPlaybackRate).toBeCloseTo(
+      REMOTE_ARGENTINE_PLAYBACK_RATE,
+      5,
+    );
+    expect(AudioSpy).toHaveBeenCalledTimes(1);
   });
 
   it('keeps nativeControlsRequired latched across segments after autoplay block', async () => {
@@ -233,6 +291,11 @@ describe('useArgentineVoicePlayer — remoto', () => {
     expect(playedAudio?.preload).toBe('auto');
     expect(playedAudio?.getAttribute('playsinline')).toBe('true');
     expect(playedAudio?.getAttribute('webkit-playsinline')).toBe('true');
+    expect(playedAudio?.playbackRate).toBeCloseTo(REMOTE_ARGENTINE_PLAYBACK_RATE, 5);
+    expect(playedAudio?.defaultPlaybackRate).toBeCloseTo(
+      REMOTE_ARGENTINE_PLAYBACK_RATE,
+      5,
+    );
 
     act(() => {
       result.current.stop();
@@ -368,5 +431,29 @@ describe('useArgentineVoicePlayer — remoto', () => {
 
     expect(result.current.state.status).toBe('idle');
     expect(result.current.state.mode).toBe('remote');
+  });
+
+  it('keeps local Piper playbackRate at 1 (serene scale is in synthesis)', async () => {
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([9, 8, 7])], { type: 'audio/wav' }),
+    );
+    const playSpy = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+
+    const { result } = renderHook(() => useArgentineVoicePlayer('local'));
+
+    await act(async () => {
+      await result.current.prepare();
+    });
+    await act(async () => {
+      result.current.play([{ text: 'Respirá local.', pauseAfterMs: 0 }]);
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('playing');
+    });
+
+    const audio = playSpy.mock.contexts.at(-1) as HTMLAudioElement;
+    expect(audio.playbackRate).toBe(1);
+    expect(audio.defaultPlaybackRate).toBe(1);
   });
 });

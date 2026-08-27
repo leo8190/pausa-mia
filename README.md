@@ -275,7 +275,10 @@ neuronal frente al Web Speech del navegador (erres genéricas poco fiables). Con
 "Preparar voz argentina" local; ambas siguen siendo opt-in. La preparación local
 usa `length_scale` × 1.28; el fallback Web Speech es-AR baja rate/pitch y refuerza
 `rr` / erre inicial sólo en el texto hablado (el guion visible no cambia). Las
-pausas entre frases se alargan un ~12 % en rutas argentinas. Si la preparación o la
+pausas entre frases se alargan un ~12 % en rutas argentinas. El WAV remoto se
+reproduce en el mismo `HTMLAudioElement` de sesión con `playbackRate` ≈ 0.78125
+(`1 / 1.28`) para igualar la cadencia serena de Piper local si el servicio en
+Fly aún no aplicó `--length_scale`. Si la preparación o la
 reproducción fallan (o el navegador no soporta WASM/ONNX), se muestra el error
 explícito y —si hay endpoint— la remota **antes** de "Usar voz del dispositivo
 (no es argentina)"; sin endpoint, el aviso de servicio faltante y después la voz
