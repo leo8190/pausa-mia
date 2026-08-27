@@ -8,7 +8,9 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 ## Objetivo de esta fase
 
 Validar si una persona completa un check-in breve, recibe una meditación guiada
-realmente personal y estaría dispuesta a pagar por repetir la experiencia.
+realmente personal y estaría dispuesta a pagar por repetir la experiencia. La
+bienvenida ofrece **Empezar ahora** (consentimiento → revisión, 3 min / local /
+es-AR) y un camino secundario de check-in completo.
 
 ## Requisitos
 
@@ -391,7 +393,7 @@ Ninguna variable `VITE_*` debe incluir secretos (`client_secret`, tokens o clave
 | ---------------------- | ------------------------------------------------------------------------ |
 | `npm run format:check` | ✅                                                                       |
 | `npm run lint`         | ✅                                                                       |
-| `npm test`             | ✅ 203 tests (unitarias + flujo React + servidor mockeado; sin API real) |
+| `npm test`             | ✅ 303 tests (unitarias + flujo React + servidor mockeado; sin API real) |
 | `npm run build`        | ✅                                                                       |
 | `voice-service` tests  | ✅ 3 tests (`ARG_TTS_BACKEND=mock`, sin modelo ni deploy)                |
 | `npm audit --omit=dev` | (no re-ejecutado en este handoff)                                        |

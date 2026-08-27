@@ -34,6 +34,9 @@ export type AppStep =
   | 'feedback'
   | 'deleted';
 
+/** Cómo entró la persona desde la bienvenida: atajo o check-in completo. */
+export type SessionEntryPath = 'full' | 'start-now';
+
 export interface CheckInData {
   name: string;
   moment: Moment | '';
@@ -74,6 +77,7 @@ export type { ContextSource, ContextSourceType } from '../lib/contextSources';
 
 export interface SessionState {
   step: AppStep;
+  entryPath: SessionEntryPath;
   consent: ConsentState;
   checkIn: CheckInData;
   contextSources: import('../lib/contextSources').ContextSource[];

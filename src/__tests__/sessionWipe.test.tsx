@@ -217,7 +217,7 @@ describe('App wipe flow leaves no check-in/script/diary on screen', () => {
       expect(globalThis.fetch).toHaveBeenCalled();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /personalizar check-in/i }));
     fireEvent.click(
       screen.getByRole('checkbox', {
         name: /permito usar mis respuestas de esta sesión únicamente/i,

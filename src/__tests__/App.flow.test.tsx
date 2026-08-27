@@ -18,6 +18,14 @@ function fillMinimalCheckIn() {
   fireEvent.click(screen.getByLabelText(/respiración natural/i));
 }
 
+function goToConsentViaFullPath() {
+  fireEvent.click(screen.getByRole('button', { name: /personalizar check-in/i }));
+}
+
+function goToConsentViaStartNow() {
+  fireEvent.click(screen.getByRole('button', { name: /empezar ahora/i }));
+}
+
 async function renderApp() {
   render(<App />);
   await waitFor(() => {
@@ -42,27 +50,69 @@ describe('App flow', () => {
     vi.unstubAllEnvs();
   });
 
-  it('renders welcome screen and navigates to consent', async () => {
+  it('renders welcome with start-now primary CTA and navigates to consent', async () => {
     await renderApp();
     expect(
       screen.getByRole('heading', { level: 2, name: /meditación a medida/i }),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    expect(
+      screen.getByRole('button', { name: /^empezar ahora$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /personalizar check-in/i }),
+    ).toBeInTheDocument();
+    goToConsentViaStartNow();
     expect(screen.getByText(/consentimiento de sesión/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^continuar$/i })).toBeDisabled();
   });
 
   it('requires session processing consent before continuing', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    goToConsentViaFullPath();
     const continueBtn = screen.getByRole('button', { name: /continuar al check-in/i });
     expect(continueBtn).toBeDisabled();
     acceptSessionConsent();
     expect(continueBtn).not.toBeDisabled();
   });
 
+  it('does not pre-check consent boxes on the welcome start-now path', async () => {
+    await renderApp();
+    goToConsentViaStartNow();
+    const sessionConsent = screen.getByRole('checkbox', {
+      name: /permito usar mis respuestas de esta sesión únicamente/i,
+    });
+    const prefsConsent = screen.getByRole('checkbox', {
+      name: /guardar mis preferencias localmente/i,
+    });
+    expect(sessionConsent).not.toBeChecked();
+    expect(prefsConsent).not.toBeChecked();
+  });
+
+  it('welcome start-now reaches review after consent without check-in', async () => {
+    await renderApp();
+    goToConsentViaStartNow();
+    acceptSessionConsent();
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/revisión del guion/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/check-in breve/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/contexto adicional/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/resumen editable/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/consentimiento para ia/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/objetivo: 3 min/i)).toBeInTheDocument();
+    expect(screen.getByText(/motor: motor local por reglas/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /reproducir audio/i }));
+    expect(
+      screen.getByRole('heading', { level: 2, name: /^reproducción$/i }),
+    ).toBeInTheDocument();
+  });
+
   it('navigates through check-in to context step', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    goToConsentViaFullPath();
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
 
@@ -78,7 +128,7 @@ describe('App flow', () => {
 
   it('short first-visit path skips context and summary to reach review', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    goToConsentViaFullPath();
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
 
@@ -103,7 +153,7 @@ describe('App flow', () => {
 
   it('shows safety step on danger text via empezar ahora', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    goToConsentViaFullPath();
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
 
@@ -126,7 +176,7 @@ describe('App flow', () => {
 
   it('shows safety step on danger text in check-in', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    goToConsentViaFullPath();
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
 
@@ -157,7 +207,7 @@ describe('App flow', () => {
     vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
 
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    goToConsentViaFullPath();
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
 

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AppStep, CheckInData, ConsentState, ContextSource } from '../types';
+import type {
+  AppStep,
+  CheckInData,
+  ConsentState,
+  ContextSource,
+  SessionEntryPath,
+} from '../types';
 import {
+  applyStartNowDefaults,
   clearSession,
   createInitialSession,
   isCheckInComplete,
@@ -36,6 +43,10 @@ export function useSession() {
 
   const setStep = useCallback((step: AppStep) => {
     setSession((prev) => ({ ...prev, step }));
+  }, []);
+
+  const setEntryPath = useCallback((entryPath: SessionEntryPath) => {
+    setSession((prev) => ({ ...prev, entryPath }));
   }, []);
 
   const updateConsent = useCallback((consent: Partial<ConsentState>) => {
@@ -155,20 +166,16 @@ export function useSession() {
   }, [generateWithProvider]);
 
   /**
-   * Atajo de primera visita: omite contexto vacío, resumen y consentimiento IA.
-   * Conserva consentimiento de sesión y la pausa de seguridad; usa defaults
-   * seguros (3 min, motor local, es-AR) y deja la revisión del guion.
+   * Atajo de primera visita: omite check-in incompleto, contexto vacío, resumen
+   * y consentimiento IA. Conserva consentimiento de sesión y la pausa de
+   * seguridad; aplica defaults seguros (3 min, motor local, es-AR y campos
+   * cerrados mínimos) y deja la revisión del guion.
    */
   const startNow = useCallback(() => {
     const prev = sessionRef.current;
     if (!prev.consent.sessionProcessing) return false;
-    if (!isCheckInComplete(prev.checkIn)) return false;
 
-    const nextCheckIn = {
-      ...prev.checkIn,
-      duration: 3 as const,
-      voiceVariant: 'es-AR' as const,
-    };
+    const nextCheckIn = applyStartNowDefaults(prev.checkIn);
     const nextSession = {
       ...prev,
       useAiEngine: false,
@@ -219,6 +226,7 @@ export function useSession() {
   return {
     session,
     setStep,
+    setEntryPath,
     updateConsent,
     updateCheckIn,
     updateContextSources,

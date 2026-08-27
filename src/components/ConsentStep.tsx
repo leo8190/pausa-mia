@@ -2,7 +2,8 @@ import type { SessionApi } from '../hooks/useSession';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 
 export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
-  const { consent } = sessionApi.session;
+  const { consent, entryPath } = sessionApi.session;
+  const isStartNow = entryPath === 'start-now';
 
   return (
     <StepLayout
@@ -15,15 +16,31 @@ export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             className="btn btn-primary"
             disabled={!sessionApi.isConsentValid}
             aria-describedby={
-              sessionApi.isConsentValid ? undefined : 'consent-continue-hint'
+              !sessionApi.isConsentValid
+                ? 'consent-continue-hint'
+                : isStartNow
+                  ? 'consent-start-now-hint'
+                  : undefined
             }
-            onClick={() => sessionApi.setStep('checkin')}
+            onClick={() => {
+              if (isStartNow) {
+                sessionApi.startNow();
+              } else {
+                sessionApi.setStep('checkin');
+              }
+            }}
           >
-            Continuar al check-in
+            {isStartNow ? 'Continuar' : 'Continuar al check-in'}
           </button>
           {!sessionApi.isConsentValid && (
             <p id="consent-continue-hint" className="field-hint">
               Marcá el permiso de sesión para continuar.
+            </p>
+          )}
+          {sessionApi.isConsentValid && isStartNow && (
+            <p id="consent-start-now-hint" className="field-hint">
+              3 minutos, motor local y español argentino. Se omite el check-in; revisás
+              el guion antes del audio.
             </p>
           )}
           <button

@@ -1,13 +1,16 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
+  applyStartNowDefaults,
   createEmptyConsent,
   isConsentValid,
   clearSession,
   isSessionEmpty,
   createInitialSession,
+  createBlankCheckIn,
+  isCheckInComplete,
+  createEmptyCheckIn,
 } from '../lib/session';
 import { ConsentRequiredError, generateScript } from '../lib/scriptEngine';
-import { createEmptyCheckIn } from '../lib/session';
 import {
   savePreferences,
   loadPreferences,
@@ -59,6 +62,47 @@ describe('consent', () => {
     expect(() =>
       generateScript(checkIn, new Set(), { sessionProcessing: false }),
     ).toThrow(ConsentRequiredError);
+  });
+});
+
+describe('start-now defaults', () => {
+  it('fills closed fields so a blank check-in becomes complete', () => {
+    const filled = applyStartNowDefaults(createBlankCheckIn());
+    expect(filled.duration).toBe(3);
+    expect(filled.voiceVariant).toBe('es-AR');
+    expect(filled.moment).toBe('ahora');
+    expect(filled.perceivedState).toBe('tranquilo');
+    expect(filled.intention).toBe('calmar-ritmo');
+    expect(filled.experience).toBe('primera-vez');
+    expect(filled.style).toBe('respiracion-natural');
+    expect(isCheckInComplete(filled)).toBe(true);
+  });
+
+  it('preserves fields already chosen by the person', () => {
+    const checkIn = createBlankCheckIn();
+    checkIn.moment = 'antes-de-dormir';
+    checkIn.perceivedState = 'cansado';
+    checkIn.intention = 'descansar';
+    checkIn.experience = 'habitual';
+    checkIn.style = 'recorrido-corporal';
+    checkIn.duration = 10;
+    checkIn.voiceVariant = 'es-neutro';
+
+    const filled = applyStartNowDefaults(checkIn);
+    expect(filled.moment).toBe('antes-de-dormir');
+    expect(filled.perceivedState).toBe('cansado');
+    expect(filled.intention).toBe('descansar');
+    expect(filled.experience).toBe('habitual');
+    expect(filled.style).toBe('recorrido-corporal');
+    expect(filled.duration).toBe(3);
+    expect(filled.voiceVariant).toBe('es-AR');
+  });
+
+  it('generates a valid local script from blank check-in defaults', () => {
+    const checkIn = applyStartNowDefaults(createBlankCheckIn());
+    const script = generateScript(checkIn, new Set(), { sessionProcessing: true });
+    expect(script.targetDuration).toBe(3);
+    expect(script.usedDetails.length).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -118,6 +162,7 @@ describe('session deletion', () => {
     const cleared = clearSession();
     expect(isSessionEmpty(cleared)).toBe(true);
     expect(cleared.step).toBe('welcome');
+    expect(cleared.entryPath).toBe('full');
     expect(cleared.script).toBeNull();
     expect(cleared.rating).toBeNull();
     expect(cleared.selectedPrice).toBeNull();

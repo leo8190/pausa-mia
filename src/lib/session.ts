@@ -31,6 +31,24 @@ export function createEmptyCheckIn(): CheckInData {
   };
 }
 
+/**
+ * Defaults seguros del atajo “Empezar ahora”: 3 min, es-AR y campos cerrados
+ * mínimos para generar un guion local sin formulario de check-in.
+ * Conserva cualquier valor ya elegido por la persona.
+ */
+export function applyStartNowDefaults(checkIn: CheckInData): CheckInData {
+  return {
+    ...checkIn,
+    duration: 3,
+    voiceVariant: 'es-AR',
+    moment: checkIn.moment || 'ahora',
+    perceivedState: checkIn.perceivedState || 'tranquilo',
+    intention: checkIn.intention || 'calmar-ritmo',
+    experience: checkIn.experience || 'primera-vez',
+    style: checkIn.style || 'respiracion-natural',
+  };
+}
+
 export function createEmptyConsent(): ConsentState {
   return {
     sessionProcessing: false,
@@ -42,6 +60,7 @@ export function createEmptyConsent(): ConsentState {
 export function createInitialSession(): SessionState {
   return {
     step: 'welcome',
+    entryPath: 'full',
     consent: createEmptyConsent(),
     checkIn: createEmptyCheckIn(),
     contextSources: createManualDiarySources(),
@@ -124,6 +143,7 @@ export function getActiveCheckInFields(
 export function clearSession(): SessionState {
   return {
     step: 'welcome',
+    entryPath: 'full',
     consent: createEmptyConsent(),
     checkIn: createBlankCheckIn(),
     contextSources: createManualDiarySources(),
@@ -145,6 +165,7 @@ export function isSessionEmpty(session: SessionState): boolean {
   const checkIn = session.checkIn;
   const hasContextContent = session.contextSources.some((s) => s.content.trim());
   return (
+    session.entryPath === 'full' &&
     !session.consent.sessionProcessing &&
     !session.consent.savePreferences &&
     !session.consent.aiTransmission &&

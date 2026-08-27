@@ -25,9 +25,27 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => sessionApi.setStep('consent')}
+            aria-describedby="welcome-start-now-hint"
+            onClick={() => {
+              sessionApi.setEntryPath('start-now');
+              sessionApi.setStep('consent');
+            }}
           >
-            Comenzar
+            Empezar ahora
+          </button>
+          <p id="welcome-start-now-hint" className="field-hint">
+            3 minutos, motor local y español argentino. Solo consentimiento y revisión
+            del guion; sin check-in ni contexto.
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              sessionApi.setEntryPath('full');
+              sessionApi.setStep('consent');
+            }}
+          >
+            Personalizar check-in
           </button>
           <DeleteSessionButton sessionApi={sessionApi} />
         </>
