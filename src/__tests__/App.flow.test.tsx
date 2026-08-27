@@ -69,11 +69,59 @@ describe('App flow', () => {
     fillMinimalCheckIn();
 
     const contextBtn = screen.getByRole('button', {
-      name: /ver contexto y resumen/i,
+      name: /personalizar contexto y resumen/i,
     });
     expect(contextBtn).not.toBeDisabled();
     fireEvent.click(contextBtn);
     expect(screen.getByText(/contexto adicional/i)).toBeInTheDocument();
+  });
+
+  it('short first-visit path skips context and summary to reach review', async () => {
+    await renderApp();
+    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    acceptSessionConsent();
+    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+
+    fillMinimalCheckIn();
+
+    fireEvent.click(screen.getByRole('button', { name: /empezar ahora/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/revisión del guion/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/contexto adicional/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/resumen editable/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/consentimiento para ia/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/objetivo: 3 min/i)).toBeInTheDocument();
+    expect(screen.getByText(/motor: motor local por reglas/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /reproducir audio/i }));
+    expect(
+      screen.getByRole('heading', { level: 2, name: /^reproducción$/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows safety step on danger text via empezar ahora', async () => {
+    await renderApp();
+    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    acceptSessionConsent();
+    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+
+    fireEvent.click(screen.getByLabelText(/ahora, en este momento/i));
+    fireEvent.click(screen.getByLabelText(/^sensible$/i));
+    fireEvent.click(screen.getByLabelText(/descansar/i));
+    fireEvent.click(screen.getByLabelText(/primera vez/i));
+    fireEvent.click(screen.getByLabelText(/respiración natural/i));
+
+    const textarea = screen.getByLabelText(/situación reciente/i);
+    fireEvent.change(textarea, { target: { value: 'quiero suicidarme' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /empezar ahora/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/pausa de seguridad/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/revisión del guion/i)).not.toBeInTheDocument();
   });
 
   it('shows safety step on danger text in check-in', async () => {
@@ -91,7 +139,9 @@ describe('App flow', () => {
     const textarea = screen.getByLabelText(/situación reciente/i);
     fireEvent.change(textarea, { target: { value: 'quiero suicidarme' } });
 
-    fireEvent.click(screen.getByRole('button', { name: /ver contexto y resumen/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /personalizar contexto y resumen/i }),
+    );
     fireEvent.click(screen.getByRole('button', { name: /continuar al resumen/i }));
     fireEvent.click(screen.getByRole('button', { name: /generar guion/i }));
 

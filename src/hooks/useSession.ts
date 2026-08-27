@@ -154,6 +154,34 @@ export function useSession() {
     return true;
   }, [generateWithProvider]);
 
+  /**
+   * Atajo de primera visita: omite contexto vacío, resumen y consentimiento IA.
+   * Conserva consentimiento de sesión y la pausa de seguridad; usa defaults
+   * seguros (3 min, motor local, es-AR) y deja la revisión del guion.
+   */
+  const startNow = useCallback(() => {
+    const prev = sessionRef.current;
+    if (!prev.consent.sessionProcessing) return false;
+    if (!isCheckInComplete(prev.checkIn)) return false;
+
+    const nextCheckIn = {
+      ...prev.checkIn,
+      duration: 3 as const,
+      voiceVariant: 'es-AR' as const,
+    };
+    const nextSession = {
+      ...prev,
+      useAiEngine: false,
+      checkIn: nextCheckIn,
+    };
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+
+    const provider = createLocalProvider();
+    void generateWithProvider(provider);
+    return true;
+  }, [generateWithProvider]);
+
   const confirmAiGenerate = useCallback(() => {
     const prev = sessionRef.current;
     if (!prev.consent.sessionProcessing || !prev.consent.aiTransmission) {
@@ -196,6 +224,7 @@ export function useSession() {
     updateContextSources,
     toggleExcluded,
     tryGenerate,
+    startNow,
     confirmAiGenerate,
     setUseAiEngine,
     deleteSession,
