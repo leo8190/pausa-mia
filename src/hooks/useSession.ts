@@ -89,56 +89,59 @@ export function useSession() {
     setSession((prev) => ({ ...prev, useAiEngine: useAi }));
   }, []);
 
-  const generateWithProvider = useCallback(async (provider: ScriptProvider) => {
-    const prev = sessionRef.current;
-    const safety = scanCheckInForDanger(prev.checkIn);
-    const contextText = prev.contextSources
-      .filter((s) => s.selected && s.content.trim())
-      .map((s) => s.content)
-      .join(' ');
-    const contextSafety = contextText ? scanTextForDanger(contextText) : null;
+  const generateWithProvider = useCallback(
+    async (provider: ScriptProvider, afterGenerate: AppStep = 'review') => {
+      const prev = sessionRef.current;
+      const safety = scanCheckInForDanger(prev.checkIn);
+      const contextText = prev.contextSources
+        .filter((s) => s.selected && s.content.trim())
+        .map((s) => s.content)
+        .join(' ');
+      const contextSafety = contextText ? scanTextForDanger(contextText) : null;
 
-    if (safety.triggered || contextSafety?.triggered) {
-      setSession((s) => ({
-        ...s,
-        safetyTriggered: true,
-        safetyText: safety.sourceText || contextSafety?.sourceText || '',
-        step: 'safety',
-      }));
-      return false;
-    }
-
-    try {
-      const result = await provider.generate({
-        checkIn: prev.checkIn,
-        excluded: prev.summaryExcluded,
-        sessionProcessing: prev.consent.sessionProcessing,
-        aiTransmission: prev.consent.aiTransmission,
-        contextSources: prev.contextSources,
-      });
-
-      const freeTextSources = collectSensitiveSourceTexts(
-        prev.checkIn,
-        prev.summaryExcluded,
-        prev.contextSources,
-      );
-      const quality = validateScriptQuality(result.script, { freeTextSources });
-      if (!quality.valid) {
+      if (safety.triggered || contextSafety?.triggered) {
+        setSession((s) => ({
+          ...s,
+          safetyTriggered: true,
+          safetyText: safety.sourceText || contextSafety?.sourceText || '',
+          step: 'safety',
+        }));
         return false;
       }
 
-      setSession((s) => ({
-        ...s,
-        script: result.script,
-        scriptFallbackUsed: result.fallbackUsed ?? false,
-        safetyTriggered: false,
-        step: 'review',
-      }));
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
+      try {
+        const result = await provider.generate({
+          checkIn: prev.checkIn,
+          excluded: prev.summaryExcluded,
+          sessionProcessing: prev.consent.sessionProcessing,
+          aiTransmission: prev.consent.aiTransmission,
+          contextSources: prev.contextSources,
+        });
+
+        const freeTextSources = collectSensitiveSourceTexts(
+          prev.checkIn,
+          prev.summaryExcluded,
+          prev.contextSources,
+        );
+        const quality = validateScriptQuality(result.script, { freeTextSources });
+        if (!quality.valid) {
+          return false;
+        }
+
+        setSession((s) => ({
+          ...s,
+          script: result.script,
+          scriptFallbackUsed: result.fallbackUsed ?? false,
+          safetyTriggered: false,
+          step: afterGenerate,
+        }));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
 
   const tryGenerate = useCallback(() => {
     const prev = sessionRef.current;
@@ -155,9 +158,10 @@ export function useSession() {
   }, [generateWithProvider]);
 
   /**
-   * Atajo de primera visita: omite contexto vacío, resumen y consentimiento IA.
-   * Conserva consentimiento de sesión y la pausa de seguridad; usa defaults
-   * seguros (3 min, motor local, es-AR) y deja la revisión del guion.
+   * Atajo de primera visita: omite contexto vacío, resumen, consentimiento IA
+   * y la pantalla de revisión (el guion se lee en reproducción). Conserva
+   * consentimiento de sesión y la pausa de seguridad; usa defaults seguros
+   * (3 min, motor local, es-AR).
    */
   const startNow = useCallback(() => {
     const prev = sessionRef.current;
@@ -178,7 +182,7 @@ export function useSession() {
     setSession(nextSession);
 
     const provider = createLocalProvider();
-    void generateWithProvider(provider);
+    void generateWithProvider(provider, 'playback');
     return true;
   }, [generateWithProvider]);
 

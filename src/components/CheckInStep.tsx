@@ -36,7 +36,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           {sessionApi.isCheckInComplete ? (
             <p id="start-now-hint" className="field-hint">
               3 minutos, motor local y español argentino. Omitís contexto vacío y
-              resumen; se revisa el guion antes del audio.
+              resumen; el guion se muestra en reproducción.
             </p>
           ) : (
             <p id="checkin-incomplete-hint" className="field-hint">
