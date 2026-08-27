@@ -10,6 +10,7 @@ import {
   BASE_WEB_SPEECH_RATE,
   MEDITATION_LENGTH_SCALE,
   MEDITATION_SPEECH_RATE,
+  REMOTE_ARGENTINE_PLAYBACK_RATE,
   resolvePiperLengthScale,
   scalePausesForArgentineDelivery,
 } from '../lib/voiceCadence';
@@ -20,6 +21,12 @@ describe('voiceCadence', () => {
     expect(MEDITATION_LENGTH_SCALE).toBeGreaterThanOrEqual(1.25);
     expect(MEDITATION_LENGTH_SCALE).toBeLessThanOrEqual(1.35);
     expect(resolvePiperLengthScale(1)).toBeCloseTo(SERENE_CADENCE_SCALE, 5);
+  });
+
+  it('derives remote WAV playbackRate as the inverse of serene length_scale', () => {
+    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBeCloseTo(1 / SERENE_CADENCE_SCALE, 5);
+    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBeCloseTo(0.78125, 5);
+    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBeLessThan(1);
   });
 
   it('reexports calm Web Speech rate near 0.80 for neutral', () => {

@@ -27,7 +27,10 @@ import {
 } from '../lib/remoteVoiceService';
 import { registerSpeechCancel } from '../lib/speechController';
 import { normalizeTextForTts } from '../lib/ttsPronunciation';
-import { scalePausesForArgentineDelivery } from '../lib/voiceCadence';
+import {
+  REMOTE_ARGENTINE_PLAYBACK_RATE,
+  scalePausesForArgentineDelivery,
+} from '../lib/voiceCadence';
 
 export type ArgentineVoiceMode = 'local' | 'remote';
 
@@ -204,12 +207,17 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       const url = URL.createObjectURL(blob);
       objectUrlRef.current = url;
       audio.src = url;
+      // Remoto: alinea cadencia con Piper local (1/SERENE_CADENCE_SCALE) si el
+      // WAV aún no trae --length_scale sereno. Local ya lo tiene en síntesis.
+      const rate = mode === 'remote' ? REMOTE_ARGENTINE_PLAYBACK_RATE : 1;
+      audio.defaultPlaybackRate = rate;
+      audio.playbackRate = rate;
       if (previousUrl) {
         URL.revokeObjectURL(previousUrl);
       }
       return { audio, url };
     },
-    [clearAudioHandlers, ensureAudioElement],
+    [clearAudioHandlers, ensureAudioElement, mode],
   );
 
   const resetPlaybackFlags = useCallback(() => {
