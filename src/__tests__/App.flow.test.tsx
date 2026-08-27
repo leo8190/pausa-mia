@@ -95,7 +95,9 @@ describe('App flow', () => {
     expect(screen.queryByText(/resumen editable/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/consentimiento para ia/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/revisión del guion/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('region', { name: /guion en reproducción/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /guion en reproducción/i }),
+    ).toBeInTheDocument();
   });
 
   it('shows safety step on danger text via empezar ahora', async () => {
