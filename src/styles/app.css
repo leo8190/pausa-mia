@@ -1498,6 +1498,45 @@ fieldset.field {
   margin-top: var(--space-sm);
 }
 
+.visitor-counts-block {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+.visitor-counts-block h4 {
+  font-size: 0.92rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-xs);
+}
+
+.visitor-counts-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.visitor-counts-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.35rem 0;
+}
+
+.visitor-counts-row dt {
+  margin: 0;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.visitor-counts-row dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
 .device-compat-actions {
   display: flex;
   flex-direction: column;
