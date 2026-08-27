@@ -20,23 +20,30 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
       lead="Cada dato se usa solo para personalizar tu pausa. Podés omitir lo que no quieras compartir."
       actions={
         <>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!sessionApi.isCheckInComplete}
-            aria-describedby={
-              sessionApi.isCheckInComplete
-                ? 'start-now-hint'
-                : 'checkin-incomplete-hint'
-            }
-            onClick={() => sessionApi.startNow()}
+          <form
+            className="start-now-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              sessionApi.startNow();
+            }}
           >
-            Empezar ahora
-          </button>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={!sessionApi.isCheckInComplete}
+              aria-describedby={
+                sessionApi.isCheckInComplete
+                  ? 'start-now-hint'
+                  : 'checkin-incomplete-hint'
+              }
+            >
+              Empezar ahora
+            </button>
+          </form>
           {sessionApi.isCheckInComplete ? (
             <p id="start-now-hint" className="field-hint">
               3 minutos, motor local y español argentino. Omitís contexto vacío y
-              resumen; se revisa el guion antes del audio.
+              resumen; el guion se muestra en reproducción.
             </p>
           ) : (
             <p id="checkin-incomplete-hint" className="field-hint">

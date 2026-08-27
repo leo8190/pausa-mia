@@ -273,6 +273,10 @@
   border-top: 1px solid var(--color-border);
 }
 
+.start-now-form {
+  display: contents;
+}
+
 .step-actions-row {
   display: flex;
   gap: var(--space-2xs);

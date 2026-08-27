@@ -1,13 +1,16 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
+  applyStartNowDefaults,
+  createBlankCheckIn,
   createEmptyConsent,
   isConsentValid,
   clearSession,
   isSessionEmpty,
   createInitialSession,
+  createEmptyCheckIn,
+  isCheckInComplete,
 } from '../lib/session';
 import { ConsentRequiredError, generateScript } from '../lib/scriptEngine';
-import { createEmptyCheckIn } from '../lib/session';
 import {
   savePreferences,
   loadPreferences,
@@ -135,5 +138,47 @@ describe('session deletion', () => {
     expect(cleared.checkIn.voiceVariant).toBe('es-neutro');
     expect(cleared.checkIn.style).toBe('');
     expect(isSessionEmpty(cleared)).toBe(true);
+  });
+});
+
+describe('start-now defaults', () => {
+  it('fills closed fields so a blank check-in becomes complete', () => {
+    const filled = applyStartNowDefaults(createBlankCheckIn());
+    expect(filled.duration).toBe(3);
+    expect(filled.voiceVariant).toBe('es-AR');
+    expect(filled.moment).toBe('ahora');
+    expect(filled.perceivedState).toBe('tranquilo');
+    expect(filled.intention).toBe('calmar-ritmo');
+    expect(filled.experience).toBe('primera-vez');
+    expect(filled.style).toBe('respiracion-natural');
+    expect(isCheckInComplete(filled)).toBe(true);
+  });
+
+  it('preserves values already chosen by the person', () => {
+    const checkIn = {
+      ...createBlankCheckIn(),
+      moment: 'antes-de-dormir' as const,
+      perceivedState: 'cansado' as const,
+      intention: 'descansar' as const,
+      experience: 'habitual' as const,
+      style: 'recorrido-corporal' as const,
+      duration: 10 as const,
+      voiceVariant: 'es-neutro' as const,
+    };
+    const filled = applyStartNowDefaults(checkIn);
+    expect(filled.moment).toBe('antes-de-dormir');
+    expect(filled.perceivedState).toBe('cansado');
+    expect(filled.intention).toBe('descansar');
+    expect(filled.experience).toBe('habitual');
+    expect(filled.style).toBe('recorrido-corporal');
+    expect(filled.duration).toBe(3);
+    expect(filled.voiceVariant).toBe('es-AR');
+  });
+
+  it('generates a valid local script from blank check-in defaults', () => {
+    const checkIn = applyStartNowDefaults(createBlankCheckIn());
+    const script = generateScript(checkIn, new Set(), { sessionProcessing: true });
+    expect(script.targetDuration).toBe(3);
+    expect(script.usedDetails.length).toBeGreaterThanOrEqual(2);
   });
 });

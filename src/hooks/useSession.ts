@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AppStep, CheckInData, ConsentState, ContextSource } from '../types';
 import {
+  applyStartNowDefaults,
   clearSession,
   createInitialSession,
   isCheckInComplete,
@@ -8,7 +9,7 @@ import {
   isSessionEmpty,
 } from '../lib/session';
 import { scanCheckInForDanger, scanTextForDanger } from '../lib/safetyDetector';
-import { validateScriptQuality } from '../lib/scriptEngine';
+import { generateScript, validateScriptQuality } from '../lib/scriptEngine';
 import { collectSensitiveSourceTexts } from '../lib/sensitiveOverlap';
 import {
   createAiProvider,
@@ -89,56 +90,59 @@ export function useSession() {
     setSession((prev) => ({ ...prev, useAiEngine: useAi }));
   }, []);
 
-  const generateWithProvider = useCallback(async (provider: ScriptProvider) => {
-    const prev = sessionRef.current;
-    const safety = scanCheckInForDanger(prev.checkIn);
-    const contextText = prev.contextSources
-      .filter((s) => s.selected && s.content.trim())
-      .map((s) => s.content)
-      .join(' ');
-    const contextSafety = contextText ? scanTextForDanger(contextText) : null;
+  const generateWithProvider = useCallback(
+    async (provider: ScriptProvider, afterGenerate: AppStep = 'review') => {
+      const prev = sessionRef.current;
+      const safety = scanCheckInForDanger(prev.checkIn);
+      const contextText = prev.contextSources
+        .filter((s) => s.selected && s.content.trim())
+        .map((s) => s.content)
+        .join(' ');
+      const contextSafety = contextText ? scanTextForDanger(contextText) : null;
 
-    if (safety.triggered || contextSafety?.triggered) {
-      setSession((s) => ({
-        ...s,
-        safetyTriggered: true,
-        safetyText: safety.sourceText || contextSafety?.sourceText || '',
-        step: 'safety',
-      }));
-      return false;
-    }
-
-    try {
-      const result = await provider.generate({
-        checkIn: prev.checkIn,
-        excluded: prev.summaryExcluded,
-        sessionProcessing: prev.consent.sessionProcessing,
-        aiTransmission: prev.consent.aiTransmission,
-        contextSources: prev.contextSources,
-      });
-
-      const freeTextSources = collectSensitiveSourceTexts(
-        prev.checkIn,
-        prev.summaryExcluded,
-        prev.contextSources,
-      );
-      const quality = validateScriptQuality(result.script, { freeTextSources });
-      if (!quality.valid) {
+      if (safety.triggered || contextSafety?.triggered) {
+        setSession((s) => ({
+          ...s,
+          safetyTriggered: true,
+          safetyText: safety.sourceText || contextSafety?.sourceText || '',
+          step: 'safety',
+        }));
         return false;
       }
 
-      setSession((s) => ({
-        ...s,
-        script: result.script,
-        scriptFallbackUsed: result.fallbackUsed ?? false,
-        safetyTriggered: false,
-        step: 'review',
-      }));
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
+      try {
+        const result = await provider.generate({
+          checkIn: prev.checkIn,
+          excluded: prev.summaryExcluded,
+          sessionProcessing: prev.consent.sessionProcessing,
+          aiTransmission: prev.consent.aiTransmission,
+          contextSources: prev.contextSources,
+        });
+
+        const freeTextSources = collectSensitiveSourceTexts(
+          prev.checkIn,
+          prev.summaryExcluded,
+          prev.contextSources,
+        );
+        const quality = validateScriptQuality(result.script, { freeTextSources });
+        if (!quality.valid) {
+          return false;
+        }
+
+        setSession((s) => ({
+          ...s,
+          script: result.script,
+          scriptFallbackUsed: result.fallbackUsed ?? false,
+          safetyTriggered: false,
+          step: afterGenerate,
+        }));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
 
   const tryGenerate = useCallback(() => {
     const prev = sessionRef.current;
@@ -155,32 +159,68 @@ export function useSession() {
   }, [generateWithProvider]);
 
   /**
-   * Atajo de primera visita: omite contexto vacío, resumen y consentimiento IA.
-   * Conserva consentimiento de sesión y la pausa de seguridad; usa defaults
-   * seguros (3 min, motor local, es-AR) y deja la revisión del guion.
+   * Atajo de primera visita: omite contexto vacío, resumen, consentimiento IA
+   * y la pantalla de revisión (el guion se lee en reproducción). Conserva
+   * consentimiento de sesión y la pausa de seguridad.
+   *
+   * Generación local síncrona en un solo setSession → playback (o safety).
+   * Evita el hueco async donde un fallo silencioso + recarga/Volver dejaba
+   * la sesión en welcome vía createInitialSession / setStep('welcome').
    */
   const startNow = useCallback(() => {
     const prev = sessionRef.current;
     if (!prev.consent.sessionProcessing) return false;
     if (!isCheckInComplete(prev.checkIn)) return false;
 
-    const nextCheckIn = {
-      ...prev.checkIn,
-      duration: 3 as const,
-      voiceVariant: 'es-AR' as const,
-    };
-    const nextSession = {
-      ...prev,
-      useAiEngine: false,
-      checkIn: nextCheckIn,
-    };
-    sessionRef.current = nextSession;
-    setSession(nextSession);
+    const nextCheckIn = applyStartNowDefaults(prev.checkIn);
+    const safety = scanCheckInForDanger(nextCheckIn);
+    if (safety.triggered) {
+      const safetySession = {
+        ...prev,
+        useAiEngine: false,
+        checkIn: nextCheckIn,
+        safetyTriggered: true,
+        safetyText: safety.sourceText || '',
+        step: 'safety' as const,
+      };
+      sessionRef.current = safetySession;
+      setSession(safetySession);
+      return false;
+    }
 
-    const provider = createLocalProvider();
-    void generateWithProvider(provider);
-    return true;
-  }, [generateWithProvider]);
+    try {
+      const script = generateScript(nextCheckIn, prev.summaryExcluded, {
+        sessionProcessing: prev.consent.sessionProcessing,
+        contextSources: prev.contextSources,
+        engine: 'local',
+      });
+      const freeTextSources = collectSensitiveSourceTexts(
+        nextCheckIn,
+        prev.summaryExcluded,
+        prev.contextSources,
+      );
+      const quality = validateScriptQuality(script, { freeTextSources });
+      if (!quality.valid) {
+        return false;
+      }
+
+      const playbackSession = {
+        ...prev,
+        useAiEngine: false,
+        checkIn: nextCheckIn,
+        script,
+        scriptFallbackUsed: false,
+        safetyTriggered: false,
+        safetyText: '',
+        step: 'playback' as const,
+      };
+      sessionRef.current = playbackSession;
+      setSession(playbackSession);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const confirmAiGenerate = useCallback(() => {
     const prev = sessionRef.current;

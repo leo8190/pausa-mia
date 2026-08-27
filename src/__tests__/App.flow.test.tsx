@@ -76,7 +76,7 @@ describe('App flow', () => {
     expect(screen.getByText(/contexto adicional/i)).toBeInTheDocument();
   });
 
-  it('short first-visit path skips context and summary to reach review', async () => {
+  it('short first-visit path skips context, summary and review to reach playback', async () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
     acceptSessionConsent();
@@ -87,18 +87,43 @@ describe('App flow', () => {
     fireEvent.click(screen.getByRole('button', { name: /empezar ahora/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/revisión del guion/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { level: 2, name: /^reproducción$/i }),
+      ).toBeInTheDocument();
     });
     expect(screen.queryByText(/contexto adicional/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/resumen editable/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/consentimiento para ia/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/objetivo: 3 min/i)).toBeInTheDocument();
-    expect(screen.getByText(/motor: motor local por reglas/i)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /reproducir audio/i }));
+    expect(screen.queryByText(/revisión del guion/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { level: 2, name: /^reproducción$/i }),
+      screen.queryByRole('heading', { level: 2, name: /meditación a medida/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/paso 1 de 8/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /guion en reproducción/i }),
     ).toBeInTheDocument();
+  });
+
+  it('Empezar ahora form submit never remounts welcome', async () => {
+    await renderApp();
+    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    acceptSessionConsent();
+    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fillMinimalCheckIn();
+
+    const startBtn = screen.getByRole('button', { name: /empezar ahora/i });
+    const form = startBtn.closest('form');
+    expect(form).toBeTruthy();
+    fireEvent.submit(form!);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 2, name: /^reproducción$/i }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole('heading', { level: 2, name: /meditación a medida/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows safety step on danger text via empezar ahora', async () => {
@@ -122,6 +147,9 @@ describe('App flow', () => {
       expect(screen.getByText(/pausa de seguridad/i)).toBeInTheDocument();
     });
     expect(screen.queryByText(/revisión del guion/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: /^reproducción$/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows safety step on danger text in check-in', async () => {
