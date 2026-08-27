@@ -96,8 +96,34 @@ describe('App flow', () => {
     expect(screen.queryByText(/consentimiento para ia/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/revisión del guion/i)).not.toBeInTheDocument();
     expect(
+      screen.queryByRole('heading', { level: 2, name: /meditación a medida/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/paso 1 de 8/i)).not.toBeInTheDocument();
+    expect(
       screen.getByRole('region', { name: /guion en reproducción/i }),
     ).toBeInTheDocument();
+  });
+
+  it('Empezar ahora form submit never remounts welcome', async () => {
+    await renderApp();
+    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    acceptSessionConsent();
+    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fillMinimalCheckIn();
+
+    const startBtn = screen.getByRole('button', { name: /empezar ahora/i });
+    const form = startBtn.closest('form');
+    expect(form).toBeTruthy();
+    fireEvent.submit(form!);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 2, name: /^reproducción$/i }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole('heading', { level: 2, name: /meditación a medida/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows safety step on danger text via empezar ahora', async () => {
