@@ -105,6 +105,10 @@ describe('App flow', () => {
   });
 
   it('Empezar ahora auto-start attempts HTMLAudio play once and stays on playback', async () => {
+    Object.defineProperty(window, 'caches', {
+      configurable: true,
+      value: { open: vi.fn().mockResolvedValue({ match: vi.fn(), put: vi.fn() }) },
+    });
     const playSpy = vi
       .spyOn(window.HTMLMediaElement.prototype, 'play')
       .mockResolvedValue(undefined);
@@ -125,6 +129,7 @@ describe('App flow', () => {
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 
     const voiceEngine = await import('../lib/voiceEngine');
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(true);
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
       new Blob([new Uint8Array([4, 5, 6])], { type: 'audio/x-wav' }),
     );
@@ -149,6 +154,7 @@ describe('App flow', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /detener/i })).toBeInTheDocument();
+    vi.restoreAllMocks();
   });
 
   it('Empezar ahora form submit never remounts welcome', async () => {
