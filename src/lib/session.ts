@@ -65,6 +65,7 @@ export function createInitialSession(): SessionState {
     summaryExcluded: new Set(),
     script: null,
     scriptFallbackUsed: false,
+    autoStartPlayback: false,
     useAiEngine: false,
     aiAvailable: false,
     safetyTriggered: false,
@@ -147,6 +148,7 @@ export function clearSession(): SessionState {
     summaryExcluded: new Set(),
     script: null,
     scriptFallbackUsed: false,
+    autoStartPlayback: false,
     useAiEngine: false,
     aiAvailable: false,
     safetyTriggered: false,
@@ -179,6 +181,7 @@ export function isSessionEmpty(session: SessionState): boolean {
     !hasContextContent &&
     session.summaryExcluded.size === 0 &&
     session.script === null &&
+    !session.autoStartPlayback &&
     !session.safetyTriggered &&
     session.safetyText === '' &&
     session.rating === null &&

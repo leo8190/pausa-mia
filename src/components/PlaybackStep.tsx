@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSpeechPlayer } from '../hooks/useSpeechPlayer';
 import {
   useArgentineVoicePlayer,
@@ -21,7 +21,8 @@ function formatMb(bytes: number): string {
 
 export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const script = sessionApi.session.script;
-  const { checkIn } = sessionApi.session;
+  const { checkIn, autoStartPlayback } = sessionApi.session;
+  const clearAutoStartPlayback = sessionApi.clearAutoStartPlayback;
   const wantsArgentineNeural = checkIn.voiceVariant === 'es-AR';
 
   // Si la persona confirma explícitamente que quiere usar una voz del
@@ -34,12 +35,15 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const neuralBrowserSupported = checkNeuralEngineBrowserSupport();
   const remoteWavPlaybackSupported = checkRemoteWavPlaybackSupport();
   const remoteConfigured = isRemoteArgentineTtsConfigured();
+  /** Evita un segundo play() si React Strict Mode remonta el efecto. */
+  const autoStartPlayAttemptedRef = useRef(false);
 
   const {
     playerState,
     fallbackMessage,
     voicesReady,
     canSpeak,
+    speechSupported,
     play: playWebSpeech,
     pause: pauseWebSpeech,
     resume: resumeWebSpeech,
@@ -63,17 +67,12 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const useNeuralEngine = wantsArgentineNeural && !useDeviceFallback;
 
   useEffect(() => {
-    if (script && voicesReady) {
-      // Auto-start not required; user clicks play
-    }
-  }, [script, voicesReady]);
-
-  useEffect(() => {
     // Al cambiar de guion o de variante, se descarta cualquier confirmación
     // previa de fallback o remoto: cada sesión vuelve a pedirla si corresponde.
     setUseDeviceFallback(false);
     setUseRemoteArgentine(false);
     setRemoteConsent(false);
+    autoStartPlayAttemptedRef.current = false;
   }, [script, checkIn.voiceVariant]);
 
   useEffect(() => {
@@ -81,6 +80,61 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       void prepareNeural();
     }
   }, [useRemoteArgentine, neuralState.status, prepareNeural]);
+
+  /**
+   * Atajo Empezar ahora: el clic ya es gesto de usuario. Preparar (si hace falta)
+   * e intentar play una sola vez sobre el HTMLAudioElement de sesión (#19).
+   * Si el navegador bloquea autoplay → controles nativos; nunca volver a Welcome.
+   * Remoto sigue opt-in (consentimiento); no se activa solo.
+   */
+  useEffect(() => {
+    if (!script || !autoStartPlayback) return;
+    if (autoStartPlayAttemptedRef.current) return;
+
+    if (useNeuralEngine) {
+      if (!neuralBrowserSupported) {
+        clearAutoStartPlayback();
+        return;
+      }
+      if (neuralState.status === 'idle') {
+        void prepareNeural();
+        return;
+      }
+      if (neuralState.status === 'preparing') return;
+      if (neuralState.status === 'ready') {
+        autoStartPlayAttemptedRef.current = true;
+        clearAutoStartPlayback();
+        playNeural(script.segments);
+        return;
+      }
+      // playing / paused / stopped / error / needs-native-play: no reintentar.
+      clearAutoStartPlayback();
+      return;
+    }
+
+    if (!speechSupported) {
+      clearAutoStartPlayback();
+      return;
+    }
+    if (!voicesReady || !canSpeak) return;
+
+    autoStartPlayAttemptedRef.current = true;
+    clearAutoStartPlayback();
+    playWebSpeech(script.segments);
+  }, [
+    script,
+    autoStartPlayback,
+    useNeuralEngine,
+    neuralBrowserSupported,
+    neuralState.status,
+    prepareNeural,
+    playNeural,
+    speechSupported,
+    voicesReady,
+    canSpeak,
+    playWebSpeech,
+    clearAutoStartPlayback,
+  ]);
 
   // Reproducción natural terminada (último segmento) = sesión usada.
   useEffect(() => {
