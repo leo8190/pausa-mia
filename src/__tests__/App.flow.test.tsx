@@ -104,6 +104,53 @@ describe('App flow', () => {
     ).toBeInTheDocument();
   });
 
+  it('Empezar ahora auto-start attempts HTMLAudio play once and stays on playback', async () => {
+    const playSpy = vi
+      .spyOn(window.HTMLMediaElement.prototype, 'play')
+      .mockResolvedValue(undefined);
+    window.HTMLMediaElement.prototype.pause = vi.fn();
+    if (!('createObjectURL' in URL)) {
+      Object.defineProperty(URL, 'createObjectURL', {
+        value: vi.fn(),
+        configurable: true,
+      });
+    }
+    if (!('revokeObjectURL' in URL)) {
+      Object.defineProperty(URL, 'revokeObjectURL', {
+        value: vi.fn(),
+        configurable: true,
+      });
+    }
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-autostart');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    const voiceEngine = await import('../lib/voiceEngine');
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([4, 5, 6])], { type: 'audio/x-wav' }),
+    );
+
+    await renderApp();
+    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    acceptSessionConsent();
+    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fillMinimalCheckIn();
+    fireEvent.click(screen.getByRole('button', { name: /empezar ahora/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { level: 2, name: /^reproducción$/i }),
+      ).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(playSpy).toHaveBeenCalled();
+    });
+    expect(
+      screen.queryByRole('heading', { level: 2, name: /meditación a medida/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /detener/i })).toBeInTheDocument();
+  });
+
   it('Empezar ahora form submit never remounts welcome', async () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));

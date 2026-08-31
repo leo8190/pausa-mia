@@ -80,6 +80,11 @@ export interface SessionState {
   summaryExcluded: Set<string>;
   script: GeneratedScript | null;
   scriptFallbackUsed: boolean;
+  /**
+   * Atajo “Empezar ahora”: al llegar a reproducción, intentar play una sola vez
+   * (el clic ya es gesto de usuario). No aplica al flujo largo vía revisión.
+   */
+  autoStartPlayback: boolean;
   useAiEngine: boolean;
   aiAvailable: boolean;
   safetyTriggered: boolean;

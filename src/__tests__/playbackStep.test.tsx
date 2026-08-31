@@ -7,26 +7,36 @@ import { REMOTE_WARMUP_TEXT } from '../hooks/useArgentineVoicePlayer';
 import * as voiceEngine from '../lib/voiceEngine';
 import * as remoteVoice from '../lib/remoteVoiceService';
 
-function makeSessionApi(voiceVariant: 'es-AR' | 'es-neutro'): SessionApi {
+function makeSessionApi(
+  voiceVariant: 'es-AR' | 'es-neutro',
+  overrides: Partial<SessionApi['session']> = {},
+): SessionApi {
+  const session = {
+    script: {
+      title: 'Pausa breve',
+      intentionLabel: 'Calmar el ritmo',
+      targetDuration: 3,
+      estimatedMinutes: 3,
+      segments: [
+        { text: 'Cerrá los ojos y respirá.', pauseAfterMs: 10 },
+        { text: 'Notá el aire entrando y saliendo.', pauseAfterMs: 10 },
+      ],
+      fullText: 'Cerrá los ojos y respirá. Notá el aire entrando y saliendo.',
+      usedDetails: [],
+      engine: 'local',
+    },
+    checkIn: { voiceVariant },
+    autoStartPlayback: false,
+    ...overrides,
+  } as unknown as SessionState;
+
   return {
-    session: {
-      script: {
-        title: 'Pausa breve',
-        intentionLabel: 'Calmar el ritmo',
-        targetDuration: 3,
-        estimatedMinutes: 3,
-        segments: [
-          { text: 'Cerrá los ojos y respirá.', pauseAfterMs: 10 },
-          { text: 'Notá el aire entrando y saliendo.', pauseAfterMs: 10 },
-        ],
-        fullText: 'Cerrá los ojos y respirá. Notá el aire entrando y saliendo.',
-        usedDetails: [],
-        engine: 'local',
-      },
-      checkIn: { voiceVariant },
-    } as unknown as SessionState,
+    session,
     setStep: vi.fn(),
     deleteSession: vi.fn(),
+    clearAutoStartPlayback: vi.fn(() => {
+      session.autoStartPlayback = false;
+    }),
   } as unknown as SessionApi;
 }
 
@@ -96,6 +106,59 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
       .closest('details');
     expect(technical).toBeTruthy();
     expect(technical).not.toHaveAttribute('open');
+  });
+
+  it('Empezar ahora auto-start prepares local neural and attempts play once', async () => {
+    const playSpy = vi
+      .spyOn(window.HTMLMediaElement.prototype, 'play')
+      .mockResolvedValue(undefined);
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/x-wav' }),
+    );
+
+    const sessionApi = makeSessionApi('es-AR', { autoStartPlayback: true });
+    render(<PlaybackStep sessionApi={sessionApi} />);
+
+    await waitFor(() => {
+      expect(playSpy).toHaveBeenCalled();
+    });
+    // Un solo disparo del atajo (consume el flag); segmentos siguientes pueden
+    // llamar play otra vez sobre el mismo HTMLAudioElement (#19).
+    expect(sessionApi.clearAutoStartPlayback).toHaveBeenCalledTimes(1);
+    expect(voiceEngine.synthesizeArgentineVoice).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
+    });
+    // Remoto sigue opt-in: no se activa solo.
+    expect(
+      screen.queryByText(/estás usando la voz argentina remota/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('without autoStartPlayback does not call play until the person taps Reproducir', async () => {
+    const playSpy = vi
+      .spyOn(window.HTMLMediaElement.prototype, 'play')
+      .mockResolvedValue(undefined);
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
+      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/x-wav' }),
+    );
+
+    const sessionApi = makeSessionApi('es-AR');
+    render(<PlaybackStep sessionApi={sessionApi} />);
+    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /reproducir voz argentina/i }),
+      ).toBeInTheDocument();
+    });
+    expect(playSpy).not.toHaveBeenCalled();
+    expect(sessionApi.clearAutoStartPlayback).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /reproducir voz argentina/i }));
+    await waitFor(() => {
+      expect(playSpy).toHaveBeenCalled();
+    });
   });
 
   it('moves to "ready" and offers playback only after prepare() resolves with a real Blob', async () => {

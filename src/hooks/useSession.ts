@@ -181,6 +181,7 @@ export function useSession() {
         checkIn: nextCheckIn,
         safetyTriggered: true,
         safetyText: safety.sourceText || '',
+        autoStartPlayback: false,
         step: 'safety' as const,
       };
       sessionRef.current = safetySession;
@@ -204,6 +205,7 @@ export function useSession() {
         return false;
       }
 
+      // El clic de Empezar ahora es el gesto: reproducción intenta play una vez.
       const playbackSession = {
         ...prev,
         useAiEngine: false,
@@ -212,6 +214,7 @@ export function useSession() {
         scriptFallbackUsed: false,
         safetyTriggered: false,
         safetyText: '',
+        autoStartPlayback: true,
         step: 'playback' as const,
       };
       sessionRef.current = playbackSession;
@@ -220,6 +223,15 @@ export function useSession() {
     } catch {
       return false;
     }
+  }, []);
+
+  const clearAutoStartPlayback = useCallback(() => {
+    setSession((prev) => {
+      if (!prev.autoStartPlayback) return prev;
+      const next = { ...prev, autoStartPlayback: false };
+      sessionRef.current = next;
+      return next;
+    });
   }, []);
 
   const confirmAiGenerate = useCallback(() => {
@@ -265,6 +277,7 @@ export function useSession() {
     toggleExcluded,
     tryGenerate,
     startNow,
+    clearAutoStartPlayback,
     confirmAiGenerate,
     setUseAiEngine,
     deleteSession,
