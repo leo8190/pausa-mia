@@ -71,7 +71,7 @@ describe('voiceService', () => {
   });
 
   it('uses the calm speech rate by default, including for Spanish-neutral fallback', () => {
-    expect(CALM_SPEECH_RATE).toBeCloseTo(0.72, 2);
+    expect(CALM_SPEECH_RATE).toBeCloseTo(0.62, 2);
     const utterance = createUtterance('Hola', mockVoice('Paulina', 'es-MX'));
     expect(utterance.rate).toBe(CALM_SPEECH_RATE);
     expect(utterance.pitch).toBe(1);
@@ -91,7 +91,7 @@ describe('voiceService', () => {
     const voice = mockVoice('Diego', 'es-AR');
     const utterance = createUtterance('Tomate un momento.', voice);
     expect(utterance.voice).toBe(voice);
-    expect(utterance.rate).toBeCloseTo(0.72, 2);
+    expect(utterance.rate).toBeCloseTo(0.62, 2);
     expect(utterance.pitch).toBe(1);
   });
 

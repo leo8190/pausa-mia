@@ -47,7 +47,7 @@ describe('voice-service piper CLI', () => {
       buildPiperCliArgs({
         modelPath: '/models/es_AR-daniela-high.onnx',
         configPath: '/models/es_AR-daniela-high.onnx.json',
-        lengthScale: 1.35,
+        lengthScale: 1.6,
       }),
       [
         '--model',
@@ -55,7 +55,7 @@ describe('voice-service piper CLI', () => {
         '--config',
         '/models/es_AR-daniela-high.onnx.json',
         '--length_scale',
-        '1.35',
+        '1.6',
         '--output_raw',
         '--sentence_silence',
         '0.65',
@@ -88,9 +88,9 @@ describe('voice-service piper CLI', () => {
     const args = buildPiperCliArgs(config);
     assert.equal(args.filter((arg) => arg === '--length_scale').length, 1);
     assert.equal(args[args.indexOf('--length_scale') + 1], '1.5');
-    assert.equal(loadConfig({}).lengthScale, 1.35);
-    assert.equal(loadConfig({ ARG_TTS_LENGTH_SCALE: 'NaN' }).lengthScale, 1.35);
-    assert.equal(loadConfig({ ARG_TTS_LENGTH_SCALE: '4' }).lengthScale, 1.35);
+    assert.equal(loadConfig({}).lengthScale, 1.6);
+    assert.equal(loadConfig({ ARG_TTS_LENGTH_SCALE: 'NaN' }).lengthScale, 1.6);
+    assert.equal(loadConfig({ ARG_TTS_LENGTH_SCALE: '4' }).lengthScale, 1.6);
   });
 });
 

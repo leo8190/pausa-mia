@@ -7,6 +7,16 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
+### Segundo ajuste de velocidad — 15/09/2026
+
+A pedido de Leonardo (“Más lenta puede ser?”): Piper local/remoto pasa de 1.35
+a 1.60, Web Speech neutro de 0.72 a 0.62 y argentino de 0.70 a 0.60. Se conserva
+el tono natural, el guion, las pausas existentes y la reproducción remota a 1;
+no se duplica la ralentización. Los valores del ajuste anterior debajo son históricos.
+Esto modifica la velocidad al hablar, no resuelve la espera de arranque en frío.
+Verificación: 312 pruebas del producto y 10 del servicio de voz correctas; lint,
+formato y ambas compilaciones correctos. No se cambian permisos ni servicios.
+
 ### Ajuste de coherencia y voz — 15/09/2026
 
 - Intención significa propósito y estilo significa técnica: las veinte combinaciones

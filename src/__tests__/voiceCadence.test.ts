@@ -18,7 +18,7 @@ import {
 describe('voiceCadence', () => {
   it('reexports Piper serene cadence and multiplies length_scale', () => {
     expect(MEDITATION_LENGTH_SCALE).toBe(SERENE_CADENCE_SCALE);
-    expect(MEDITATION_LENGTH_SCALE).toBeCloseTo(1.35, 2);
+    expect(MEDITATION_LENGTH_SCALE).toBeCloseTo(1.6, 2);
     expect(resolvePiperLengthScale(1)).toBeCloseTo(SERENE_CADENCE_SCALE, 5);
   });
 
@@ -26,15 +26,15 @@ describe('voiceCadence', () => {
     expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBe(1);
   });
 
-  it('reexports calm Web Speech rate near 0.72 for neutral', () => {
+  it('reexports calm Web Speech rate near 0.62 for neutral', () => {
     expect(MEDITATION_SPEECH_RATE).toBe(CALM_SPEECH_RATE);
-    expect(MEDITATION_SPEECH_RATE).toBeCloseTo(0.72, 2);
+    expect(MEDITATION_SPEECH_RATE).toBeCloseTo(0.62, 2);
     expect(MEDITATION_SPEECH_RATE).toBeLessThan(BASE_WEB_SPEECH_RATE);
   });
 
   it('uses a slower Argentine Web Speech rate without lowering its natural pitch', () => {
     expect(ARGENTINE_WEB_SPEECH_RATE).toBeLessThan(CALM_SPEECH_RATE);
-    expect(ARGENTINE_WEB_SPEECH_RATE).toBeGreaterThanOrEqual(0.7);
+    expect(ARGENTINE_WEB_SPEECH_RATE).toBeCloseTo(0.6, 2);
     expect(ARGENTINE_WEB_SPEECH_RATE).toBeLessThanOrEqual(0.75);
     expect(ARGENTINE_WEB_SPEECH_PITCH).toBe(1);
   });
