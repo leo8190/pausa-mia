@@ -32,14 +32,12 @@ export function createEmptyCheckIn(): CheckInData {
 }
 
 /**
- * Defaults seguros del atajo “Empezar ahora”: 3 min, es-AR y campos cerrados
- * mínimos para generar un guion local. Conserva valores ya elegidos.
+ * Completa sólo campos vacíos del atajo. Nunca cambia la duración ni la voz
+ * que la persona acaba de elegir en el formulario.
  */
 export function applyStartNowDefaults(checkIn: CheckInData): CheckInData {
   return {
     ...checkIn,
-    duration: 3,
-    voiceVariant: 'es-AR',
     moment: checkIn.moment || 'ahora',
     perceivedState: checkIn.perceivedState || 'tranquilo',
     intention: checkIn.intention || 'calmar-ritmo',

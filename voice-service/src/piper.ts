@@ -4,6 +4,11 @@ import { constants } from 'node:fs';
 import type { VoiceServiceConfig } from './config.js';
 import { buildSilentWav, wrapPcm16MonoToWav } from './wav.js';
 
+// Keep the remote voice aligned with the browser's serene Piper cadence.
+// These synthesis settings preserve natural pitch; silence follows sentences,
+// so it does not add a deliberate delay before the first spoken word.
+export const SENTENCE_SILENCE_SECONDS = 0.65;
+
 export class TtsError extends Error {
   readonly code: string;
 
@@ -54,6 +59,8 @@ export function buildPiperCliArgs(
     '--length_scale',
     String(config.lengthScale),
     '--output_raw',
+    '--sentence_silence',
+    String(SENTENCE_SILENCE_SECONDS),
   ];
 }
 

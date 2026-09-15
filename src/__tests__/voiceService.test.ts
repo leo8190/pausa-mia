@@ -71,13 +71,13 @@ describe('voiceService', () => {
   });
 
   it('uses the calm speech rate by default, including for Spanish-neutral fallback', () => {
-    expect(CALM_SPEECH_RATE).toBeCloseTo(0.8, 2);
+    expect(CALM_SPEECH_RATE).toBeCloseTo(0.72, 2);
     const utterance = createUtterance('Hola', mockVoice('Paulina', 'es-MX'));
     expect(utterance.rate).toBe(CALM_SPEECH_RATE);
     expect(utterance.pitch).toBe(1);
   });
 
-  it('uses slower Argentine Web Speech rate, pitch and erre hints for es-AR', () => {
+  it('uses slower Argentine Web Speech, natural pitch and erre hints for es-AR', () => {
     const utterance = createUtterance('Respirá y cerrá.', mockVoice('Diego', 'es-AR'), {
       voiceVariant: 'es-AR',
     });
@@ -85,6 +85,14 @@ describe('voiceService', () => {
     expect(utterance.pitch).toBe(ARGENTINE_WEB_SPEECH_PITCH);
     expect(utterance.text).toContain('Rrespirá');
     expect(utterance.text).toContain('cerrrá');
+  });
+
+  it('preserves the Argentine voice and natural pitch at the slower cadence', () => {
+    const voice = mockVoice('Diego', 'es-AR');
+    const utterance = createUtterance('Tomate un momento.', voice);
+    expect(utterance.voice).toBe(voice);
+    expect(utterance.rate).toBeCloseTo(0.72, 2);
+    expect(utterance.pitch).toBe(1);
   });
 
   it('applies TTS pronunciation hints without exposing them as a second script', () => {

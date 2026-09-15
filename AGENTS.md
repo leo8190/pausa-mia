@@ -9,8 +9,10 @@ funcionando aunque se agreguen cuentas, conectores o un despliegue público.
 
 ## Límites obligatorios
 
-- Cursor es el implementador preferido; otros agentes pueden auditar, corregir y
-  coordinar cambios cuando Cursor no pueda completar una tarea.
+- Cursor es el implementador preferido mientras su suscripción siga vigente, con
+  workspace y trabajo visibles en Cursor Desktop. Si venció, Codex implementa en
+  la tarea actual. No renovar ni pagar por esta preferencia. Otros agentes pueden
+  auditar, corregir y coordinar cuando Cursor no pueda completar una tarea.
 - No leer, copiar ni reutilizar datos, audios, voces, credenciales o estados del canal
   de YouTube ni de otros proyectos.
 - Se pueden conectar cuentas, Google, Calendar, Drive y redes sociales cuando exista

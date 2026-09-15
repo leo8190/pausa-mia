@@ -4,17 +4,17 @@ import {
   normalizeTextForTts,
 } from './ttsPronunciation';
 
-/** Velocidad calma por defecto para Web Speech (~20 % más lenta que rate 1). */
-export const CALM_SPEECH_RATE = 0.8;
+/** Cadencia pausada para Web Speech; el ritmo real depende de la voz del dispositivo. */
+export const CALM_SPEECH_RATE = 0.72;
 
 /**
  * Velocidad del fallback Web Speech en es-AR: más lenta que el neutro, sin
  * caer en un ralentizado caricaturesco (piso práctico ~0.7).
  */
-export const ARGENTINE_WEB_SPEECH_RATE = 0.72;
+export const ARGENTINE_WEB_SPEECH_RATE = 0.7;
 
-/** Pitch ligeramente más bajo para el fallback Web Speech argentino. */
-export const ARGENTINE_WEB_SPEECH_PITCH = 0.95;
+/** Conserva el tono natural de la voz argentina al hablar más despacio. */
+export const ARGENTINE_WEB_SPEECH_PITCH = 1;
 
 const ARGENTINE_LOCALES = ['es-AR', 'es_AR'];
 

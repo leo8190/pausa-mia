@@ -1,3 +1,8 @@
+import {
+  getPracticeConflicts,
+  getScriptCoherenceIssues,
+  mentionsAvoidedTopic,
+} from './practiceCoherence';
 import type {
   CheckInData,
   ConsentState,
@@ -382,8 +387,8 @@ const INTENTION_RECOGNITION: Record<Intention, VariantPhrase> = {
       'Lo que buscas es que el ritmo afloje, y eso no se fuerza: se permite.',
   },
   concentrarse: {
-    'es-AR': 'Venís a reunir la atención en un solo lugar, sin apretarla.',
-    'es-neutro': 'Vienes a reunir la atención en un solo lugar, sin apretarla.',
+    'es-AR': 'Venís a darle estabilidad a la atención, sin apretarla.',
+    'es-neutro': 'Vienes a darle estabilidad a la atención, sin apretarla.',
   },
   descansar: {
     'es-AR':
@@ -465,7 +470,12 @@ function buildRecognitionBlock(
       (styleKey && INTENTION_RECOGNITION_BY_STYLE[styleKey]) ||
       INTENTION_RECOGNITION[checkIn.intention];
     const segment = {
-      text: phrase[variant],
+      text:
+        !excluded.has('moment') &&
+        checkIn.moment === 'antes-de-dormir' &&
+        checkIn.intention === 'concentrarse'
+          ? 'La atención puede descansar suavemente en esta práctica. No hace falta mantenerte despierto.'
+          : phrase[variant],
       pauseAfterMs: 4000,
     };
     segments.push(segment);
@@ -1036,8 +1046,8 @@ const INTENTION_FOCUS: Record<Intention, TimedPhrase[]> = {
     },
     {
       text: {
-        'es-AR': 'Nada de esto necesita terminar a horario.',
-        'es-neutro': 'Nada de esto necesita terminar a horario.',
+        'es-AR': 'Durante esta pausa, no hace falta apurar lo que sentís.',
+        'es-neutro': 'Durante esta pausa, no hace falta apurar lo que sientes.',
       },
       pauseAfterMs: 10000,
     },
@@ -1066,8 +1076,8 @@ const INTENTION_FOCUS: Record<Intention, TimedPhrase[]> = {
     },
     {
       text: {
-        'es-AR': 'Elegí un solo apoyo y quedate ahí un rato más de lo cómodo.',
-        'es-neutro': 'Elige un solo apoyo y quédate ahí un rato más de lo cómodo.',
+        'es-AR': 'Seguí el hilo de esta práctica, sólo mientras te resulte cómodo.',
+        'es-neutro': 'Sigue el hilo de esta práctica, sólo mientras te resulte cómodo.',
       },
       pauseAfterMs: 9000,
     },
@@ -1081,9 +1091,10 @@ const INTENTION_FOCUS: Record<Intention, TimedPhrase[]> = {
     },
     {
       text: {
-        'es-AR': 'Sostener algo simple durante un minuto entero ya es concentración.',
+        'es-AR':
+          'Notar lo que está pasando, aunque sea un instante, también es concentración.',
         'es-neutro':
-          'Sostener algo simple durante un minuto entero ya es concentración.',
+          'Notar lo que está pasando, aunque sea un instante, también es concentración.',
       },
       pauseAfterMs: 9500,
     },
@@ -1282,9 +1293,8 @@ const INTENTION_FOCUS: Record<Intention, TimedPhrase[]> = {
     },
     {
       text: {
-        'es-AR': 'Volver al cuerpo es volver a lo único que está pasando de verdad.',
-        'es-neutro':
-          'Volver al cuerpo es volver a lo único que está pasando de verdad.',
+        'es-AR': 'Volver al cuerpo es una forma de acompañar este momento.',
+        'es-neutro': 'Volver al cuerpo es una forma de acompañar este momento.',
       },
       pauseAfterMs: 10000,
     },
@@ -1342,9 +1352,9 @@ const INTENTION_FOCUS_BY_STYLE: Record<string, TimedPhrase[]> = {
     {
       text: {
         'es-AR':
-          'Sostener la habitación entera durante un minuto ya es una forma de concentración.',
+          'Percibir la habitación entera durante unos instantes también es concentración.',
         'es-neutro':
-          'Sostener la habitación entera durante un minuto ya es una forma de concentración.',
+          'Percibir la habitación entera durante unos instantes también es concentración.',
       },
       pauseAfterMs: 9500,
     },
@@ -1605,9 +1615,9 @@ const CLOSING_BY_MOMENT: Record<Moment, ClosingSet> = {
     farewells: [
       {
         'es-AR':
-          'Que la noche siga a su propio ritmo. Nada queda pendiente hasta mañana.',
+          'La práctica termina suavemente. Lo que pueda esperar queda para después.',
         'es-neutro':
-          'Que la noche siga a su propio ritmo. Nada queda pendiente hasta mañana.',
+          'La práctica termina suavemente. Lo que pueda esperar queda para después.',
       },
       {
         'es-AR': 'Gracias por este rato. De acá en adelante, solamente descanso.',
@@ -1748,7 +1758,7 @@ function buildFocusComposition(
   const opening: ScriptSegment[] = [styleIntro];
   addDetailSegment(detailSegments, 'style', styleIntro);
   const bridge = intention ? FOCUS_BRIDGES[`${practiceStyle}|${intention}`] : undefined;
-  if (bridge && checkIn.duration > SHORTEST_DURATION) {
+  if (bridge) {
     opening.push(toSegment(bridge, variant));
   }
   if (experience && checkIn.duration > SHORTEST_DURATION) {
@@ -1842,17 +1852,12 @@ function weaveExpansion(
 
 function filterAvoidedTopics(text: string, avoidTopics: string): string {
   if (!avoidTopics.trim()) return text;
-  const topics = avoidTopics
-    .split(/[,;]+/)
-    .map((t) => t.trim().toLowerCase())
-    .filter(Boolean);
-
-  let result = text;
-  for (const topic of topics) {
-    const regex = new RegExp(topic.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    result = result.replace(regex, '');
-  }
-  return result.replace(/\s{2,}/g, ' ').trim();
+  const sentences = text.match(/[^.!?…]+[.!?…]*/g) ?? [text];
+  return sentences
+    .filter((sentence) => !mentionsAvoidedTopic(sentence, avoidTopics))
+    .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 /**
@@ -2019,6 +2024,8 @@ export function generateScript(
   if (!options.sessionProcessing) {
     throw new ConsentRequiredError();
   }
+  const conflicts = getPracticeConflicts(checkIn, excluded);
+  if (conflicts.length) throw new Error(conflicts.join(' '));
 
   const variant = checkIn.voiceVariant;
   const duration = checkIn.duration;
@@ -2039,10 +2046,12 @@ export function generateScript(
   const applyAvoidTopics = !excluded.has('avoidTopics') && checkIn.avoidTopics.trim();
   const filterBlock = (segments: ScriptSegment[]): ScriptSegment[] =>
     applyAvoidTopics
-      ? segments.map((seg) => ({
-          ...seg,
-          text: filterAvoidedTopics(seg.text, checkIn.avoidTopics),
-        }))
+      ? segments
+          .map((seg) => ({
+            ...seg,
+            text: filterAvoidedTopics(seg.text, checkIn.avoidTopics),
+          }))
+          .filter((seg) => seg.text.trim())
       : segments;
 
   const centralPhrases = focus.phrases.slice(0, minFocus);
@@ -2086,9 +2095,10 @@ export function generateScript(
     ),
   );
 
-  const intentionLabel = checkIn.intention
-    ? INTENTION_LABELS[checkIn.intention]
-    : 'Pausa consciente';
+  const intentionLabel =
+    !excluded.has('intention') && checkIn.intention
+      ? INTENTION_LABELS[checkIn.intention]
+      : 'Pausa consciente';
 
   const title = `Pausa de ${duration} minutos — ${intentionLabel}`;
   const fullText = allSegments.map((s) => s.text).join('\n\n');
@@ -2133,6 +2143,8 @@ export function generateScript(
 
 export interface ValidateScriptQualityOptions {
   freeTextSources?: string[];
+  checkIn?: CheckInData;
+  excluded?: Set<string>;
 }
 
 const AUTONOMY_PATTERN =
@@ -2146,6 +2158,20 @@ export function validateScriptQuality(
   issues: string[];
 } {
   const issues: string[] = [];
+
+  if (options.checkIn) {
+    issues.push(
+      ...getScriptCoherenceIssues(
+        script.fullText,
+        script.segments
+          .slice(-2)
+          .map((segment) => segment.text)
+          .join(' '),
+        options.checkIn,
+        options.excluded,
+      ),
+    );
+  }
 
   issues.push(...validateUsedDetailsAllowlist(script.usedDetails));
 

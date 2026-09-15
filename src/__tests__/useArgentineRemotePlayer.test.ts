@@ -139,7 +139,7 @@ describe('useArgentineVoicePlayer — remoto', () => {
       REMOTE_ARGENTINE_PLAYBACK_RATE,
       5,
     );
-    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBeCloseTo(0.78125, 5);
+    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBe(1);
     expect(AudioSpy).toHaveBeenCalledTimes(1);
 
     await act(async () => {

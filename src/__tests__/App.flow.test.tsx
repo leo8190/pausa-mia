@@ -139,6 +139,7 @@ describe('App flow', () => {
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
     fillMinimalCheckIn();
+    fireEvent.click(screen.getByLabelText(/^Español argentino$/i));
     fireEvent.click(screen.getByRole('button', { name: /empezar ahora/i }));
 
     await waitFor(() => {

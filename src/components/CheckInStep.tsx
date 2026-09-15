@@ -10,9 +10,12 @@ import type {
 } from '../types';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 import { TechnicalVoiceDetails } from './TechnicalVoiceDetails';
+import { getPracticeConflicts, getPracticeSummary } from '../lib/practiceCoherence';
 
 export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { checkIn } = sessionApi.session;
+  const conflicts = checkIn.style ? getPracticeConflicts(checkIn) : [];
+  const practiceSummary = getPracticeSummary(checkIn);
 
   return (
     <StepLayout
@@ -24,17 +27,19 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
             className="start-now-form"
             onSubmit={(event) => {
               event.preventDefault();
-              sessionApi.startNow();
+              if (!conflicts.length) sessionApi.startNow();
             }}
           >
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={!sessionApi.isCheckInComplete}
+              disabled={!sessionApi.isCheckInComplete || conflicts.length > 0}
               aria-describedby={
-                sessionApi.isCheckInComplete
-                  ? 'start-now-hint'
-                  : 'checkin-incomplete-hint'
+                conflicts.length
+                  ? 'practice-conflicts'
+                  : sessionApi.isCheckInComplete
+                    ? 'start-now-hint'
+                    : 'checkin-incomplete-hint'
               }
             >
               Empezar ahora
@@ -42,8 +47,8 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           </form>
           {sessionApi.isCheckInComplete ? (
             <p id="start-now-hint" className="field-hint">
-              3 minutos, motor local y español argentino. Omitís contexto vacío y
-              resumen; el guion se muestra en reproducción.
+              Empezás con la duración y la voz que elegiste. Podés leer el guion en
+              reproducción.
             </p>
           ) : (
             <p id="checkin-incomplete-hint" className="field-hint">
@@ -53,7 +58,8 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           <button
             type="button"
             className="btn btn-secondary"
-            disabled={!sessionApi.isCheckInComplete}
+            disabled={!sessionApi.isCheckInComplete || conflicts.length > 0}
+            aria-describedby={conflicts.length ? 'practice-conflicts' : undefined}
             onClick={() => sessionApi.setStep('context')}
           >
             Personalizar contexto y resumen
@@ -175,6 +181,9 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
 
       <fieldset className="field">
         <legend>Intención de esta pausa</legend>
+        <p className="field-hint">
+          Qué querés acompañar hoy. No es la técnica que vamos a usar.
+        </p>
         <div className="radio-group">
           {(
             [
@@ -227,6 +236,10 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
 
       <fieldset className="field">
         <legend>Estilo de práctica</legend>
+        <p className="field-hint">
+          Cómo te vamos a guiar. Por ejemplo, recorrer el cuerpo puede ayudarte tanto a
+          descansar como a reunir la atención.
+        </p>
         <div className="radio-group">
           {(
             [
@@ -251,6 +264,12 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
         </div>
       </fieldset>
 
+      {practiceSummary && (
+        <p className="info-box" aria-live="polite">
+          Tu pausa: {practiceSummary}
+        </p>
+      )}
+
       <div className="field">
         <label htmlFor="avoidTopics">Temas o palabras a evitar (opcional)</label>
         <input
@@ -261,7 +280,17 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           maxLength={200}
           placeholder="Palabras separadas por comas"
         />
-        <p className="field-hint">Se omitirán del guion si aparecen.</p>
+        <p className="field-hint">
+          Evitaremos esas referencias sin dejar frases incompletas. Si se cruzan con la
+          práctica elegida, te avisamos.
+        </p>
+        {conflicts.length > 0 && (
+          <div id="practice-conflicts" role="alert">
+            {conflicts.map((conflict) => (
+              <p key={conflict}>{conflict}</p>
+            ))}
+          </div>
+        )}
       </div>
 
       <fieldset className="field">
@@ -306,11 +335,10 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           ))}
         </div>
         <p className="field-hint">
-          Español argentino queda siempre disponible como opción. En reproducción se usa
-          la voz neuronal local cuando el navegador la admite; si configuraste un
-          endpoint remoto, también podés elegirlo con consentimiento explícito. Español
-          neutro usa la voz del dispositivo. No afirmamos que funcione en todos los
-          navegadores ni enviamos texto sin tu permiso.
+          Elegí el acento que preferís. Te guiaremos despacio, con pausas para
+          acompañarte. La voz neutra depende de las voces disponibles en tu dispositivo.
+          Si la voz argentina necesita internet, te pediremos permiso antes de enviar el
+          guion.
         </p>
       </fieldset>
 

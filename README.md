@@ -7,6 +7,40 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
+### Ajuste de coherencia y voz — 15/09/2026
+
+- Intención significa propósito y estilo significa técnica: las veinte combinaciones
+  siguen disponibles y el check-in muestra un resumen combinado.
+- Avisos para evitar respiración/cuerpo/emociones cuando ese mismo tema sostiene la
+  práctica elegida; no se cambia la elección silenciosamente. Se omiten oraciones
+  completas, no palabras sueltas que dejen instrucciones rotas. El filtro literal
+  no pretende comprender todos los sinónimos ni todas las contradicciones posibles.
+- Cierre para dormir compatible con concentración suave, sin forzar vigilia; se
+  quitaron exigencias de incomodidad y referencias a sostener un minuto con sólo
+  segundos de pausa. Se preservan los ajustes editoriales y de privacidad previos.
+- “Empezar ahora” respeta duración y voz seleccionadas, conservando inicio con un
+  solo clic. Una intención excluida tampoco reaparece en el título.
+- Piper local pasa de 1.28 a 1.35. Servicio remoto: default configurable 1.35 y
+  0.65 segundos entre frases; reproducción remota a velocidad 1 para no aplicar
+  ralentización dos veces. Web Speech neutro 0.72, argentino 0.70, tono natural 1.
+  Se conservan el normalizador de pronunciación y las pausas argentinas existentes.
+- Verificación sobre la última versión pública 310a42e, no sobre la carpeta local
+  atrasada: 312 pruebas en 37 archivos, incluidas 480 combinaciones de práctica;
+  formato, lint y build correctos. Servicio de voz: 10 pruebas y build correctos.
+  Aviso de conflicto y recuperación al cambiar opciones comprobados en navegador.
+- El nuevo prompt del servidor IA queda preparado en código; no se desplegó el
+  servidor de cuentas/IA en esta entrega. La validación del cliente protege también
+  las respuestas IA. No se activaron servicios nuevos ni suscripciones.
+- Referencias: [opciones oficiales de Piper 1.6.0](https://github.com/OHF-Voice/piper1-gpl/blob/v1.6.0/src/piper/__main__.py)
+  y [guía corporal para dormir de UCLA](https://www.uclahealth.org/sites/default/files/documents/BodyScanForSleep_Transcript.pdf?f=22ffff6a),
+  como orientación editorial, sin copiar el guion ni prometer efectos terapéuticos.
+- La duración continúa siendo estimada, no cronometrada para cada voz/dispositivo.
+  La calidez subjetiva requiere escucha; no se afirma validación humana. La demora
+  de arranque en frío sigue siendo un pendiente separado de la velocidad al hablar.
+- `npm ci` informa 6 avisos de dependencias del frontend (3 moderados, 2 altos,
+  1 crítico): preexistentes, sin cambios de versiones en esta entrega; revisión
+  separada pendiente. El servicio de voz no reportó vulnerabilidades en npm.
+
 Validar si una persona completa un check-in breve, recibe una meditación guiada
 realmente personal y estaría dispuesta a pagar por repetir la experiencia.
 

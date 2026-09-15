@@ -18,29 +18,25 @@ import {
 describe('voiceCadence', () => {
   it('reexports Piper serene cadence and multiplies length_scale', () => {
     expect(MEDITATION_LENGTH_SCALE).toBe(SERENE_CADENCE_SCALE);
-    expect(MEDITATION_LENGTH_SCALE).toBeGreaterThanOrEqual(1.25);
-    expect(MEDITATION_LENGTH_SCALE).toBeLessThanOrEqual(1.35);
+    expect(MEDITATION_LENGTH_SCALE).toBeCloseTo(1.35, 2);
     expect(resolvePiperLengthScale(1)).toBeCloseTo(SERENE_CADENCE_SCALE, 5);
   });
 
-  it('derives remote WAV playbackRate as the inverse of serene length_scale', () => {
-    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBeCloseTo(1 / SERENE_CADENCE_SCALE, 5);
-    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBeCloseTo(0.78125, 5);
-    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBeLessThan(1);
+  it('plays remote WAV at natural speed because its synthesis is already slowed', () => {
+    expect(REMOTE_ARGENTINE_PLAYBACK_RATE).toBe(1);
   });
 
-  it('reexports calm Web Speech rate near 0.80 for neutral', () => {
+  it('reexports calm Web Speech rate near 0.72 for neutral', () => {
     expect(MEDITATION_SPEECH_RATE).toBe(CALM_SPEECH_RATE);
-    expect(MEDITATION_SPEECH_RATE).toBeCloseTo(0.8, 2);
+    expect(MEDITATION_SPEECH_RATE).toBeCloseTo(0.72, 2);
     expect(MEDITATION_SPEECH_RATE).toBeLessThan(BASE_WEB_SPEECH_RATE);
   });
 
-  it('uses a slower Argentine Web Speech rate and pitch than neutral', () => {
+  it('uses a slower Argentine Web Speech rate without lowering its natural pitch', () => {
     expect(ARGENTINE_WEB_SPEECH_RATE).toBeLessThan(CALM_SPEECH_RATE);
     expect(ARGENTINE_WEB_SPEECH_RATE).toBeGreaterThanOrEqual(0.7);
     expect(ARGENTINE_WEB_SPEECH_RATE).toBeLessThanOrEqual(0.75);
-    expect(ARGENTINE_WEB_SPEECH_PITCH).toBeLessThan(1);
-    expect(ARGENTINE_WEB_SPEECH_PITCH).toBeGreaterThanOrEqual(0.9);
+    expect(ARGENTINE_WEB_SPEECH_PITCH).toBe(1);
   });
 
   it('scales Argentine inter-phrase pauses without mutating the source', () => {

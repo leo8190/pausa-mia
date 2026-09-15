@@ -304,6 +304,11 @@ Reglas estrictas:
 - Invitaciones suaves, respiración natural, sin retenciones de aire
 - Incluir al menos una opción explícita: ojos abiertos, cambiar el ancla o detenerse
 - Cada segmento: un párrafo narrable lentamente con una sola acción
+- Intención = propósito; estilo = técnica. Son complementarios: recorrido corporal puede servir para concentrarse o descansar. No sustituir una elección por otra.
+- Mantener una técnica coherente. Atención abierta no exige fijar un único punto; recorrido corporal puede avanzar por zonas sin pedir permanecer inmóvil en una sola.
+- Antes de dormir, concentración significa atención suave para descansar, no mantenerse alerta. El cierre no pide abrir los ojos ni volver al trabajo. Pausa laboral no acaba invitando a dormir.
+- Respetar temas a evitar sin borrar palabras sueltas ni dejar frases incompletas. No pedir soportar incomodidad, forzar calma ni sostener una acción durante más tiempo que su pausa.
+- Tono cálido y sereno: invitaciones breves, sin exigencias, sin prometer un estado emocional ni interpretar lo que siente la persona.
 - Pausas entre ${MIN_SEGMENT_PAUSE_MS}-${MAX_SEGMENT_PAUSE_MS} ms según duración
 - Variante argentina (vos/podés) si voiceVariant es es-AR, neutro (tú/puedes) si es es-neutro
 

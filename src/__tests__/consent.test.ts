@@ -144,8 +144,8 @@ describe('session deletion', () => {
 describe('start-now defaults', () => {
   it('fills closed fields so a blank check-in becomes complete', () => {
     const filled = applyStartNowDefaults(createBlankCheckIn());
-    expect(filled.duration).toBe(3);
-    expect(filled.voiceVariant).toBe('es-AR');
+    expect(filled.duration).toBe(5);
+    expect(filled.voiceVariant).toBe('es-neutro');
     expect(filled.moment).toBe('ahora');
     expect(filled.perceivedState).toBe('tranquilo');
     expect(filled.intention).toBe('calmar-ritmo');
@@ -171,14 +171,14 @@ describe('start-now defaults', () => {
     expect(filled.intention).toBe('descansar');
     expect(filled.experience).toBe('habitual');
     expect(filled.style).toBe('recorrido-corporal');
-    expect(filled.duration).toBe(3);
-    expect(filled.voiceVariant).toBe('es-AR');
+    expect(filled.duration).toBe(10);
+    expect(filled.voiceVariant).toBe('es-neutro');
   });
 
   it('generates a valid local script from blank check-in defaults', () => {
     const checkIn = applyStartNowDefaults(createBlankCheckIn());
     const script = generateScript(checkIn, new Set(), { sessionProcessing: true });
-    expect(script.targetDuration).toBe(3);
+    expect(script.targetDuration).toBe(5);
     expect(script.usedDetails.length).toBeGreaterThanOrEqual(2);
   });
 });

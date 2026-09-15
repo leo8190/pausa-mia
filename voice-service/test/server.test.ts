@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { describe, it } from 'node:test';
-import { loadConfig } from '../src/config.ts';
+import { DEFAULT_ARGENTINE_LENGTH_SCALE, loadConfig } from '../src/config.ts';
 import { validateText } from '../src/limits.ts';
-import { buildPiperCliArgs } from '../src/piper.ts';
+import { buildPiperCliArgs, SENTENCE_SILENCE_SECONDS } from '../src/piper.ts';
 import { createVoiceServer } from '../src/server.ts';
 import { buildSilentWav, wrapPcm16MonoToWav } from '../src/wav.ts';
 
@@ -42,12 +42,12 @@ describe('voice-service wav mock', () => {
 });
 
 describe('voice-service piper CLI', () => {
-  it('passes --model, --config, serene --length_scale and --output_raw', () => {
+  it('passes the model and raw output flags with slower cadence and sentence pauses', () => {
     assert.deepEqual(
       buildPiperCliArgs({
         modelPath: '/models/es_AR-daniela-high.onnx',
         configPath: '/models/es_AR-daniela-high.onnx.json',
-        lengthScale: 1.28,
+        lengthScale: 1.35,
       }),
       [
         '--model',
@@ -55,10 +55,42 @@ describe('voice-service piper CLI', () => {
         '--config',
         '/models/es_AR-daniela-high.onnx.json',
         '--length_scale',
-        '1.28',
+        '1.35',
         '--output_raw',
+        '--sentence_silence',
+        '0.65',
       ],
     );
+  });
+
+  it('keeps remote cadence aligned with browser Piper without changing pitch', () => {
+    const browserPiper = readFileSync(
+      join(voiceServiceRoot, '..', 'src', 'lib', 'piperEngine.ts'),
+      'utf8',
+    );
+    const browserScale = browserPiper.match(/SERENE_CADENCE_SCALE = ([\d.]+)/)?.[1];
+    assert.equal(Number(browserScale), DEFAULT_ARGENTINE_LENGTH_SCALE);
+    assert.equal(SENTENCE_SILENCE_SECONDS, 0.65);
+    const args = buildPiperCliArgs({
+      modelPath: 'voice.onnx',
+      configPath: 'voice.json',
+      lengthScale: loadConfig({}).lengthScale,
+    });
+    assert.equal(
+      args.some((arg) => /pitch|sample.rate|volume/.test(arg)),
+      false,
+    );
+  });
+
+  it('respects an explicit length scale without passing duplicate flags', () => {
+    const config = loadConfig({ ARG_TTS_LENGTH_SCALE: '1.5' });
+    assert.equal(config.lengthScale, 1.5);
+    const args = buildPiperCliArgs(config);
+    assert.equal(args.filter((arg) => arg === '--length_scale').length, 1);
+    assert.equal(args[args.indexOf('--length_scale') + 1], '1.5');
+    assert.equal(loadConfig({}).lengthScale, 1.35);
+    assert.equal(loadConfig({ ARG_TTS_LENGTH_SCALE: 'NaN' }).lengthScale, 1.35);
+    assert.equal(loadConfig({ ARG_TTS_LENGTH_SCALE: '4' }).lengthScale, 1.35);
   });
 });
 

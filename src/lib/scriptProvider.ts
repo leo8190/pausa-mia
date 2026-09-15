@@ -15,6 +15,7 @@ import {
 } from './scriptEngine';
 import { collectSensitiveSourceTexts } from './sensitiveOverlap';
 import { scanTextForDanger } from './safetyDetector';
+import { getPracticeConflicts } from './practiceCoherence';
 
 export class AiTransmissionConsentError extends Error {
   constructor() {
@@ -89,6 +90,8 @@ export class AiScriptProvider implements ScriptProvider {
     if (!context.aiTransmission) {
       throw new AiTransmissionConsentError();
     }
+    const conflicts = getPracticeConflicts(context.checkIn, context.excluded);
+    if (conflicts.length) throw new Error(conflicts.join(' '));
 
     const payload = buildAiTransmissionPayload(
       context.checkIn,
@@ -125,7 +128,11 @@ export class AiScriptProvider implements ScriptProvider {
         context.excluded,
         context.contextSources,
       );
-      const quality = validateScriptQuality(data.script, { freeTextSources });
+      const quality = validateScriptQuality(data.script, {
+        freeTextSources,
+        checkIn: context.checkIn,
+        excluded: context.excluded,
+      });
       if (!quality.valid) {
         throw new Error('AI_RESPONSE_QUALITY_FAILED');
       }

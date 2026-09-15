@@ -10,7 +10,7 @@ export interface VoiceServiceConfig {
   ttsRateLimitPerMinute: number;
   /**
    * Multiplicador Piper length_scale (>1 = más lento). Alineado con
-   * SERENE_CADENCE_SCALE del cliente (~1.28) para guiadas calmadas.
+   * SERENE_CADENCE_SCALE del cliente (~1.35) para guiadas calmadas.
    */
   lengthScale: number;
 }
@@ -32,7 +32,7 @@ function parseBoolean(raw: string | undefined, fallback: boolean): boolean {
 }
 
 /** Cadencia serena por defecto (mismo factor que Piper local en el cliente). */
-export const DEFAULT_ARGENTINE_LENGTH_SCALE = 1.28;
+export const DEFAULT_ARGENTINE_LENGTH_SCALE = 1.35;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): VoiceServiceConfig {
   const backendRaw = (env.ARG_TTS_BACKEND ?? 'piper').toLowerCase();
@@ -58,7 +58,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): VoiceServiceCo
     piperBin: env.PIPER_BIN ?? 'piper',
     modelPath: env.PIPER_MODEL_PATH ?? './models/es_AR-daniela-high.onnx',
     configPath: env.PIPER_CONFIG_PATH ?? './models/es_AR-daniela-high.onnx.json',
-    maxTextChars: Number.isFinite(maxTextChars) && maxTextChars > 0 ? maxTextChars : 800,
+    maxTextChars:
+      Number.isFinite(maxTextChars) && maxTextChars > 0 ? maxTextChars : 800,
     ttsRateLimitPerMinute:
       Number.isFinite(ttsRateLimitPerMinute) && ttsRateLimitPerMinute > 0
         ? ttsRateLimitPerMinute

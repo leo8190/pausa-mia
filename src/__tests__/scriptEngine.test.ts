@@ -487,6 +487,7 @@ describe('calidad editorial del guion', () => {
     expect(script.usedDetails).not.toContain('perceivedState');
 
     expect(script.fullText).toMatch(/campo amplio|conjunto es el lugar|campo entero/i);
+    expect(script.fullText).not.toMatch(/reunir la atención en un solo lugar/);
     expect(script.fullText).not.toMatch(
       /tu intención para esta pausa es concentrarse/i,
     );

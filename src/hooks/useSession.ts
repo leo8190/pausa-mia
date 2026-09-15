@@ -124,7 +124,11 @@ export function useSession() {
           prev.summaryExcluded,
           prev.contextSources,
         );
-        const quality = validateScriptQuality(result.script, { freeTextSources });
+        const quality = validateScriptQuality(result.script, {
+          freeTextSources,
+          checkIn: prev.checkIn,
+          excluded: prev.summaryExcluded,
+        });
         if (!quality.valid) {
           return false;
         }
@@ -200,7 +204,11 @@ export function useSession() {
         prev.summaryExcluded,
         prev.contextSources,
       );
-      const quality = validateScriptQuality(script, { freeTextSources });
+      const quality = validateScriptQuality(script, {
+        freeTextSources,
+        checkIn: nextCheckIn,
+        excluded: prev.summaryExcluded,
+      });
       if (!quality.valid) {
         return false;
       }
