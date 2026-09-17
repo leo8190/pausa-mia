@@ -130,6 +130,11 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const stoppedRef = useRef(false);
+  // Inference may finish after AbortController.abort(), especially on mobile.
+  // Only the current playback may change the shared audio element or advance.
+  const playbackIdRef = useRef(0);
+  const pausedRef = useRef(false);
+  const synthesizingRef = useRef(false);
   const betweenSegmentsRef = useRef(false);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const remainingPauseMsRef = useRef(0);
@@ -221,7 +226,10 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   );
 
   const resetPlaybackFlags = useCallback(() => {
+    playbackIdRef.current += 1;
     stoppedRef.current = false;
+    pausedRef.current = false;
+    synthesizingRef.current = false;
     betweenSegmentsRef.current = false;
     clearPauseTimer();
     abortInFlight();
@@ -232,7 +240,10 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   useEffect(() => {
     if (modeRef.current === mode) return;
     modeRef.current = mode;
+    playbackIdRef.current += 1;
     stoppedRef.current = true;
+    pausedRef.current = false;
+    synthesizingRef.current = false;
     betweenSegmentsRef.current = false;
     clearPauseTimer();
     abortInFlight();
@@ -246,7 +257,12 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
    */
   const prepare = useCallback(async (): Promise<boolean> => {
     const requestMode = mode;
+    playbackIdRef.current += 1;
     stoppedRef.current = false;
+    pausedRef.current = false;
+    synthesizingRef.current = false;
+    betweenSegmentsRef.current = false;
+    clearPauseTimer();
     abortInFlight();
     teardownAudio();
     const controller = new AbortController();
@@ -319,7 +335,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         abortRef.current = null;
       }
     }
-  }, [abortInFlight, mode, teardownAudio]);
+  }, [abortInFlight, clearPauseTimer, mode, teardownAudio]);
 
   const synthesizeSegment = useCallback(
     async (text: string): Promise<Blob> => {
@@ -345,23 +361,39 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   const scheduleNextSegment = useCallback(
     (index: number) => {
       if (stoppedRef.current || modeRef.current !== mode) return;
+      clearPauseTimer();
+      const playbackId = playbackIdRef.current;
       betweenSegmentsRef.current = true;
       pendingNextIndexRef.current = index + 1;
       pauseStartTimeRef.current = Date.now();
       const segments = segmentsRef.current;
+      remainingPauseMsRef.current = segments[index]?.pauseAfterMs ?? 0;
+      if (pausedRef.current) return;
       pauseTimerRef.current = setTimeout(() => {
+        if (
+          playbackIdRef.current !== playbackId ||
+          stoppedRef.current ||
+          pausedRef.current
+        )
+          return;
         betweenSegmentsRef.current = false;
         void playSegmentRef.current(index + 1);
-      }, segments[index]?.pauseAfterMs ?? 0);
+      }, remainingPauseMsRef.current);
     },
-    [mode],
+    [clearPauseTimer, mode],
   );
 
   const playSegment = useCallback(
     async (index: number) => {
       if (stoppedRef.current) return;
+      const playbackId = ++playbackIdRef.current;
+      const isCurrent = () =>
+        playbackIdRef.current === playbackId &&
+        !stoppedRef.current &&
+        modeRef.current === mode;
       const segments = segmentsRef.current;
       if (index >= segments.length) {
+        stoppedRef.current = true;
         betweenSegmentsRef.current = false;
         teardownAudio();
         setState((prev) => ({
@@ -375,6 +407,11 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       }
 
       betweenSegmentsRef.current = false;
+      synthesizingRef.current = true;
+      if (audioRef.current) {
+        clearAudioHandlers(audioRef.current);
+        audioRef.current.pause();
+      }
       // No resetear nativeControlsRequired: si el gesto ya exigió controles
       // nativos, el host debe permanecer montado entre frases.
       setState((prev) => ({
@@ -387,7 +424,8 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
 
       try {
         const blob = await synthesizeSegment(segments[index].text);
-        if (stoppedRef.current || modeRef.current !== mode) return;
+        if (!isCurrent()) return;
+        synthesizingRef.current = false;
 
         const { audio, url } = loadBlobIntoSessionAudio(blob);
         setState((prev) => ({
@@ -399,11 +437,12 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         }));
 
         audio.onended = () => {
-          if (stoppedRef.current || modeRef.current !== mode) return;
+          if (!isCurrent() || betweenSegmentsRef.current) return;
           scheduleNextSegment(index);
         };
         audio.onerror = () => {
-          if (stoppedRef.current || modeRef.current !== mode) return;
+          if (!isCurrent()) return;
+          stoppedRef.current = true;
           teardownAudio();
           setState((prev) => ({
             ...prev,
@@ -417,7 +456,8 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           }));
         };
         audio.onplay = () => {
-          if (stoppedRef.current || modeRef.current !== mode) return;
+          if (!isCurrent() || audio.paused) return;
+          pausedRef.current = false;
           setState((prev) => ({
             ...prev,
             status: 'playing',
@@ -425,8 +465,9 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           }));
         };
         audio.onpause = () => {
-          if (stoppedRef.current || modeRef.current !== mode) return;
-          if (audio.ended || betweenSegmentsRef.current) return;
+          if (!isCurrent()) return;
+          if (!audio.paused || audio.ended || betweenSegmentsRef.current) return;
+          pausedRef.current = true;
           setState((prev) => {
             if (prev.status !== 'playing' && prev.status !== 'needs-native-play') {
               return prev;
@@ -435,15 +476,21 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           });
         };
 
+        if (pausedRef.current) return;
         try {
           await audio.play();
+          if (!isCurrent()) return;
+          if (pausedRef.current) {
+            audio.pause();
+            return;
+          }
           setState((prev) => ({
             ...prev,
             status: 'playing',
             nativeAudioUrl: url,
           }));
         } catch (playErr) {
-          if (stoppedRef.current || modeRef.current !== mode || isAbortLike(playErr)) {
+          if (!isCurrent() || isAbortLike(playErr)) {
             return;
           }
           if (isAutoplayPolicyError(playErr)) {
@@ -461,9 +508,11 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           throw playErr;
         }
       } catch (err) {
-        if (stoppedRef.current || modeRef.current !== mode || isAbortLike(err)) {
+        if (!isCurrent() || isAbortLike(err)) {
           return;
         }
+        synthesizingRef.current = false;
+        stoppedRef.current = true;
         teardownAudio();
         setState((prev) => ({
           ...prev,
@@ -475,6 +524,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       }
     },
     [
+      clearAudioHandlers,
       loadBlobIntoSessionAudio,
       mode,
       scheduleNextSegment,
@@ -487,14 +537,18 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
 
   const play = useCallback(
     (segments: ScriptSegment[]) => {
-      stoppedRef.current = false;
-      clearPauseTimer();
-      abortInFlight();
+      resetPlaybackFlags();
+      setState((prev) => ({
+        ...prev,
+        nativeAudioUrl: null,
+        nativeControlsRequired: false,
+      }));
 
       if (mode === 'remote') {
         try {
           assertRemoteSessionTextLimits(segments.map((s) => s.text).join('\n'));
         } catch (err) {
+          stoppedRef.current = true;
           setState((prev) => ({
             ...prev,
             status: 'error',
@@ -510,16 +564,17 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       segmentsRef.current = scalePausesForArgentineDelivery(segments);
       void playSegment(0);
     },
-    [abortInFlight, clearPauseTimer, mode, playSegment],
+    [resetPlaybackFlags, mode, playSegment],
   );
 
   const pause = useCallback(() => {
+    if (stoppedRef.current || pausedRef.current) return;
+    pausedRef.current = true;
     if (betweenSegmentsRef.current) {
       clearPauseTimer();
-      const segment = segmentsRef.current[pendingNextIndexRef.current - 1];
       remainingPauseMsRef.current = Math.max(
         0,
-        (segment?.pauseAfterMs ?? 0) - (Date.now() - pauseStartTimeRef.current),
+        remainingPauseMsRef.current - (Date.now() - pauseStartTimeRef.current),
       );
     } else {
       audioRef.current?.pause();
@@ -528,8 +583,15 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   }, [clearPauseTimer]);
 
   const resume = useCallback(() => {
+    if (stoppedRef.current) return;
+    const playbackId = playbackIdRef.current;
+    const isCurrent = () => playbackIdRef.current === playbackId && !stoppedRef.current;
+    pausedRef.current = false;
     if (betweenSegmentsRef.current) {
+      clearPauseTimer();
+      pauseStartTimeRef.current = Date.now();
       pauseTimerRef.current = setTimeout(() => {
+        if (!isCurrent() || pausedRef.current) return;
         betweenSegmentsRef.current = false;
         void playSegment(pendingNextIndexRef.current);
       }, remainingPauseMsRef.current);
@@ -537,12 +599,21 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       return;
     }
 
+    if (synthesizingRef.current) {
+      setState((prev) => ({ ...prev, status: 'playing' }));
+      return;
+    }
     const audio = audioRef.current;
     if (!audio) return;
 
     void audio
       .play()
       .then(() => {
+        if (!isCurrent()) return;
+        if (pausedRef.current) {
+          audio.pause();
+          return;
+        }
         setState((prev) => ({
           ...prev,
           status: 'playing',
@@ -550,6 +621,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         }));
       })
       .catch((err: unknown) => {
+        if (!isCurrent()) return;
         if (isAutoplayPolicyError(err) && objectUrlRef.current) {
           audio.controls = true;
           setState((prev) => ({
@@ -571,7 +643,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           }));
         }
       });
-  }, [playSegment]);
+  }, [clearPauseTimer, playSegment]);
 
   /**
    * Monta el HTMLAudioElement programático dentro de un host visible para
@@ -587,7 +659,10 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   }, []);
 
   const stop = useCallback(() => {
+    playbackIdRef.current += 1;
     stoppedRef.current = true;
+    pausedRef.current = false;
+    synthesizingRef.current = false;
     betweenSegmentsRef.current = false;
     clearPauseTimer();
     abortInFlight();
@@ -614,6 +689,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     const unregister = registerSpeechCancel(stop);
     return () => {
       unregister();
+      playbackIdRef.current += 1;
       stoppedRef.current = true;
       clearPauseTimer();
       abortInFlight();

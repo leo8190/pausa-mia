@@ -23,23 +23,43 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
     currentSegmentIndex: 0,
   });
   const [fallbackMessage, setFallbackMessage] = useState<string | null>(null);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [voicesReady, setVoicesReady] = useState(false);
   const segmentsRef = useRef<ScriptSegment[]>([]);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const indexRef = useRef(0);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stoppedRef = useRef(false);
+  const stoppedRef = useRef(true);
+  const pausedRef = useRef(false);
+  const sessionIdRef = useRef(0);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const betweenSegmentsRef = useRef(false);
   const remainingPauseMsRef = useRef(0);
   const pauseStartTimeRef = useRef(0);
   const pendingNextIndexRef = useRef(0);
 
-  const clearPauseTimer = () => {
-    if (pauseTimerRef.current) {
+  const clearPauseTimer = useCallback(() => {
+    if (pauseTimerRef.current !== null) {
       clearTimeout(pauseTimerRef.current);
       pauseTimerRef.current = null;
     }
-  };
+  }, []);
+
+  const invalidatePlayback = useCallback(() => {
+    // cancel() puede entregar eventos ahora o después de iniciar otra sesión.
+    // Invalidar primero evita que esos eventos hablen o salteen otra frase.
+    sessionIdRef.current += 1;
+    stoppedRef.current = true;
+    pausedRef.current = false;
+    betweenSegmentsRef.current = false;
+    if (utteranceRef.current) {
+      utteranceRef.current.onend = null;
+      utteranceRef.current.onerror = null;
+      utteranceRef.current = null;
+    }
+    clearPauseTimer();
+    getSpeechSynthesis()?.cancel();
+  }, [clearPauseTimer]);
 
   const loadVoices = useCallback(() => {
     if (!checkWebSpeechEngineSupport()) {
@@ -70,11 +90,12 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
 
   const speakSegment = useCallback(
     (index: number) => {
-      if (stoppedRef.current) return;
+      if (stoppedRef.current || pausedRef.current) return;
       const synthesis = getSpeechSynthesis();
       if (!synthesis || !voiceRef.current) return;
       const segments = segmentsRef.current;
       if (index >= segments.length) {
+        stoppedRef.current = true;
         betweenSegmentsRef.current = false;
         setPlayerState({ status: 'stopped', currentSegmentIndex: segments.length });
         return;
@@ -88,25 +109,55 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
       const utterance = createUtterance(segment.text, voiceRef.current, {
         voiceVariant,
       });
+      const sessionId = sessionIdRef.current;
+      utteranceRef.current = utterance;
+      const isCurrent = () =>
+        !stoppedRef.current &&
+        sessionId === sessionIdRef.current &&
+        utteranceRef.current === utterance;
       utterance.onend = () => {
-        if (stoppedRef.current) return;
+        if (!isCurrent()) return;
+        utteranceRef.current = null;
         betweenSegmentsRef.current = true;
         pendingNextIndexRef.current = index + 1;
+        remainingPauseMsRef.current = segment.pauseAfterMs;
+        // El final puede llegar cuando pause() ya se pidió al navegador.
+        if (pausedRef.current) return;
         pauseStartTimeRef.current = Date.now();
         pauseTimerRef.current = setTimeout(() => {
+          if (
+            sessionId !== sessionIdRef.current ||
+            stoppedRef.current ||
+            pausedRef.current
+          ) {
+            return;
+          }
+          pauseTimerRef.current = null;
           betweenSegmentsRef.current = false;
           speakSegment(index + 1);
         }, segment.pauseAfterMs);
       };
-      utterance.onerror = () => {
-        if (!stoppedRef.current) {
-          speakSegment(index + 1);
-        }
+      const failPlayback = () => {
+        if (!isCurrent()) return;
+        utteranceRef.current = null;
+        stoppedRef.current = true;
+        pausedRef.current = false;
+        betweenSegmentsRef.current = false;
+        clearPauseTimer();
+        setPlaybackError(
+          'El audio se interrumpió. Podés volver a reproducirlo desde el principio.',
+        );
+        setPlayerState({ status: 'stopped', currentSegmentIndex: index });
       };
+      utterance.onerror = failPlayback;
 
-      synthesis.speak(utterance);
+      try {
+        synthesis.speak(utterance);
+      } catch {
+        failPlayback();
+      }
     },
-    [voiceVariant],
+    [clearPauseTimer, voiceVariant],
   );
 
   const play = useCallback(
@@ -116,78 +167,89 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
         loadVoices();
         return;
       }
-      stoppedRef.current = false;
+      invalidatePlayback();
+      // cancel() clears the queue, not the browser's paused flag.
+      if (synthesis.paused) synthesis.resume();
       segmentsRef.current =
         voiceVariant === 'es-AR' ? scalePausesForArgentineDelivery(segments) : segments;
       loadVoices();
-      synthesis.cancel();
-      clearPauseTimer();
-      betweenSegmentsRef.current = false;
+      setPlaybackError(null);
+      stoppedRef.current = false;
       indexRef.current = 0;
       speakSegment(0);
     },
-    [loadVoices, speakSegment, voiceVariant],
+    [invalidatePlayback, loadVoices, speakSegment, voiceVariant],
   );
 
   const pause = useCallback(() => {
+    if (stoppedRef.current || pausedRef.current) return;
+    pausedRef.current = true;
     if (betweenSegmentsRef.current) {
       clearPauseTimer();
       remainingPauseMsRef.current = Math.max(
         0,
-        (segmentsRef.current[indexRef.current]?.pauseAfterMs ?? 0) -
-          (Date.now() - pauseStartTimeRef.current),
+        remainingPauseMsRef.current - (Date.now() - pauseStartTimeRef.current),
       );
     } else {
       getSpeechSynthesis()?.pause();
     }
     setPlayerState((prev) => ({ ...prev, status: 'paused' }));
-  }, []);
+  }, [clearPauseTimer]);
 
   const resume = useCallback(() => {
+    if (stoppedRef.current || !pausedRef.current) return;
+    pausedRef.current = false;
+    getSpeechSynthesis()?.resume();
     if (betweenSegmentsRef.current) {
+      const sessionId = sessionIdRef.current;
+      pauseStartTimeRef.current = Date.now();
       pauseTimerRef.current = setTimeout(() => {
+        if (
+          sessionId !== sessionIdRef.current ||
+          stoppedRef.current ||
+          pausedRef.current
+        ) {
+          return;
+        }
+        pauseTimerRef.current = null;
         betweenSegmentsRef.current = false;
         speakSegment(pendingNextIndexRef.current);
       }, remainingPauseMsRef.current);
-    } else {
-      getSpeechSynthesis()?.resume();
     }
     setPlayerState((prev) => ({ ...prev, status: 'playing' }));
   }, [speakSegment]);
 
   const stop = useCallback(() => {
-    stoppedRef.current = true;
-    betweenSegmentsRef.current = false;
-    getSpeechSynthesis()?.cancel();
-    clearPauseTimer();
+    invalidatePlayback();
     setPlayerState({ status: 'stopped', currentSegmentIndex: indexRef.current });
-  }, []);
+  }, [invalidatePlayback]);
 
   const restart = useCallback(() => {
-    if (!getSpeechSynthesis()) {
+    const synthesis = getSpeechSynthesis();
+    if (!synthesis) {
       loadVoices();
       return;
     }
+    invalidatePlayback();
+    if (synthesis.paused) synthesis.resume();
+    loadVoices();
+    setPlaybackError(null);
     stoppedRef.current = false;
-    betweenSegmentsRef.current = false;
-    getSpeechSynthesis()?.cancel();
-    clearPauseTimer();
     speakSegment(0);
-  }, [loadVoices, speakSegment]);
+  }, [invalidatePlayback, loadVoices, speakSegment]);
 
   useEffect(() => {
     const unregister = registerSpeechCancel(stop);
     return () => {
       unregister();
-      stoppedRef.current = true;
-      getSpeechSynthesis()?.cancel();
-      clearPauseTimer();
+      invalidatePlayback();
     };
-  }, [stop]);
+  }, [invalidatePlayback, stop]);
 
   return {
     playerState,
     fallbackMessage,
+    playbackError,
     voicesReady,
     speechSupported,
     canSpeak: speechSupported && voicesReady,

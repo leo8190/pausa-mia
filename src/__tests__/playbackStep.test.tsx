@@ -176,6 +176,24 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     );
   });
 
+  it('shows a clear notice when the device voice fails without skipping the phrase', () => {
+    mockDeviceVoiceAvailable();
+    let utterance!: SpeechSynthesisUtterance;
+    const speak = vi
+      .spyOn(window.speechSynthesis, 'speak')
+      .mockImplementation((next) => {
+        utterance = next;
+      });
+    render(<PlaybackStep sessionApi={makeSessionApi('es-neutro')} />);
+    fireEvent.click(screen.getByRole('button', { name: /^reproducir$/i }));
+    act(() => {
+      utterance.onerror?.call(utterance, {} as SpeechSynthesisErrorEvent);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent(/el audio se interrumpió/i);
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeInTheDocument();
+  });
+
   it('offers online help only after local failure and sends nothing before consent', async () => {
     configureOnlineHelp();
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(

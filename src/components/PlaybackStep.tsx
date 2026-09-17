@@ -36,6 +36,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const {
     playerState,
     fallbackMessage,
+    playbackError,
     voicesReady,
     canSpeak,
     speechSupported,
@@ -618,6 +619,12 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       {fallbackMessage && (
         <div className="fallback-notice" role="status">
           {fallbackMessage}
+        </div>
+      )}
+
+      {playbackError && (
+        <div className="fallback-notice" role="alert">
+          {playbackError}
         </div>
       )}
 

@@ -52,7 +52,140 @@ describe('useArgentineVoicePlayer — remoto', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it('ignores synthesis from before a restart even when local inference cannot abort', async () => {
+    let resolveOld!: (blob: Blob) => void;
+    const oldBlob = new Blob(['old']);
+    const newBlob = new Blob(['new']);
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice')
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveOld = resolve;
+          }),
+      )
+      .mockResolvedValue(newBlob);
+    const { result } = renderHook(() => useArgentineVoicePlayer('local'));
+    act(() => result.current.play([{ text: 'Primera.', pauseAfterMs: 0 }]));
+    await act(async () => result.current.restart());
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    await act(async () => resolveOld(oldBlob));
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(URL.createObjectURL).toHaveBeenCalledWith(newBlob);
+  });
+
+  it('keeps a phrase paused if its audio arrives after the pause button', async () => {
+    let resolveAudio!: (blob: Blob) => void;
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveAudio = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useArgentineVoicePlayer('local'));
+    act(() => result.current.play([{ text: 'Primera.', pauseAfterMs: 0 }]));
+    act(() => result.current.pause());
+    await act(async () => resolveAudio(new Blob(['audio'])));
+    expect(window.HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+    expect(result.current.state.status).toBe('paused');
+    await act(async () => result.current.resume());
+    expect(window.HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+    expect(result.current.state.status).toBe('playing');
+  });
+
+  it('does not revive stopped playback when an old play promise resolves', async () => {
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
+      new Blob(['audio']),
+    );
+    let finishPlay!: () => void;
+    window.HTMLMediaElement.prototype.play = vi.fn().mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishPlay = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useArgentineVoicePlayer('local'));
+    await act(async () => result.current.play([{ text: 'Primera.', pauseAfterMs: 0 }]));
+    act(() => result.current.stop());
+    await act(async () => finishPlay());
+    expect(result.current.state.status).toBe('stopped');
+    expect(result.current.state.nativeAudioUrl).toBeNull();
+  });
+
+  it('does not skip ahead on a late ended callback from before a restart', async () => {
+    vi.useFakeTimers();
+    const synthesis = vi
+      .spyOn(voiceEngine, 'synthesizeArgentineVoice')
+      .mockResolvedValue(new Blob(['audio']));
+    const play = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+    const { result } = renderHook(() => useArgentineVoicePlayer('local'));
+    await act(async () =>
+      result.current.play([
+        { text: 'Primera.', pauseAfterMs: 100 },
+        { text: 'Segunda.', pauseAfterMs: 100 },
+      ]),
+    );
+    const audio = play.mock.contexts.at(-1) as HTMLAudioElement;
+    const lateEnd = audio.onended!;
+    await act(async () => result.current.restart());
+    act(() => {
+      lateEnd.call(audio, new Event('ended'));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(synthesis).toHaveBeenCalledTimes(2);
+    expect(result.current.state.currentSegmentIndex).toBe(0);
+  });
+
+  it('does not advance if ended arrives while paused, and preserves repeated pauses', async () => {
+    vi.useFakeTimers();
+    const synthesis = vi
+      .spyOn(voiceEngine, 'synthesizeArgentineVoice')
+      .mockResolvedValue(new Blob(['audio']));
+    const play = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+    const { result } = renderHook(() => useArgentineVoicePlayer('local'));
+    await act(async () =>
+      result.current.play([
+        { text: 'Primera.', pauseAfterMs: 1000 },
+        { text: 'Segunda.', pauseAfterMs: 1000 },
+      ]),
+    );
+    const audio = play.mock.contexts.at(-1) as HTMLAudioElement;
+    act(() => result.current.pause());
+    act(() => audio.dispatchEvent(new Event('ended')));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(synthesis).toHaveBeenCalledTimes(1);
+    expect(result.current.state.status).toBe('paused');
+    act(() => result.current.resume());
+    // Argentine pauses are 1120 ms, with 720 ms left after two 200 ms runs.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    act(() => result.current.pause());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    act(() => result.current.resume());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    act(() => result.current.pause());
+    act(() => result.current.resume());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(719);
+    });
+    expect(synthesis).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(synthesis).toHaveBeenCalledTimes(2);
+    expect(result.current.state.currentSegmentIndex).toBe(1);
   });
 
   it('reuses the same HTMLAudioElement across segments (no remount per phrase)', async () => {
