@@ -619,9 +619,33 @@ verificó después de una ejecución exitosa de GitHub Actions.
   publicado todavía no las expone; tampoco hay checkout ni OAuth real. No se envía
   diario/perfil. El sitio publicado apunta a `https://pausa-mia-voz-ar.fly.dev` y
   sólo envía texto del guion tras consentimiento (nunca en silencio; con endpoint la
-  oferta remota es visible en es-AR junto a Piper local).
+  ayuda por internet aparece sólo si falla la preparación en el dispositivo).
 - OAuth quedó activo sólo para `google_calendar` y `google_drive` cuando hay
   variables de entorno configuradas. `social_networks` sigue desactivado.
+
+## Voz simple y articulación — 17/09/2026
+
+La elección habitual es argentino o neutro. Se retiraron los paneles técnicos del
+check-in y reproductor. Sólo si la voz argentina falla aparece ayuda por internet,
+con permiso explícito por sesión y opción de retirarlo; se explica que el guion
+puede contener detalles personales. Las respuestas tardías se descartan al cancelar.
+
+Se eliminaron alteraciones de escritura como `rit-mo`, `rrespirá` y `cerrrá`.
+Piper ahora sintetiza una oración por inferencia, conservando todos los fonemas y
+0.65 s entre oraciones. Mantiene `length_scale=1.6`, tono natural y reproducción 1x;
+se reduce la variabilidad de síntesis (`noise_scale=0.5`, `noise_w=0.3`) en navegador
+y servicio. Web Speech conserva la escritura española y ya no elige una voz de otro
+idioma cuando no hay ninguna voz en español.
+
+Verificación: 310 pruebas de aplicación y 10 del servicio, lint, formato y ambas
+compilaciones correctos. Comparación local con el modelo real y transcripción
+automática reconoció «hacerlo perfecto» en la muestra ajustada. Esto no reemplaza
+una escucha humana ni garantiza todas las erres; la calidad del modelo y de las
+voces del dispositivo sigue siendo un límite. No se cambiaron guiones para ocultar
+palabras difíciles ni se contrató otro proveedor.
+
+Los valores y recomendaciones de voz anteriores en este README son históricos;
+esta sección describe la entrega del 17 de septiembre.
 
 ## Límites del producto
 

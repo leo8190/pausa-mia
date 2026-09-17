@@ -13,11 +13,6 @@ import {
 import { isRemoteArgentineTtsConfigured } from '../lib/remoteVoiceService';
 import { reportSessionComplete } from '../lib/visitorPing';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
-import { TechnicalVoiceDetails } from './TechnicalVoiceDetails';
-
-function formatMb(bytes: number): string {
-  return (bytes / (1024 * 1024)).toFixed(1);
-}
 
 export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const script = sessionApi.session.script;
@@ -190,13 +185,15 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           )
         : null;
 
-    // Remota (si aplica) antes que la voz no argentina; nunca automática.
+    // Resolver la voz localmente. Sólo ofrecer ayuda por internet cuando haga
+    // falta, sin presentar los motores como una decisión habitual de la sesión.
     const showRemoteOffer =
       !useRemoteArgentine &&
+      remoteConfigured &&
       remoteWavPlaybackSupported &&
-      (remoteConfigured || !neuralBrowserSupported || hasError);
+      (!neuralBrowserSupported || hasError);
     const showDeviceLastResort =
-      !useRemoteArgentine && (!neuralBrowserSupported || hasError);
+      hasError || (!useRemoteArgentine && !neuralBrowserSupported);
     const canUseDeviceFallback = showDeviceLastResort && canSpeak;
     const hasNoCompatibleAudioPlayer =
       showDeviceLastResort && !showRemoteOffer && !canSpeak;
@@ -207,20 +204,21 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       <button
         type="button"
         className="btn btn-secondary"
-        onClick={() => setUseDeviceFallback(true)}
+        onClick={() => {
+          stopNeural();
+          setUseRemoteArgentine(false);
+          setRemoteConsent(false);
+          setUseDeviceFallback(true);
+        }}
       >
-        Usar voz del dispositivo (no es argentina)
+        Escuchar con otra voz en español
       </button>
     );
 
     return (
       <StepLayout
         title="Reproducción"
-        lead={
-          useRemoteArgentine
-            ? 'Voz argentina remota. El texto del guion se envía sólo si aceptás.'
-            : 'Voz argentina, generada en tu navegador.'
-        }
+        lead="Voz argentina. Tomate este momento a tu ritmo."
         cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
         actions={
           <>
@@ -246,112 +244,87 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         }
       >
         {useRemoteArgentine && (
-          <div className="fallback-notice" role="status">
-            Estás usando la voz argentina remota. Sólo se envía el texto del guion (sin
-            diario, perfil ni fuentes).{' '}
+          <details className="collapsible-details">
+            <summary>Privacidad del audio</summary>
+            <p className="field-hint">
+              Autorizaste preparar el audio por internet. Se envía sólo el guion a
+              nuestro servicio de voz; puede incluir detalles que compartiste para esta
+              meditación. Podés retirar el permiso en cualquier momento.
+            </p>
             <button
               type="button"
               className="btn btn-secondary btn-inline"
               onClick={() => {
+                stopNeural();
                 setUseRemoteArgentine(false);
                 setRemoteConsent(false);
               }}
             >
-              Volver a la voz local
+              Retirar permiso y volver al dispositivo
             </button>
-          </div>
+          </details>
         )}
 
         {!useRemoteArgentine && !neuralBrowserSupported && (
           <div className="fallback-notice" role="alert">
-            Este navegador no puede usar la voz argentina en tu dispositivo. Si hay una
-            opción remota, aparece antes que cualquier voz que no sea argentina.
+            La voz argentina no está disponible directamente en este dispositivo.
             {deviceInline && canUseDeviceFallback && (
               <div className="player-controls">{deviceFallbackButton}</div>
             )}
             {hasNoCompatibleAudioPlayer && (
               <p className="field-hint">
-                No hay ningún reproductor de audio compatible en este entorno: no se
-                puede usar la voz remota WAV ni la voz del dispositivo. Podés leer el
-                guion en pantalla o volver a revisión.
+                Por ahora no podemos reproducir audio acá. Podés leer el guion en
+                pantalla o volver a revisarlo.
               </p>
             )}
           </div>
         )}
-        {!useRemoteArgentine &&
-          !remoteWavPlaybackSupported &&
-          (remoteConfigured || !neuralBrowserSupported || hasError) && (
-            <p className="fallback-notice" role="status">
-              La voz argentina remota no se ofrece en este navegador porque no se
-              detecta reproducción WAV compatible.
-            </p>
-          )}
-
-        {/* Remota neuronal primero cuando está disponible: evita el Web Speech
-            genérico (erres débiles) sin forzar la descarga del modelo local. */}
         {showRemoteOffer && (
           <div
             className="voice-engine-section"
             role="region"
-            aria-label="Voz argentina remota opcional"
+            aria-label="Ayuda para escuchar la voz argentina"
           >
             <p className="field-hint">
-              Preferí la voz argentina neuronal (WAV) frente a la del navegador: sin
-              descargar el modelo en este dispositivo (aprox.{' '}
-              {ES_AR_VOICE_APPROX_SIZE_MB} MB). El audio se genera en un servidor propio
-              y no se activa solo: hace falta tu consentimiento.
+              Podemos preparar la misma voz argentina por internet. Para hacerlo,
+              necesitamos enviar el guion a nuestro servicio de voz.
             </p>
-            <p className="field-hint">
-              Compatibilidad real: en Safari/iOS y algunos Android el inicio automático
-              puede bloquearse hasta tocar reproducir; en Chrome y Edge suele iniciar
-              sin pasos extra. Si hay bloqueo, mostramos controles nativos HTMLAudio
-              para continuar manualmente.
-            </p>
-            {!remoteConfigured ? (
-              <p className="fallback-notice" role="status">
-                Esta opción remota no está disponible en esta copia de la app. Falta
-                configurar el servicio remoto. Sin esa configuración no se envía ningún
-                texto.
-              </p>
-            ) : (
-              <>
-                <label className="checkbox-option" htmlFor="consent-remote-tts">
-                  <input
-                    type="checkbox"
-                    id="consent-remote-tts"
-                    checked={remoteConsent}
-                    onChange={(e) => setRemoteConsent(e.target.checked)}
-                    aria-describedby="consent-remote-tts-hint"
-                  />
-                  <span>
-                    Acepto enviar sólo el texto del guion al servidor de voz para
-                    sintetizarlo. No se envían diario, perfil ni fuentes.
-                    <span id="consent-remote-tts-hint" className="field-hint">
-                      Esta casilla no está marcada por defecto.
-                    </span>
-                  </span>
-                </label>
-                <div className="player-controls">
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={!remoteConsent}
-                    onClick={() => {
-                      setUseRemoteArgentine(true);
-                    }}
-                  >
-                    Usar voz argentina remota
-                  </button>
-                </div>
-              </>
-            )}
+            <label className="checkbox-option" htmlFor="consent-remote-tts">
+              <input
+                type="checkbox"
+                id="consent-remote-tts"
+                checked={remoteConsent}
+                onChange={(e) => setRemoteConsent(e.target.checked)}
+                aria-describedby="consent-remote-tts-hint"
+              />
+              <span>
+                Acepto enviar el guion para preparar el audio.
+                <span id="consent-remote-tts-hint" className="field-hint">
+                  El guion puede incluir detalles personales que compartiste. No se
+                  envían tu diario, perfil ni fuentes completos. El permiso vale sólo
+                  para esta sesión y podés retirarlo.
+                </span>
+              </span>
+            </label>
+            <div className="player-controls">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!remoteConsent}
+                onClick={() => {
+                  setUseRemoteArgentine(true);
+                }}
+              >
+                Preparar audio por internet
+              </button>
+            </div>
             {deviceAfterRemote && canUseDeviceFallback && (
-              <div className="player-controls">{deviceFallbackButton}</div>
-            )}
-            {deviceAfterRemote && hasNoCompatibleAudioPlayer && (
-              <p className="field-hint">
-                Tampoco hay una voz del dispositivo compatible para usar como fallback.
-              </p>
+              <>
+                <p className="field-hint">
+                  También podés usar otra voz en español; el acento puede cambiar.
+                </p>
+                <div className="player-controls">{deviceFallbackButton}</div>
+              </>
             )}
           </div>
         )}
@@ -365,17 +338,16 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               aria-label="Preparar voz argentina"
             >
               <p className="field-hint">
-                {remoteConfigured
-                  ? `Alternativa local: la primera vez descarga el modelo real (aprox. ${ES_AR_VOICE_APPROX_SIZE_MB} MB) y lo prueba con una frase corta. Quedará en caché para próximas sesiones. Preferible a la voz genérica del navegador.`
-                  : `La primera vez descarga el modelo real (aprox. ${ES_AR_VOICE_APPROX_SIZE_MB} MB) y lo prueba con una frase corta antes de mostrarlo como listo. Quedará en caché local para próximas sesiones.`}
+                La primera vez se descarga la voz (aprox. {ES_AR_VOICE_APPROX_SIZE_MB}{' '}
+                MB), así que puede tardar un poco. El guion se queda en tu dispositivo.
               </p>
               <div className="player-controls">
                 <button
                   type="button"
-                  className={remoteConfigured ? 'btn btn-secondary' : 'btn btn-primary'}
+                  className="btn btn-primary"
                   onClick={() => void prepareNeural()}
                 >
-                  Preparar voz argentina
+                  Preparar audio
                 </button>
               </div>
             </div>
@@ -384,12 +356,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         {!useRemoteArgentine && isPreparing && (
           <div className="voice-engine-section" role="status" aria-live="polite">
             <p className="field-hint">
-              Preparando voz argentina
-              {neuralState.progress && neuralState.progress.total > 0
-                ? ` — ${formatMb(neuralState.progress.loaded)} / ${formatMb(neuralState.progress.total)} MB${
-                    progressPct !== null ? ` (${progressPct}%)` : ''
-                  }`
-                : '…'}
+              Preparando tu audio{progressPct !== null ? ` (${progressPct}%)` : '…'}
             </p>
             <progress
               className="voice-engine-progress"
@@ -402,38 +369,26 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
         {useRemoteArgentine && isPreparing && (
           <p className="field-hint" role="status">
-            Preparando voz argentina remota…
+            Preparando tu audio…
           </p>
         )}
 
         {hasError && (
           <div className="fallback-notice" role="alert">
-            No se pudo preparar o reproducir la voz argentina
-            {useRemoteArgentine ? ' remota' : ' neuronal'}: {neuralState.error}
+            No pudimos preparar o reproducir el audio. Podés volver a intentarlo.
             <div className="player-controls">
-              {!useRemoteArgentine && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => void prepareNeural()}
-                >
-                  Reintentar
-                </button>
-              )}
-              {useRemoteArgentine && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => void prepareNeural()}
-                >
-                  Reintentar remoto
-                </button>
-              )}
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => void prepareNeural()}
+              >
+                Reintentar
+              </button>
               {deviceInline && canUseDeviceFallback && deviceFallbackButton}
               {hasNoCompatibleAudioPlayer && (
                 <p className="field-hint">
-                  No hay ningún reproductor de audio compatible en este entorno: no se
-                  puede usar la voz remota WAV ni la voz del dispositivo.
+                  Por ahora no podemos reproducir audio acá. Podés leer el guion en
+                  pantalla.
                 </p>
               )}
             </div>
@@ -464,22 +419,13 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             >
               {needsNativePlay ? (
                 <p className="field-hint" role="status">
-                  Tu navegador bloqueó el inicio automático del audio. Usá el
-                  reproductor nativo o el botón de abajo para iniciar el WAV. Pausar,
-                  Continuar, Detener y Reiniciar siguen disponibles.
+                  Tu audio está listo. Tocá reproducir para empezar.
                 </p>
               ) : (
                 <p className="field-hint" role="status">
-                  Este dispositivo requiere controles nativos para mantener una
-                  reproducción estable. Podés seguir usando este reproductor junto con
-                  Pausar, Continuar, Detener y Reiniciar.
+                  Podés controlar el audio desde este reproductor.
                 </p>
               )}
-              <p className="field-hint">
-                Esto puede pasar en Safari (iOS/macOS), algunos Android y WebViews; no
-                implica falla del guion ni del servidor. En Chrome/Edge de escritorio
-                suele suceder menos, pero no se puede garantizar universalidad.
-              </p>
               <div
                 className="native-audio-host"
                 ref={(host) => {
@@ -491,9 +437,9 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                   type="button"
                   className="btn btn-primary"
                   onClick={resumeNeural}
-                  aria-label="Reproducir con controles del dispositivo"
+                  aria-label="Reproducir audio"
                 >
-                  Reproducir con controles del dispositivo
+                  Reproducir audio
                 </button>
               </div>
               {neuralAudioUrl && (
@@ -506,7 +452,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                     href={neuralAudioUrl}
                     download={argentineWavDownloadName(neuralState.currentSegmentIndex)}
                   >
-                    Descargar WAV
+                    Guardar este audio
                   </a>
                   <a
                     className="btn btn-ghost btn-small"
@@ -530,26 +476,16 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               <div
                 className="player-controls"
                 role="group"
-                aria-label={
-                  useRemoteArgentine
-                    ? 'Controles de reproducción de voz argentina remota'
-                    : 'Controles de reproducción de voz argentina'
-                }
+                aria-label="Controles de reproducción"
               >
                 {!isPlaying && !isPaused && !needsNativePlay && (
                   <button
                     type="button"
                     className="btn btn-primary"
                     onClick={() => playNeural(script.segments)}
-                    aria-label={
-                      useRemoteArgentine
-                        ? 'Reproducir voz argentina remota'
-                        : 'Reproducir voz argentina'
-                    }
+                    aria-label="Reproducir"
                   >
-                    {useRemoteArgentine
-                      ? 'Reproducir voz argentina remota'
-                      : 'Reproducir voz argentina'}
+                    Reproducir
                   </button>
                 )}
                 {(isPlaying || needsNativePlay) && (
@@ -596,13 +532,12 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 className={`player-status${isPlaying ? ' player-status--playing' : ''}${isReady && !isPlaying && !isPaused && !isStoppedAfterPlay && !needsNativePlay ? ' player-status--ready' : ''}`}
                 role="status"
               >
-                Estado: {isReady && 'Listo'}
+                {isReady && 'Tu audio está listo'}
                 {isPlaying &&
-                  `Reproduciendo segmento ${neuralState.currentSegmentIndex + 1} de ${script.segments.length}`}
+                  `Escuchando · ${neuralState.currentSegmentIndex + 1} de ${script.segments.length}`}
                 {isPaused && 'Pausado'}
                 {isStoppedAfterPlay && 'Detenido'}
-                {needsNativePlay &&
-                  `Audio listo — usá el control nativo (segmento ${neuralState.currentSegmentIndex + 1} de ${script.segments.length})`}
+                {needsNativePlay && 'Tu audio está listo para reproducir'}
               </p>
               {neuralAudioUrl && !needsNativePlay && (
                 <div
@@ -629,8 +564,6 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             </div>
           )}
         </div>
-
-        <TechnicalVoiceDetails refreshKey={neuralState.status} />
       </StepLayout>
     );
   }
@@ -641,7 +574,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   return (
     <StepLayout
       title="Reproducción"
-      lead="Audio generado con la voz disponible en tu dispositivo (Web Speech API)."
+      lead="Tomate este momento a tu ritmo."
       cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
       actions={
         <>
@@ -668,11 +601,14 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     >
       {wantsArgentineNeural && useDeviceFallback && (
         <div className="fallback-notice" role="status">
-          Estás usando una voz del dispositivo, no la voz argentina neuronal.{' '}
+          Elegiste otra voz en español. Puede tener un acento diferente.{' '}
           <button
             type="button"
             className="btn btn-secondary btn-inline"
-            onClick={() => setUseDeviceFallback(false)}
+            onClick={() => {
+              stopWebSpeech();
+              setUseDeviceFallback(false);
+            }}
           >
             Volver a intentar la voz argentina
           </button>
@@ -688,8 +624,8 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       {!canSpeak && (
         <div className="fallback-notice" role="status">
           {!voicesReady
-            ? 'No hay síntesis de voz usable en este navegador. Podés leer el guion abajo o volver a la pantalla de revisión.'
-            : 'La síntesis de voz no está lista todavía.'}
+            ? 'No podemos reproducir audio acá. Podés leer el guion.'
+            : 'La voz todavía no está lista. Podés leer el guion mientras tanto.'}
           <div className="player-controls">
             <button
               type="button"
@@ -790,18 +726,16 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             className={`player-status${isPlaying ? ' player-status--playing' : ''}${playerState.status === 'idle' ? ' player-status--ready' : ''}`}
             role="status"
           >
-            Estado: {!canSpeak && 'Lectura en pantalla (sin audio del dispositivo)'}
+            {!canSpeak && 'Guion disponible para leer'}
             {canSpeak && playerState.status === 'idle' && 'Listo'}
             {canSpeak &&
               playerState.status === 'playing' &&
-              `Reproduciendo segmento ${playerState.currentSegmentIndex + 1} de ${script.segments.length}`}
+              `Escuchando · ${playerState.currentSegmentIndex + 1} de ${script.segments.length}`}
             {canSpeak && playerState.status === 'paused' && 'Pausado'}
             {canSpeak && playerState.status === 'stopped' && 'Detenido'}
           </p>
         </div>
       </div>
-
-      <TechnicalVoiceDetails />
     </StepLayout>
   );
 }

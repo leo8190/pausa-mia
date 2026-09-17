@@ -1,6 +1,5 @@
-import { FIELD_LABELS, ENGINE_LABELS } from '../types';
+import { FIELD_LABELS } from '../types';
 import { getCheckInSummaryValue } from '../lib/checkInSummary';
-import { DURATION_TOLERANCE_MINUTES } from '../lib/durationEstimator';
 import { getSelectedContextSources } from '../lib/contextSources';
 import type { SessionApi } from '../hooks/useSession';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
@@ -95,45 +94,38 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
         )}
       </ul>
 
-      <fieldset className="field">
-        <legend>Motor de generación</legend>
-        <div className="radio-group">
-          <label className="radio-option" htmlFor="engine-local">
-            <input
-              type="radio"
-              id="engine-local"
-              name="engine"
-              checked={!useAiEngine}
-              onChange={() => sessionApi.setUseAiEngine(false)}
-            />
-            <span>{ENGINE_LABELS.local}</span>
-          </label>
-          <label
-            className={`radio-option${!aiAvailable ? ' radio-option--disabled' : ''}`}
-            htmlFor="engine-ai"
-          >
-            <input
-              type="radio"
-              id="engine-ai"
-              name="engine"
-              checked={useAiEngine}
-              disabled={!aiAvailable}
-              onChange={() => sessionApi.setUseAiEngine(true)}
-            />
-            <span>
-              {ENGINE_LABELS.ai}
-              {!aiAvailable &&
-                ' (no disponible — sin servidor de IA; usá el motor local por reglas)'}
-            </span>
-          </label>
-        </div>
-        <p className="field-hint">
-          El motor local funciona sin claves ni cuenta. La IA del servidor local queda
-          desactivada hasta que exista un proveedor configurado; no se simula.
-          Tolerancia de duración estimada: ±{DURATION_TOLERANCE_MINUTES} min respecto a
-          la opción elegida.
-        </p>
-      </fieldset>
+      {aiAvailable && (
+        <fieldset className="field">
+          <legend>Cómo preparar tu guion</legend>
+          <div className="radio-group">
+            <label className="radio-option" htmlFor="engine-local">
+              <input
+                type="radio"
+                id="engine-local"
+                name="engine"
+                checked={!useAiEngine}
+                onChange={() => sessionApi.setUseAiEngine(false)}
+              />
+              <span>En este dispositivo</span>
+            </label>
+            <label className="radio-option" htmlFor="engine-ai">
+              <input
+                type="radio"
+                id="engine-ai"
+                name="engine"
+                checked={useAiEngine}
+                onChange={() => sessionApi.setUseAiEngine(true)}
+              />
+              <span>Con ayuda de inteligencia artificial</span>
+            </label>
+          </div>
+          <p className="field-hint">
+            Si elegís inteligencia artificial, primero podrás revisar qué datos se
+            compartirán y dar tu permiso. Prepararlo en este dispositivo no envía tus
+            respuestas.
+          </p>
+        </fieldset>
+      )}
     </StepLayout>
   );
 }

@@ -5,6 +5,10 @@ import {
   resolveSereneLengthScale,
   SERENE_CADENCE_SCALE,
   splitIntoChunks,
+  splitPhonemeSentences,
+  CLEAR_NOISE_SCALE,
+  CLEAR_NOISE_WIDTH,
+  SENTENCE_SILENCE_SECONDS,
   synthesizeWithSession,
   type OrtLike,
   type OrtSessionLike,
@@ -225,7 +229,7 @@ describe('piperEngine', () => {
         .fn()
         .mockResolvedValue({ output: { data: new Float32Array([0, 0.2, -0.2]) } });
       const ortSession: OrtSessionLike = { run };
-      const phonemize = vi.fn().mockResolvedValue([1, 2, 3]);
+      const phonemize = vi.fn().mockResolvedValue([1, 0, 30, 0, 2]);
 
       const blob = await synthesizeWithSession('Hola. Respirá.', {
         ort: makeOrt(),
@@ -258,7 +262,11 @@ describe('piperEngine', () => {
       });
 
       const feeds = run.mock.calls[0][0] as Record<string, { data?: number[] }>;
-      expect(feeds.scales?.data).toEqual([0.5, resolveSereneLengthScale(1.05), 0.7]);
+      expect(feeds.scales?.data).toEqual([
+        CLEAR_NOISE_SCALE,
+        resolveSereneLengthScale(1.05),
+        CLEAR_NOISE_WIDTH,
+      ]);
       expect(feeds.scales?.data?.[1]).toBeCloseTo(1.05 * SERENE_CADENCE_SCALE, 5);
     });
 
@@ -272,7 +280,30 @@ describe('piperEngine', () => {
         modelConfig: makeModelConfig(),
         phonemize,
       });
-      expect(phonemize).toHaveBeenCalledWith('Calmá el rit-mo.', 'es-419');
+      expect(phonemize).toHaveBeenCalledWith('Calmá el ritmo.', 'es-419');
+    });
+
+    it('synthesizes each phoneme sentence independently, preserving both erres and adding only inter-sentence silence', async () => {
+      const first = [1, 0, 14, 0, 92, 0, 24, 0, 2];
+      const second = [1, 0, 30, 0, 21, 0, 2];
+      expect(splitPhonemeSentences([...first, ...second])).toEqual([first, second]);
+      const run = vi
+        .fn()
+        .mockResolvedValue({ output: { data: new Float32Array([0.1, -0.1]) } });
+      const blob = await synthesizeWithSession('Hacerlo perfecto. Respirá.', {
+        ort: makeOrt(),
+        ortSession: { run },
+        modelConfig: makeModelConfig(),
+        phonemize: vi.fn().mockResolvedValue([...first, ...second]),
+      });
+      expect(run).toHaveBeenCalledTimes(2);
+      expect(run.mock.calls.map(([feeds]) => feeds.input.data)).toEqual([
+        first,
+        second,
+      ]);
+      expect(blob.size).toBe(
+        44 + 2 * (4 + Math.round(22050 * SENTENCE_SILENCE_SECONDS)),
+      );
     });
 
     it('adds a speaker id tensor only when the model declares multiple speakers', async () => {

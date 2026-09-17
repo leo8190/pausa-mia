@@ -248,10 +248,12 @@ describe('App flow', () => {
 
     expect(argentineOption).toBeInTheDocument();
     expect(neutralOption).toBeInTheDocument();
-    await waitFor(() => {
-      expect(
-        screen.getByText(/motores de voz en este dispositivo/i),
-      ).toBeInTheDocument();
-    });
+    expect(
+      screen.queryByText(/motores de voz en este dispositivo/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/compatibilidad de este dispositivo/i),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/información técnica/i)).not.toBeInTheDocument();
   });
 });

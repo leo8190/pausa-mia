@@ -9,7 +9,6 @@ import type {
   VoiceVariant,
 } from '../types';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
-import { TechnicalVoiceDetails } from './TechnicalVoiceDetails';
 import { getPracticeConflicts, getPracticeSummary } from '../lib/practiceCoherence';
 
 export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
@@ -313,7 +312,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
       </fieldset>
 
       <fieldset className="field">
-        <legend>Variante de español</legend>
+        <legend>Tu voz preferida</legend>
         <div className="radio-group">
           {(
             [
@@ -341,8 +340,6 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           guion.
         </p>
       </fieldset>
-
-      <TechnicalVoiceDetails />
     </StepLayout>
   );
 }

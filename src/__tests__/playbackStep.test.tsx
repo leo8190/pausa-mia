@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PlaybackStep } from '../components/PlaybackStep';
 import type { SessionApi } from '../hooks/useSession';
 import type { SessionState } from '../types';
@@ -29,7 +29,6 @@ function makeSessionApi(
     autoStartPlayback: false,
     ...overrides,
   } as unknown as SessionState;
-
   return {
     session,
     setStep: vi.fn(),
@@ -40,13 +39,32 @@ function makeSessionApi(
   } as unknown as SessionApi;
 }
 
+const audioBlob = () => new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' });
+
 function mockDeviceVoiceAvailable(): void {
   vi.spyOn(window.speechSynthesis, 'getVoices').mockReturnValue([
     { name: 'Voz de prueba', lang: 'es-ES' } as SpeechSynthesisVoice,
   ]);
 }
 
-describe('PlaybackStep — voz argentina neuronal real', () => {
+function configureOnlineHelp(): void {
+  vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+  vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+}
+
+function acceptOnlineHelp(): void {
+  fireEvent.click(screen.getByRole('checkbox', { name: /acepto enviar el guion/i }));
+  fireEvent.click(screen.getByRole('button', { name: /preparar audio por internet/i }));
+}
+
+async function prepareLocalAudio(): Promise<void> {
+  fireEvent.click(screen.getByRole('button', { name: /^preparar audio$/i }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeInTheDocument(),
+  );
+}
+
+describe('PlaybackStep — voz sencilla y consentimiento', () => {
   beforeEach(() => {
     Object.defineProperty(window, 'caches', {
       configurable: true,
@@ -84,514 +102,256 @@ describe('PlaybackStep — voz argentina neuronal real', () => {
     voiceEngine.resetArgentineVoiceSessionForTests();
   });
 
-  it('starts in "not prepared" state and never claims availability before a real synthesis', async () => {
-    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+  it('offers one preparation action without engine choices or diagnostics even when online help exists', () => {
+    configureOnlineHelp();
+    const remoteSpy = vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice');
+    const { container } = render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
     expect(
-      screen.getByRole('button', { name: /preparar voz argentina/i }),
+      screen.getByRole('button', { name: /^preparar audio$/i }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /reproducir voz argentina/i }),
+      screen.queryByRole('button', { name: /^reproducir$/i }),
     ).not.toBeInTheDocument();
-    await waitFor(() => {
-      expect(
-        screen.getByText(/motores de voz en este dispositivo/i),
-      ).toBeInTheDocument();
-      expect(screen.getByText(/voz del dispositivo lista/i)).toBeInTheDocument();
-    });
-    expect(
-      screen.getByRole('heading', { name: /compatibilidad de este dispositivo/i }),
-    ).toBeInTheDocument();
-    const technical = screen
-      .getByText(/información técnica \(opcional\)/i)
-      .closest('details');
-    expect(technical).toBeTruthy();
-    expect(technical).not.toHaveAttribute('open');
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(
+      /voz (local|remota)|motores de voz|información técnica|compatibilidad de este|endpoint|Web Speech|neuronal/i,
+    );
+    expect(remoteSpy).not.toHaveBeenCalled();
   });
 
-  it('Empezar ahora auto-start prepares local neural and attempts play once', async () => {
-    const playSpy = vi
-      .spyOn(window.HTMLMediaElement.prototype, 'play')
-      .mockResolvedValue(undefined);
-    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
-      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/x-wav' }),
-    );
-
+  it('Empezar ahora prepares and plays once without sending text online', async () => {
+    configureOnlineHelp();
+    const remoteSpy = vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice');
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
     const sessionApi = makeSessionApi('es-AR', { autoStartPlayback: true });
     render(<PlaybackStep sessionApi={sessionApi} />);
-
-    await waitFor(() => {
-      expect(playSpy).toHaveBeenCalled();
-    });
-    // Un solo disparo del atajo (consume el flag); segmentos siguientes pueden
-    // llamar play otra vez sobre el mismo HTMLAudioElement (#19).
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^pausar$/i })).toBeInTheDocument(),
+    );
     expect(sessionApi.clearAutoStartPlayback).toHaveBeenCalledTimes(1);
-    expect(voiceEngine.synthesizeArgentineVoice).toHaveBeenCalled();
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
-    });
-    // Remoto sigue opt-in: no se activa solo.
-    expect(
-      screen.queryByText(/estás usando la voz argentina remota/i),
-    ).not.toBeInTheDocument();
+    expect(remoteSpy).not.toHaveBeenCalled();
   });
 
-  it('without autoStartPlayback does not call play until the person taps Reproducir', async () => {
+  it('does not play manually prepared audio until Reproducir is pressed', async () => {
     const playSpy = vi
       .spyOn(window.HTMLMediaElement.prototype, 'play')
       .mockResolvedValue(undefined);
-    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
-      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/x-wav' }),
-    );
-
-    const sessionApi = makeSessionApi('es-AR');
-    render(<PlaybackStep sessionApi={sessionApi} />);
-    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /reproducir voz argentina/i }),
-      ).toBeInTheDocument();
-    });
-    expect(playSpy).not.toHaveBeenCalled();
-    expect(sessionApi.clearAutoStartPlayback).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole('button', { name: /reproducir voz argentina/i }));
-    await waitFor(() => {
-      expect(playSpy).toHaveBeenCalled();
-    });
-  });
-
-  it('moves to "ready" and offers playback only after prepare() resolves with a real Blob', async () => {
-    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
-      new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/x-wav' }),
-    );
-
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /reproducir voz argentina/i }),
-      ).toBeInTheDocument();
-    });
-    expect(voiceEngine.synthesizeArgentineVoice).toHaveBeenCalled();
+    await prepareLocalAudio();
+    expect(playSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /^reproducir$/i }));
+    await waitFor(() => expect(playSpy).toHaveBeenCalled());
   });
 
-  it('shows an explicit error and requires confirmation before using a non-argentine device voice', async () => {
+  it('shows a simple error and requires an explicit choice before changing the voice', async () => {
     mockDeviceVoiceAvailable();
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
-      new Error('El modelo no se pudo descargar.'),
+      new Error('ONNX stack internal 123'),
     );
-
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/no se pudo preparar o reproducir/i)).toBeInTheDocument();
-    });
-    // Never falls back silently: the device-voice option requires an explicit click.
+    fireEvent.click(screen.getByRole('button', { name: /^preparar audio$/i }));
+    await waitFor(() =>
+      expect(screen.getByText(/no pudimos preparar o reproducir/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/ONNX/)).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /reproducir$/i }),
+      screen.queryByRole('button', { name: /^reproducir$/i }),
     ).not.toBeInTheDocument();
-    const fallbackBtn = screen.getByRole('button', {
-      name: /usar voz del dispositivo \(no es argentina\)/i,
-    });
-    fireEvent.click(fallbackBtn);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          /estás usando una voz del dispositivo, no la voz argentina neuronal/i,
-        ),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('uses the Web Speech engine directly for the neutral variant, without any neural prompt', async () => {
-    render(<PlaybackStep sessionApi={makeSessionApi('es-neutro')} />);
-    expect(
-      screen.queryByRole('button', { name: /preparar voz argentina/i }),
-    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /escuchar con otra voz/i }));
+    expect(screen.getByText(/elegiste otra voz/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(
-        screen.getByText(/motores de voz en este dispositivo/i),
-      ).toBeInTheDocument();
-    });
   });
 
-  it('shows the remote alternative when the endpoint is configured, even if local Piper is idle', async () => {
-    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
-    vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
+  it('plays the neutral choice directly without engine diagnostics', () => {
+    const { container } = render(
+      <PlaybackStep sessionApi={makeSessionApi('es-neutro')} />,
+    );
+    expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^preparar audio$/i }),
+    ).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(
+      /motores de voz|información técnica|Web Speech/,
+    );
+  });
 
+  it('offers online help only after local failure and sends nothing before consent', async () => {
+    configureOnlineHelp();
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
+      new Error('fallo local'),
+    );
+    const remoteSpy = vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice');
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/motores de voz en este dispositivo/i),
-      ).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^preparar audio$/i }));
+    const remoteButton = await screen.findByRole('button', {
+      name: /preparar audio por internet/i,
     });
-    expect(
-      screen.getByRole('button', { name: /preparar voz argentina/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/preferí la voz argentina neuronal/i)).toBeInTheDocument();
-    expect(screen.getByText(/sin descargar el modelo/i)).toBeInTheDocument();
-    expect(screen.getByText(/no se activa solo/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/voz argentina remota \(wav vía endpoint propio\)/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/endpoint configurado; requiere consentimiento y síntesis/i),
-    ).toBeInTheDocument();
-
-    const remoteButton = screen.getByRole('button', {
-      name: /usar voz argentina remota/i,
-    });
-    const prepareLocal = screen.getByRole('button', {
-      name: /preparar voz argentina/i,
-    });
-    expect(
-      remoteButton.compareDocumentPosition(prepareLocal) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    const consent = screen.getByRole('checkbox', {
-      name: /acepto enviar sólo el texto del guion/i,
-    });
-    expect(consent).not.toBeChecked();
     expect(remoteButton).toBeDisabled();
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    fireEvent.click(remoteButton);
+    expect(remoteSpy).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/guion puede incluir detalles personales/i),
+    ).toBeInTheDocument();
   });
 
-  it('requires remote consent before switching, then prepares remote playback controls', async () => {
-    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+  it('requires consent on unsupported devices, then preserves playback controls', async () => {
+    configureOnlineHelp();
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
     const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
     const remoteSpy = vi
       .spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice')
-      .mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' }));
-
+      .mockResolvedValue(audioBlob());
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-
-    const remoteButton = screen.getByRole('button', {
-      name: /usar voz argentina remota/i,
-    });
-    expect(remoteButton).toBeDisabled();
-
-    fireEvent.click(
-      screen.getByRole('checkbox', {
-        name: /acepto enviar sólo el texto del guion/i,
-      }),
+    expect(
+      screen.getByRole('button', { name: /preparar audio por internet/i }),
+    ).toBeDisabled();
+    expect(remoteSpy).not.toHaveBeenCalled();
+    acceptOnlineHelp();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeInTheDocument(),
     );
-    expect(remoteButton).toBeEnabled();
-    fireEvent.click(remoteButton);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/estás usando la voz argentina remota/i),
-      ).toBeInTheDocument();
-    });
-    expect(screen.getByText(/sin diario, perfil ni fuentes/i)).toBeInTheDocument();
-    expect(localSpy).not.toHaveBeenCalled();
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
-      ).toBeInTheDocument();
-    });
-    expect(remoteSpy).toHaveBeenCalledTimes(1);
     expect(remoteSpy).toHaveBeenNthCalledWith(
       1,
       REMOTE_WARMUP_TEXT,
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-
-    fireEvent.click(
-      screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
+    fireEvent.click(screen.getByRole('button', { name: /^reproducir$/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^pausar$/i })).toBeInTheDocument(),
     );
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
-    });
     expect(remoteSpy).toHaveBeenNthCalledWith(
       2,
       'Cerrá los ojos y respirá.',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    fireEvent.click(screen.getByRole('button', { name: /pausar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^pausar$/i }));
     expect(screen.getByRole('button', { name: /^continuar$/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /detener/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^detener$/i }));
     expect(screen.getByText(/detenido/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /reiniciar/i }));
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument();
-    });
-    expect(remoteSpy).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /^reiniciar$/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^pausar$/i })).toBeInTheDocument(),
+    );
     expect(localSpy).not.toHaveBeenCalled();
   });
 
-  it('hides the missing-endpoint message while local Piper is idle', async () => {
-    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(false);
-
-    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/motores de voz en este dispositivo/i),
-      ).toBeInTheDocument();
-    });
-    expect(
-      screen.getByRole('button', { name: /preparar voz argentina/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/falta configurar el servicio remoto/i),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /usar voz argentina remota/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('explains missing remote endpoint only after local failure', async () => {
-    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(false);
-    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
-      new Error('fallo local'),
-    );
-
-    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/falta configurar el servicio remoto/i),
-      ).toBeInTheDocument();
-    });
-    expect(
-      screen.queryByRole('button', { name: /usar voz argentina remota/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('offers remote Argentine voice when the browser lacks local support, then uses remote WAV before the device voice', async () => {
-    mockDeviceVoiceAvailable();
+  it('revoking permission cancels the request and discards a late online result', async () => {
+    configureOnlineHelp();
     vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
-    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
-    const localSpy = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
+    let resolveOnline: ((blob: Blob) => void) | undefined;
     const remoteSpy = vi
       .spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice')
-      .mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/wav' }));
-
-    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-
-    expect(
-      screen.queryByRole('button', { name: /preparar voz argentina/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/este navegador no puede usar la voz argentina/i),
-    ).toBeInTheDocument();
-
-    const remoteRegion = screen.getByRole('region', {
-      name: /voz argentina remota opcional/i,
-    });
-    const remoteButton = within(remoteRegion).getByRole('button', {
-      name: /usar voz argentina remota/i,
-    });
-    const deviceButton = within(remoteRegion).getByRole('button', {
-      name: /usar voz del dispositivo \(no es argentina\)/i,
-    });
-    expect(
-      remoteButton.compareDocumentPosition(deviceButton) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('checkbox', {
-        name: /acepto enviar sólo el texto del guion/i,
-      }),
-    ).not.toBeChecked();
-    expect(remoteButton).toBeDisabled();
-
-    fireEvent.click(
-      screen.getByRole('checkbox', {
-        name: /acepto enviar sólo el texto del guion/i,
-      }),
-    );
-    fireEvent.click(remoteButton);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/estás usando la voz argentina remota/i),
-      ).toBeInTheDocument();
-    });
-    expect(
-      screen.queryByText(/estás usando una voz del dispositivo/i),
-    ).not.toBeInTheDocument();
-    expect(localSpy).not.toHaveBeenCalled();
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
-      ).toBeInTheDocument();
-    });
-    expect(remoteSpy).toHaveBeenNthCalledWith(
-      1,
-      REMOTE_WARMUP_TEXT,
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
-    );
-    fireEvent.click(
-      screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
-    );
-    await waitFor(() => {
-      expect(remoteSpy).toHaveBeenNthCalledWith(
-        2,
-        'Cerrá los ojos y respirá.',
-        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      .mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveOnline = resolve;
+          }),
       );
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    acceptOnlineHelp();
+    await waitFor(() => expect(remoteSpy).toHaveBeenCalledOnce());
+    const signal = remoteSpy.mock.calls[0][1]?.signal;
+    fireEvent.click(screen.getByText('Privacidad del audio'));
+    fireEvent.click(screen.getByRole('button', { name: /retirar permiso/i }));
+    expect(signal?.aborted).toBe(true);
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+    expect(
+      screen.getByRole('button', { name: /preparar audio por internet/i }),
+    ).toBeDisabled();
+    await act(async () => {
+      resolveOnline?.(audioBlob());
     });
-    expect(localSpy).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('button', { name: /^reproducir$/i }),
     ).not.toBeInTheDocument();
+    expect(remoteSpy).toHaveBeenCalledOnce();
   });
 
-  it('does not show the remote offer when WAV playback is unsupported, and keeps explicit device fallback when available', async () => {
-    mockDeviceVoiceAvailable();
+  it('asks again for online permission when the script changes', async () => {
+    configureOnlineHelp();
     vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
-    vi.spyOn(voiceEngine, 'checkRemoteWavPlaybackSupport').mockReturnValue(false);
-    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
-
-    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/no se detecta reproducción WAV compatible/i),
-      ).toBeInTheDocument();
-    });
+    const remoteSpy = vi
+      .spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice')
+      .mockResolvedValue(audioBlob());
+    const { rerender } = render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    acceptOnlineHelp();
+    await screen.findByRole('button', { name: /^reproducir$/i });
+    rerender(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    await waitFor(() => expect(screen.getByRole('checkbox')).not.toBeChecked());
     expect(
-      screen.queryByRole('region', { name: /voz argentina remota opcional/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /usar voz argentina remota/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', {
-        name: /usar voz del dispositivo \(no es argentina\)/i,
-      }),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: /preparar audio por internet/i }),
+    ).toBeDisabled();
+    expect(remoteSpy).toHaveBeenCalledOnce();
   });
 
-  it('shows a clear message when no compatible audio player exists at all', async () => {
-    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
-    vi.spyOn(voiceEngine, 'checkRemoteWavPlaybackSupport').mockReturnValue(false);
-    vi.spyOn(voiceEngine, 'checkWebSpeechEngineSupport').mockReturnValue(false);
-    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
-
-    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          /no hay ningún reproductor de audio compatible en este entorno/i,
-        ),
-      ).toBeInTheDocument();
-    });
-    expect(
-      screen.queryByRole('button', { name: /usar voz argentina remota/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', {
-        name: /usar voz del dispositivo \(no es argentina\)/i,
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('offers remote before the non-argentine device voice after a local failure', async () => {
-    mockDeviceVoiceAvailable();
-    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
+  it('does not expose configuration errors when the online service is absent', async () => {
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
       new Error('fallo local'),
     );
-
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/no se pudo preparar o reproducir/i)).toBeInTheDocument();
-    });
-
-    const remoteRegion = screen.getByRole('region', {
-      name: /voz argentina remota opcional/i,
-    });
-    const remoteButton = within(remoteRegion).getByRole('button', {
-      name: /usar voz argentina remota/i,
-    });
-    const deviceButton = within(remoteRegion).getByRole('button', {
-      name: /usar voz del dispositivo \(no es argentina\)/i,
-    });
-
-    expect(
-      remoteButton.compareDocumentPosition(deviceButton) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      screen.getByRole('checkbox', {
-        name: /acepto enviar sólo el texto del guion/i,
-      }),
-    ).not.toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: /^preparar audio$/i }));
+    await screen.findByText(/no pudimos preparar o reproducir/i);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByText(/endpoint|configurar|remoto/i)).not.toBeInTheDocument();
   });
 
-  it('shows a clear read-script action when Web Speech is unavailable for neutro', async () => {
+  it('does not offer online audio when playback is unsupported', () => {
+    mockDeviceVoiceAvailable();
+    configureOnlineHelp();
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
+    vi.spyOn(voiceEngine, 'checkRemoteWavPlaybackSupport').mockReturnValue(false);
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /escuchar con otra voz/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers reading when no compatible player exists', () => {
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
+    vi.spyOn(voiceEngine, 'checkRemoteWavPlaybackSupport').mockReturnValue(false);
+    vi.spyOn(voiceEngine, 'checkWebSpeechEngineSupport').mockReturnValue(false);
+    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    expect(
+      screen.getByText(/por ahora no podemos reproducir audio acá/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /escuchar con otra voz/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers reading when neutral audio is unavailable', () => {
     vi.spyOn(voiceEngine, 'checkWebSpeechEngineSupport').mockReturnValue(false);
     const sessionApi = makeSessionApi('es-neutro');
-
     render(<PlaybackStep sessionApi={sessionApi} />);
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /leer el guion/i }),
-      ).toBeInTheDocument();
-    });
     expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeDisabled();
-    expect(
-      screen.getByText(/lectura en pantalla \(sin audio del dispositivo\)/i),
-    ).toBeInTheDocument();
-
     fireEvent.click(screen.getByRole('button', { name: /leer el guion/i }));
     expect(sessionApi.setStep).toHaveBeenCalledWith('review');
   });
 
-  it('switching to remote cancels a local prepare and ignores a late local ready', async () => {
-    vi.spyOn(remoteVoice, 'isRemoteArgentineTtsConfigured').mockReturnValue(true);
-    vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
-      new Blob([new Uint8Array([9, 9, 9])], { type: 'audio/wav' }),
+  it('keeps mobile audio controls and a simple prompt when autoplay is blocked', async () => {
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
+    vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockRejectedValue(
+      new DOMException('gesture needed', 'NotAllowedError'),
     );
-    let resolveLocal: ((blob: Blob) => void) | undefined;
-    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveLocal = resolve;
-        }),
+    render(
+      <PlaybackStep
+        sessionApi={makeSessionApi('es-AR', { autoStartPlayback: true })}
+      />,
     );
-
-    render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
-    fireEvent.click(screen.getByRole('button', { name: /preparar voz argentina/i }));
-    expect(screen.getByText(/preparando voz argentina/i)).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('checkbox', {
-        name: /acepto enviar sólo el texto del guion/i,
-      }),
+    await waitFor(() =>
+      expect(screen.getByText(/tocá reproducir para empezar/i)).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByRole('button', { name: /usar voz argentina remota/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/estás usando la voz argentina remota/i),
-      ).toBeInTheDocument();
-    });
-
-    resolveLocal?.(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/x-wav' }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /reproducir voz argentina remota/i }),
-      ).toBeInTheDocument();
-    });
     expect(
-      screen.queryByRole('button', { name: /^reproducir voz argentina$/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: /^reproducir audio$/i }),
+    ).toBeInTheDocument();
+    expect(document.querySelector('audio[controls]')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /guardar este audio/i })).toHaveAttribute(
+      'href',
+      'blob:mock-url',
+    );
   });
 });

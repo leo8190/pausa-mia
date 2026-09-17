@@ -54,7 +54,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
     const selection = selectVoice(voiceVariant, voices);
     voiceRef.current = selection.voice;
     setFallbackMessage(selection.fallbackMessage);
-    setVoicesReady(voices.length > 0);
+    setVoicesReady(selection.voice !== null);
   }, [voiceVariant]);
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
     (index: number) => {
       if (stoppedRef.current) return;
       const synthesis = getSpeechSynthesis();
-      if (!synthesis) return;
+      if (!synthesis || !voiceRef.current) return;
       const segments = segmentsRef.current;
       if (index >= segments.length) {
         betweenSegmentsRef.current = false;

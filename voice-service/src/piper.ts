@@ -8,6 +8,8 @@ import { buildSilentWav, wrapPcm16MonoToWav } from './wav.js';
 // These synthesis settings preserve natural pitch; silence follows sentences,
 // so it does not add a deliberate delay before the first spoken word.
 export const SENTENCE_SILENCE_SECONDS = 0.65;
+export const CLEAR_NOISE_SCALE = 0.5;
+export const CLEAR_NOISE_WIDTH = 0.3;
 
 export class TtsError extends Error {
   readonly code: string;
@@ -58,6 +60,10 @@ export function buildPiperCliArgs(
     config.configPath,
     '--length_scale',
     String(config.lengthScale),
+    '--noise_scale',
+    String(CLEAR_NOISE_SCALE),
+    '--noise_w',
+    String(CLEAR_NOISE_WIDTH),
     '--output_raw',
     '--sentence_silence',
     String(SENTENCE_SILENCE_SECONDS),

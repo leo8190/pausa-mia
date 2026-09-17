@@ -1,8 +1,5 @@
 import type { VoiceSelection, VoiceVariant } from '../types';
-import {
-  normalizeTextForArgentineWebSpeech,
-  normalizeTextForTts,
-} from './ttsPronunciation';
+import { normalizeTextForTts } from './ttsPronunciation';
 
 /** Cadencia pausada para Web Speech; el ritmo real depende de la voz del dispositivo. */
 export const CALM_SPEECH_RATE = 0.62;
@@ -88,16 +85,18 @@ export function selectVoice(
         voice: spanish,
         requestedLocale,
         actualLocale: spanish.lang,
-        fallbackMessage: `No encontramos una voz argentina (es-AR). Usaremos ${spanish.name} (${spanish.lang}) como reemplazo, no como voz argentina.`,
+        fallbackMessage:
+          'Esta voz de reemplazo habla español, pero no tiene acento argentino.',
         isArgentine: false,
       };
     }
 
     return {
-      voice: voices[0],
+      voice: null,
       requestedLocale,
-      actualLocale: voices[0].lang,
-      fallbackMessage: `No encontramos una voz en español. Usaremos ${voices[0].name} (${voices[0].lang}) como reemplazo, no como voz argentina.`,
+      actualLocale: 'none',
+      fallbackMessage:
+        'No encontramos una voz en español. Podés leer el guion en pantalla.',
       isArgentine: false,
     };
   }
@@ -112,7 +111,7 @@ export function selectVoice(
         actualLocale: match.lang,
         fallbackMessage: isExact
           ? null
-          : `No encontramos es-MX. Usaremos ${match.name} (${match.lang}) como español neutro.`,
+          : 'Usaremos una voz en español disponible en tu dispositivo. El acento puede variar.',
         isArgentine: false,
       };
     }
@@ -124,16 +123,18 @@ export function selectVoice(
       voice: anySpanish,
       requestedLocale,
       actualLocale: anySpanish.lang,
-      fallbackMessage: `Usaremos ${anySpanish.name} (${anySpanish.lang}) como reemplazo de español neutro.`,
+      fallbackMessage:
+        'Usaremos una voz en español disponible en tu dispositivo. El acento puede variar.',
       isArgentine: false,
     };
   }
 
   return {
-    voice: voices[0],
+    voice: null,
     requestedLocale,
-    actualLocale: voices[0].lang,
-    fallbackMessage: `No encontramos español neutro. Usaremos ${voices[0].name} (${voices[0].lang}).`,
+    actualLocale: 'none',
+    fallbackMessage:
+      'No encontramos una voz en español. Podés leer el guion en pantalla.',
     isArgentine: false,
   };
 }
@@ -146,31 +147,23 @@ export interface SpeechPlayerState {
 export interface CreateUtteranceOptions {
   rate?: number;
   pitch?: number;
-  /**
-   * Aplica refuerzo de erres (rr / r inicial) pensado para el fallback Web
-   * Speech argentino. No usar con Piper.
-   */
-  reinforceArgentineErres?: boolean;
-  /** Variante de voz: define defaults de rate/pitch/erres si no se pasan. */
+  /** Variante de voz: define defaults de rate/pitch si no se pasan. */
   voiceVariant?: VoiceVariant;
 }
 
 export function resolveWebSpeechProsody(variant: VoiceVariant): {
   rate: number;
   pitch: number;
-  reinforceArgentineErres: boolean;
 } {
   if (variant === 'es-AR') {
     return {
       rate: ARGENTINE_WEB_SPEECH_RATE,
       pitch: ARGENTINE_WEB_SPEECH_PITCH,
-      reinforceArgentineErres: true,
     };
   }
   return {
     rate: CALM_SPEECH_RATE,
     pitch: 1,
-    reinforceArgentineErres: false,
   };
 }
 
@@ -186,13 +179,9 @@ export function createUtterance(
     : {
         rate: CALM_SPEECH_RATE,
         pitch: 1,
-        reinforceArgentineErres: false,
       };
 
-  const reinforce = opts.reinforceArgentineErres ?? defaults.reinforceArgentineErres;
-  const spoken = reinforce
-    ? normalizeTextForArgentineWebSpeech(text)
-    : normalizeTextForTts(text);
+  const spoken = normalizeTextForTts(text);
 
   const utterance = new SpeechSynthesisUtterance(spoken);
   utterance.rate = opts.rate ?? defaults.rate;

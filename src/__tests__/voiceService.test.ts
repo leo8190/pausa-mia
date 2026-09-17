@@ -53,7 +53,7 @@ describe('voiceService', () => {
     const voices = [mockVoice('Juan', 'es-US')];
     const selection = selectVoice('es-neutro', voices);
     expect(selection.voice?.lang).toBe('es-US');
-    expect(selection.fallbackMessage).toContain('es-MX');
+    expect(selection.fallbackMessage).toContain('acento puede variar');
   });
 
   it('handles empty voice list', () => {
@@ -77,14 +77,13 @@ describe('voiceService', () => {
     expect(utterance.pitch).toBe(1);
   });
 
-  it('uses slower Argentine Web Speech, natural pitch and erre hints for es-AR', () => {
+  it('uses slower Argentine Web Speech and natural spelling/pitch for es-AR', () => {
     const utterance = createUtterance('Respirá y cerrá.', mockVoice('Diego', 'es-AR'), {
       voiceVariant: 'es-AR',
     });
     expect(utterance.rate).toBe(ARGENTINE_WEB_SPEECH_RATE);
     expect(utterance.pitch).toBe(ARGENTINE_WEB_SPEECH_PITCH);
-    expect(utterance.text).toContain('Rrespirá');
-    expect(utterance.text).toContain('cerrrá');
+    expect(utterance.text).toBe('Respirá y cerrá.');
   });
 
   it('preserves the Argentine voice and natural pitch at the slower cadence', () => {
@@ -95,10 +94,9 @@ describe('voiceService', () => {
     expect(utterance.pitch).toBe(1);
   });
 
-  it('applies TTS pronunciation hints without exposing them as a second script', () => {
+  it('keeps ritmo intact instead of inserting a spoken syllable break', () => {
     const utterance = createUtterance('Calmá el ritmo.', mockVoice('Diego', 'es-AR'));
-    expect(utterance.text).toContain('rit-mo');
-    expect(utterance.text).not.toBe('Calmá el ritmo.');
+    expect(utterance.text).toBe('Calmá el ritmo.');
   });
 
   it('neutral fallback order includes es-419', () => {
@@ -112,7 +110,7 @@ describe('voiceService', () => {
     const selection = selectVoice('es-AR', voices);
     expect(selection.isArgentine).toBe(false);
     expect(selection.actualLocale).toBe('es-MX');
-    expect(selection.fallbackMessage).toContain('no como voz argentina');
+    expect(selection.fallbackMessage).toContain('no tiene acento argentino');
   });
 
   it('never labels es-ES or es-US as argentine when requesting es-AR', () => {
@@ -140,4 +138,13 @@ describe('voiceService', () => {
     const selection = selectVoice('es-neutro', voices);
     expect(selection.isArgentine).toBe(false);
   });
+
+  it.each(['es-AR', 'es-neutro'] as const)(
+    'never reads Spanish with a foreign-only voice list (%s)',
+    (variant) => {
+      const selection = selectVoice(variant, [mockVoice('English', 'en-US')]);
+      expect(selection.voice).toBeNull();
+      expect(selection.fallbackMessage).toContain('No encontramos una voz en español');
+    },
+  );
 });

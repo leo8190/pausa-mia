@@ -22,6 +22,10 @@ import { normalizeTextForTts } from './ttsPronunciation';
  * Valores > 1 alargan el audio en Piper sin bajar artificialmente el tono.
  */
 export const SERENE_CADENCE_SCALE = 1.6;
+export const SENTENCE_SILENCE_SECONDS = 0.65;
+// Reduce stochastic articulation/duration variation without speeding up speech.
+export const CLEAR_NOISE_SCALE = 0.5;
+export const CLEAR_NOISE_WIDTH = 0.3;
 
 const MIN_LENGTH_SCALE = 0.5;
 const MAX_LENGTH_SCALE = 3;
@@ -55,6 +59,22 @@ export interface PiperModelConfig {
   espeak: { voice: string };
   inference: { noise_scale: number; length_scale: number; noise_w: number };
   speaker_id_map: Record<string, number>;
+}
+
+/** Piper is trained on one sentence at a time. The WASM phonemizer concatenates
+ * sentence sequences; feeding them in one inference can swallow sounds around
+ * internal boundaries. Preserve all IDs, including the Spanish tap and trill. */
+export function splitPhonemeSentences(ids: number[]): number[][] {
+  const sentences: number[][] = [];
+  let start = 0;
+  ids.forEach((id, index) => {
+    if (id === 2) {
+      sentences.push(ids.slice(start, index + 1));
+      start = index + 1;
+    }
+  });
+  if (start < ids.length) sentences.push(ids.slice(start));
+  return sentences;
 }
 
 /** Divide texto largo en fragmentos, respetando límites de frase cuando es posible. */
@@ -346,21 +366,30 @@ export async function synthesizeWithSession(
 
   for (const chunk of chunks) {
     const spokenChunk = normalizeTextForTts(chunk);
-    const phonemeIds = await phonemize(spokenChunk, modelConfig.espeak.voice);
-    const feeds: Record<string, unknown> = {
-      input: new ort.Tensor('int64', phonemeIds, [1, phonemeIds.length]),
-      input_lengths: new ort.Tensor('int64', [phonemeIds.length]),
-      scales: new ort.Tensor('float32', [
-        modelConfig.inference.noise_scale,
-        resolveSereneLengthScale(modelConfig.inference.length_scale),
-        modelConfig.inference.noise_w,
-      ]),
-    };
-    if (Object.keys(modelConfig.speaker_id_map ?? {}).length > 0) {
-      feeds.sid = new ort.Tensor('int64', [speakerId]);
+    const chunkIds = await phonemize(spokenChunk, modelConfig.espeak.voice);
+    for (const phonemeIds of splitPhonemeSentences(chunkIds)) {
+      const feeds: Record<string, unknown> = {
+        input: new ort.Tensor('int64', phonemeIds, [1, phonemeIds.length]),
+        input_lengths: new ort.Tensor('int64', [phonemeIds.length]),
+        scales: new ort.Tensor('float32', [
+          Math.min(modelConfig.inference.noise_scale, CLEAR_NOISE_SCALE),
+          resolveSereneLengthScale(modelConfig.inference.length_scale),
+          Math.min(modelConfig.inference.noise_w, CLEAR_NOISE_WIDTH),
+        ]),
+      };
+      if (Object.keys(modelConfig.speaker_id_map ?? {}).length > 0) {
+        feeds.sid = new ort.Tensor('int64', [speakerId]);
+      }
+      const { output } = await ortSession.run(feeds);
+      if (pcms.length > 0) {
+        pcms.push(
+          new Float32Array(
+            Math.round(modelConfig.audio.sample_rate * SENTENCE_SILENCE_SECONDS),
+          ),
+        );
+      }
+      pcms.push(output.data);
     }
-    const { output } = await ortSession.run(feeds);
-    pcms.push(output.data);
   }
 
   const totalLength = pcms.reduce((sum, pcm) => sum + pcm.length, 0);
