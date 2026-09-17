@@ -108,7 +108,9 @@ describe('AccountPanel', () => {
     await waitFor(() =>
       expect(screen.getByText(/hola, leonardo/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/conectar google \(opcional\)/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/conectar google \(opcional\)/i),
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getAllByText(/google calendar/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/google drive/i).length).toBeGreaterThan(0);
@@ -179,6 +181,10 @@ describe('AccountPanel', () => {
     );
 
     const consentToggles = screen.getAllByRole('checkbox');
+    expect(
+      screen.getByRole('button', { name: /conectar google calendar/i }),
+    ).toBeDisabled();
+    expect(consentToggles[0]).not.toBeChecked();
     fireEvent.click(consentToggles[0]);
     fireEvent.click(screen.getByRole('button', { name: /conectar google calendar/i }));
 
@@ -253,5 +259,36 @@ describe('AccountPanel', () => {
       ).toBeInTheDocument(),
     );
     expect(window.confirm).toHaveBeenCalled();
+  });
+
+  it('does not advertise connections that are unavailable', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input).endsWith('/api/account/status')) {
+        return jsonResponse({
+          user: {
+            id: 'usr-test',
+            displayName: 'Pausa',
+            locale: 'es-AR',
+            status: 'active',
+          },
+        });
+      }
+      return jsonResponse({
+        providers: [
+          { provider: 'google_calendar', state: 'disconnected', configured: false },
+          { provider: 'google_drive', state: 'disconnected', configured: false },
+        ],
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<AccountPanel locale="es-AR" />);
+    await screen.findByText(/hola, pausa/i);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(
+      screen.queryByText(/conectar google|no configurado/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /eliminar cuenta/i }),
+    ).toBeInTheDocument();
   });
 });

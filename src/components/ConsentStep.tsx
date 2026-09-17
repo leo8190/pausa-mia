@@ -6,8 +6,8 @@ export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
 
   return (
     <StepLayout
-      title="Consentimiento de sesión"
-      lead="Nada se procesa sin tu permiso explícito. Las casillas no están preseleccionadas."
+      title="Tu privacidad"
+      lead="Vos decidís qué compartir y qué guardar."
       actions={
         <>
           <button
@@ -19,11 +19,11 @@ export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             }
             onClick={() => sessionApi.setStep('checkin')}
           >
-            Continuar al check-in
+            Continuar
           </button>
           {!sessionApi.isConsentValid && (
             <p id="consent-continue-hint" className="field-hint">
-              Marcá el permiso de sesión para continuar.
+              Necesitamos tu permiso para crear la meditación.
             </p>
           )}
           <button
@@ -70,10 +70,10 @@ export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             aria-describedby="consent-preferences-hint"
           />
           <span>
-            Guardar mis preferencias localmente en este dispositivo (opcional).{' '}
+            Guardar mis preferencias en este dispositivo (opcional).{' '}
             <span id="consent-preferences-hint" className="field-hint">
-              Solo se guardan variante de español, duración y estilo de práctica. Nunca
-              diario, situación ni estado emocional.
+              Solo se guardan voz, duración y estilo de práctica. Nunca diario,
+              situación ni estado emocional.
             </span>
           </span>
         </label>

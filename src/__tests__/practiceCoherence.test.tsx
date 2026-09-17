@@ -147,7 +147,7 @@ describe('coherencia de la práctica', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(/Pediste evitar el cuerpo/);
     expect(
-      screen.getByRole('button', { name: 'Personalizar contexto y resumen' }),
+      screen.getByRole('button', { name: 'Personalizar un poco más' }),
     ).toBeDisabled();
   });
 });

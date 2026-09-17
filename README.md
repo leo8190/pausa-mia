@@ -7,6 +7,21 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
+### Interfaz simplificada — 17/09/2026
+
+- Sin descargas de fragmentos, contadores de segmentos ni pasos numerados. Al
+  escuchar, el texto queda en «Leer la meditación» y los controles aparecen cuando
+  hacen falta. Se conserva la posibilidad de editar, pausar, detener y reiniciar.
+- Diario, archivos, cuenta y encuesta de precios son opcionales. Se quitaron
+  diagnósticos internos, repeticiones y conexiones que todavía no están disponibles.
+- Se conservan permisos explícitos, vista de los datos que se compartirían con IA,
+  revocación, borrado y avisos de seguridad. No se cambiaron servicios ni voces.
+- Pruebas de interfaz cubren las dos voces, el control nativo de audio, lectura
+  opcional, edición, permisos y borrado. La revisión visual en Chrome con tamaño
+  de celular no sustituye una prueba de audio en un iPhone real.
+- Verificado: 334 pruebas en 40 archivos, lint, formato y compilación de producción
+  correctos. Lectura y regreso a edición comprobados también en el navegador.
+
 ### Segundo ajuste de velocidad — 15/09/2026
 
 A pedido de Leonardo (“Más lenta puede ser?”): Piper local/remoto pasa de 1.35
@@ -97,16 +112,16 @@ npm audit --omit=dev
 1. **Bienvenida y límites** — bienestar general, no terapia; sin persistencia por defecto.
 2. **Consentimiento** — casillas no preseleccionadas; procesamiento sólo con permiso explícito.
 3. **Check-in** — momento, estado, intención, experiencia, estilo, duración (3/5/10), voz.
-4. **Contexto opcional** — diario manual (hoy/ayer/anteayer), importación local múltiple de texto/JSON/CSV y arrastrar/soltar.
-5. **Resumen editable** — quitar cualquier dato; elegir motor local o IA.
+4. **Contexto opcional** — diario manual (hoy/ayer/anteayer), notas y archivos de texto opcionales.
+5. **Resumen editable** — quitar cualquier dato; IA opcional cuando está disponible.
 6. **Consentimiento IA** — si se elige IA, mostrar campos exactos a transmitir.
 7. **Generación** — motor local por reglas o IA vía servidor local con fallback.
 8. **Pausa de seguridad** — detector conservador; línea Argentina **0800-999-0091**.
-9. **Revisión** — título, motor usado, duración estimada y texto completo.
+9. **Revisión** — título, duración aproximada y texto completo.
 10. **Reproducción** — voz argentina neuronal real (Piper/ONNX) para es-AR, con
     ruta remota opcional (WAV) tras consentimiento explícito, o fallback a Web
     Speech; Web Speech directo para español neutro.
-11. **Cierre** — valoración, repetición deseada y precios hipotéticos (sin checkout).
+11. **Cierre** — valoración y repetición deseada; encuesta opcional de precios (sin checkout).
 12. **Borrado** — limpia sesión, preferencias locales y cancela audio en curso;
     muestra confirmación explícita (“Borrado confirmado”) sin dejar check-in,
     diario ni guion en pantalla.

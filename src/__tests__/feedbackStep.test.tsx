@@ -29,6 +29,22 @@ describe('FeedbackStep repeat choice', () => {
     vi.unstubAllGlobals();
   });
 
+  it('keeps the price survey optional and clearly without a charge', () => {
+    render(<FeedbackHarness />);
+    const details = screen
+      .getByText(/ayudanos a pensar futuras opciones/i)
+      .closest('details');
+    expect(details).not.toHaveAttribute('open');
+    fireEvent.click(screen.getByText(/ayudanos a pensar futuras opciones/i));
+    expect(details).toHaveAttribute('open');
+    expect(
+      screen.getByText(/encuesta opcional. no se cobra nada/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/hipótesis|configuración real|fuentes que podés agregar/i),
+    ).not.toBeInTheDocument();
+  });
+
   it('starts with both options unpressed and without the selected visual state', () => {
     render(<FeedbackHarness />);
 

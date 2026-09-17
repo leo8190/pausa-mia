@@ -66,7 +66,6 @@
     'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
   --max-width: 600px;
   --touch-target: 44px;
-  --player-dock-offset: calc(12.25rem + env(safe-area-inset-bottom, 0px));
 
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);

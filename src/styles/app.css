@@ -175,7 +175,7 @@
   position: relative;
   background: linear-gradient(
       165deg,
-      rgba(255, 255, 255, 0.92) 0%,
+      var(--color-surface-raised) 0%,
       var(--color-surface) 48%,
       var(--color-surface-muted) 100%
     )
@@ -245,10 +245,6 @@
 .step-card--welcome .step-after-actions {
   margin-top: var(--space-sm);
   padding-bottom: var(--card-pad-y);
-}
-
-.step-card--playback:has(.player-dock) {
-  padding-bottom: calc(var(--card-pad-y) + var(--player-dock-offset));
 }
 
 .step-body {

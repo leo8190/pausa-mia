@@ -6,7 +6,7 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
   return (
     <StepLayout
       title="Meditación a Medida"
-      lead="Una pausa guiada creada con lo que elegís compartir hoy, en tu variante de español."
+      lead="Una pausa guiada con lo que elegís compartir hoy."
       cardClassName="step-card--welcome"
       hero={
         <div className="welcome-hero">
@@ -14,9 +14,8 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
             <span className="welcome-hero-bar" />
             <span className="welcome-hero-bar" />
           </div>
-          <p className="welcome-hero-brand">Pausa Mía</p>
           <p className="welcome-hero-benefit">
-            Una sesión breve, serena y privada — podés probarla sin cuenta.
+            Un momento para vos. Podés empezar sin cuenta.
           </p>
         </div>
       }
@@ -35,43 +34,12 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
       afterActions={
         <div className="welcome-legal">
           <p>
-            Ofrece <strong>bienestar general</strong>: no es terapia, psicología ni
-            tratamiento, y no promete curar ni resolver condiciones de salud.
-          </p>
-          <p>
-            La primera sesión <strong>no guarda ni conecta</strong> nada. Todo se
-            procesa en tu navegador y se descarta al recargar, salvo que elijas guardar
-            preferencias.
-          </p>
-          <p>
-            <strong>Solo para mayores de 18 años.</strong>
+            Para mayores de 18 años. Es una práctica de bienestar; no reemplaza terapia
+            ni atención médica.
           </p>
         </div>
       }
     >
-      <ul className="welcome-signals" aria-label="Señales de privacidad y uso">
-        <li className="welcome-signal">
-          <span className="welcome-signal-mark" aria-hidden="true" />
-          <p>
-            <strong>Privacidad primero.</strong> Procesamos en tu navegador; nada se
-            envía por defecto.
-          </p>
-        </li>
-        <li className="welcome-signal">
-          <span className="welcome-signal-mark" aria-hidden="true" />
-          <p>
-            <strong>Consentimiento explícito.</strong> Las casillas no vienen
-            preseleccionadas.
-          </p>
-        </li>
-        <li className="welcome-signal">
-          <span className="welcome-signal-mark" aria-hidden="true" />
-          <p>
-            <strong>Vos elegís qué compartir.</strong> Podés omitir cualquier dato
-            sensible.
-          </p>
-        </li>
-      </ul>
       <AccountPanel locale={sessionApi.session.checkIn.voiceVariant} />
     </StepLayout>
   );

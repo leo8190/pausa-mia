@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSpeechPlayer } from '../hooks/useSpeechPlayer';
-import {
-  useArgentineVoicePlayer,
-  argentineWavDownloadName,
-} from '../hooks/useArgentineVoicePlayer';
+import { useArgentineVoicePlayer } from '../hooks/useArgentineVoicePlayer';
 import type { SessionApi } from '../hooks/useSession';
 import {
   checkNeuralEngineBrowserSupport,
   checkRemoteWavPlaybackSupport,
-  ES_AR_VOICE_APPROX_SIZE_MB,
 } from '../lib/voiceEngine';
 import { isRemoteArgentineTtsConfigured } from '../lib/remoteVoiceService';
 import { reportSessionComplete } from '../lib/visitorPing';
@@ -58,7 +54,6 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     restart: restartNeural,
     mountNativeAudioElement,
   } = useArgentineVoicePlayer(argentineMode);
-  const neuralAudioUrl = neuralState.nativeAudioUrl;
 
   const useNeuralEngine = wantsArgentineNeural && !useDeviceFallback;
 
@@ -223,22 +218,24 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
         actions={
           <>
+            {canPlayback && !isReady && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => sessionApi.setStep('feedback')}
+              >
+                Terminar mi pausa
+              </button>
+            )}
             <button
               type="button"
-              className="btn btn-primary"
-              onClick={() => sessionApi.setStep('feedback')}
-            >
-              Continuar al cierre
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
+              className="btn btn-ghost"
               onClick={() => {
                 stopNeural();
-                sessionApi.setStep('review');
+                sessionApi.setStep('checkin');
               }}
             >
-              Volver al guion
+              Editar mi pausa
             </button>
             <DeleteSessionButton sessionApi={sessionApi} />
           </>
@@ -261,7 +258,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 setRemoteConsent(false);
               }}
             >
-              Retirar permiso y volver al dispositivo
+              Retirar permiso
             </button>
           </details>
         )}
@@ -339,8 +336,8 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               aria-label="Preparar voz argentina"
             >
               <p className="field-hint">
-                La primera vez se descarga la voz (aprox. {ES_AR_VOICE_APPROX_SIZE_MB}{' '}
-                MB), así que puede tardar un poco. El guion se queda en tu dispositivo.
+                La primera vez puede tardar un poco y consumir datos. El audio se
+                prepara en tu dispositivo.
               </p>
               <div className="player-controls">
                 <button
@@ -356,14 +353,12 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
         {!useRemoteArgentine && isPreparing && (
           <div className="voice-engine-section" role="status" aria-live="polite">
-            <p className="field-hint">
-              Preparando tu audio{progressPct !== null ? ` (${progressPct}%)` : '…'}
-            </p>
+            <p className="field-hint">Preparando tu audio…</p>
             <progress
               className="voice-engine-progress"
               value={progressPct ?? undefined}
               max={100}
-              aria-label="Progreso de descarga de la voz argentina"
+              aria-label="Preparando tu audio"
             />
           </div>
         )}
@@ -397,34 +392,33 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         )}
 
         <div className="player-stage">
-          <div
-            className="script-preview"
-            role="region"
-            aria-label="Guion en reproducción"
-          >
-            {script.segments.map((seg, i) => (
-              <p
-                className={`script-segment${neuralState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
-                key={i}
-              >
-                {seg.text}
-              </p>
-            ))}
-          </div>
+          <details className="collapsible-details player-script">
+            <summary>Leer la meditación</summary>
+            <div
+              className="script-preview"
+              role="region"
+              aria-label="Guion en reproducción"
+            >
+              {script.segments.map((seg, i) => (
+                <p
+                  className={`script-segment${neuralState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
+                  key={i}
+                >
+                  {seg.text}
+                </p>
+              ))}
+            </div>
+          </details>
 
           {(needsNativePlay || keepNativeControlsMounted) && (
             <div
               className="native-audio-fallback"
               role="region"
-              aria-label="Reproducción con controles del dispositivo"
+              aria-label="Audio de tu meditación"
             >
-              {needsNativePlay ? (
+              {needsNativePlay && (
                 <p className="field-hint" role="status">
                   Tu audio está listo. Tocá reproducir para empezar.
-                </p>
-              ) : (
-                <p className="field-hint" role="status">
-                  Podés controlar el audio desde este reproductor.
                 </p>
               )}
               <div
@@ -433,38 +427,6 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                   mountNativeAudioElement(host);
                 }}
               />
-              <div className="player-controls">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={resumeNeural}
-                  aria-label="Reproducir audio"
-                >
-                  Reproducir audio
-                </button>
-              </div>
-              {neuralAudioUrl && (
-                <div
-                  className="native-audio-actions"
-                  aria-label="Opciones del archivo de audio"
-                >
-                  <a
-                    className="btn btn-secondary btn-small"
-                    href={neuralAudioUrl}
-                    download={argentineWavDownloadName(neuralState.currentSegmentIndex)}
-                  >
-                    Guardar este audio
-                  </a>
-                  <a
-                    className="btn btn-ghost btn-small"
-                    href={neuralAudioUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Abrir audio
-                  </a>
-                </div>
-              )}
             </div>
           )}
 
@@ -479,17 +441,19 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 role="group"
                 aria-label="Controles de reproducción"
               >
-                {!isPlaying && !isPaused && !needsNativePlay && (
+                {!isPlaying && !isPaused && (
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={() => playNeural(script.segments)}
+                    onClick={() =>
+                      needsNativePlay ? resumeNeural() : playNeural(script.segments)
+                    }
                     aria-label="Reproducir"
                   >
                     Reproducir
                   </button>
                 )}
-                {(isPlaying || needsNativePlay) && (
+                {isPlaying && (
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -519,14 +483,16 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                     Detener
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={restartNeural}
-                  aria-label="Reiniciar"
-                >
-                  Reiniciar
-                </button>
+                {!isReady && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={restartNeural}
+                    aria-label="Reiniciar"
+                  >
+                    Reiniciar
+                  </button>
+                )}
               </div>
 
               <p
@@ -534,34 +500,14 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 role="status"
               >
                 {isReady && 'Tu audio está listo'}
-                {isPlaying &&
-                  `Escuchando · ${neuralState.currentSegmentIndex + 1} de ${script.segments.length}`}
+                {isPlaying && 'Disfrutá tu pausa'}
                 {isPaused && 'Pausado'}
-                {isStoppedAfterPlay && 'Detenido'}
+                {isStoppedAfterPlay &&
+                  (neuralState.currentSegmentIndex >= script.segments.length
+                    ? 'Tu pausa terminó'
+                    : 'Detenido')}
                 {needsNativePlay && 'Tu audio está listo para reproducir'}
               </p>
-              {neuralAudioUrl && !needsNativePlay && (
-                <div
-                  className="native-audio-actions"
-                  aria-label="Guardar el segmento actual"
-                >
-                  <a
-                    className="btn btn-secondary btn-small"
-                    href={neuralAudioUrl}
-                    download={argentineWavDownloadName(neuralState.currentSegmentIndex)}
-                  >
-                    Descargar segmento actual
-                  </a>
-                  <a
-                    className="btn btn-ghost btn-small"
-                    href={neuralAudioUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Abrir audio
-                  </a>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -579,22 +525,24 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
       actions={
         <>
+          {playerState.status !== 'idle' && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => sessionApi.setStep('feedback')}
+            >
+              Terminar mi pausa
+            </button>
+          )}
           <button
             type="button"
-            className="btn btn-primary"
-            onClick={() => sessionApi.setStep('feedback')}
-          >
-            Continuar al cierre
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
+            className="btn btn-ghost"
             onClick={() => {
               stopWebSpeech();
-              sessionApi.setStep('review');
+              sessionApi.setStep('checkin');
             }}
           >
-            Volver al guion
+            Editar mi pausa
           </button>
           <DeleteSessionButton sessionApi={sessionApi} />
         </>
@@ -616,7 +564,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         </div>
       )}
 
-      {fallbackMessage && (
+      {fallbackMessage && !useDeviceFallback && canSpeak && (
         <div className="fallback-notice" role="status">
           {fallbackMessage}
         </div>
@@ -649,20 +597,23 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       )}
 
       <div className="player-stage">
-        <div
-          className="script-preview"
-          role="region"
-          aria-label="Guion en reproducción"
-        >
-          {script.segments.map((seg, i) => (
-            <p
-              className={`script-segment${playerState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
-              key={i}
-            >
-              {seg.text}
-            </p>
-          ))}
-        </div>
+        <details className="collapsible-details player-script">
+          <summary>Leer la meditación</summary>
+          <div
+            className="script-preview"
+            role="region"
+            aria-label="Guion en reproducción"
+          >
+            {script.segments.map((seg, i) => (
+              <p
+                className={`script-segment${playerState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
+                key={i}
+              >
+                {seg.text}
+              </p>
+            ))}
+          </div>
+        </details>
 
         <div
           className="player-dock"
@@ -715,18 +666,20 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 Detener
               </button>
             )}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => {
-                stopWebSpeech();
-                restartWebSpeech();
-              }}
-              disabled={!canSpeak}
-              aria-label="Reiniciar"
-            >
-              Reiniciar
-            </button>
+            {playerState.status !== 'idle' && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  stopWebSpeech();
+                  restartWebSpeech();
+                }}
+                disabled={!canSpeak}
+                aria-label="Reiniciar"
+              >
+                Reiniciar
+              </button>
+            )}
           </div>
 
           <p
@@ -735,11 +688,13 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
           >
             {!canSpeak && 'Guion disponible para leer'}
             {canSpeak && playerState.status === 'idle' && 'Listo'}
-            {canSpeak &&
-              playerState.status === 'playing' &&
-              `Escuchando · ${playerState.currentSegmentIndex + 1} de ${script.segments.length}`}
+            {canSpeak && playerState.status === 'playing' && 'Disfrutá tu pausa'}
             {canSpeak && playerState.status === 'paused' && 'Pausado'}
-            {canSpeak && playerState.status === 'stopped' && 'Detenido'}
+            {canSpeak &&
+              playerState.status === 'stopped' &&
+              (playerState.currentSegmentIndex >= script.segments.length
+                ? 'Tu pausa terminó'
+                : 'Detenido')}
           </p>
         </div>
       </div>

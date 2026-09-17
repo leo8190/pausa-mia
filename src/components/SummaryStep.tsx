@@ -24,8 +24,8 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
 
   return (
     <StepLayout
-      title="Resumen editable"
-      lead="Esta es la información que se usará para crear tu guion. Podés quitar cualquier dato."
+      title="Tu resumen"
+      lead="Esto vamos a tener en cuenta. Podés quitar lo que prefieras."
       actions={
         <>
           <button
@@ -47,7 +47,7 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
             className="btn btn-secondary"
             onClick={() => sessionApi.setStep('checkin')}
           >
-            Editar check-in
+            Editar respuestas
           </button>
           <DeleteSessionButton sessionApi={sessionApi} />
         </>

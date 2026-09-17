@@ -181,9 +181,13 @@ describe('DeletedStep visual confirmation', () => {
 
     expect(screen.getByTestId('wipe-confirmation')).toBeInTheDocument();
     expect(screen.getByText(/borrado confirmado/i)).toBeInTheDocument();
-    expect(screen.getByText(/estado de sesión vacío/i)).toBeInTheDocument();
-    expect(screen.getByText(/preferencias locales borradas/i)).toBeInTheDocument();
-    expect(screen.getByText(/audio en curso cancelado/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/preferencias se borraron de este dispositivo/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/tu cuenta no se eliminó/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/estado de sesión vacío|clave de preferencias locales/i),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/día largo/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: /^revisión$/i }),
@@ -223,7 +227,7 @@ describe('App wipe flow leaves no check-in/script/diary on screen', () => {
         name: /permito usar mis respuestas de esta sesión únicamente/i,
       }),
     );
-    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
     fireEvent.click(screen.getByLabelText(/ahora, en este momento/i));
     fireEvent.click(screen.getByLabelText(/^acelerado$/i));

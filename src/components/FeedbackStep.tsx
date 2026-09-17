@@ -14,8 +14,8 @@ export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
   return (
     <StepLayout
-      title="Cierre de sesión"
-      lead="Tu opinión ayuda a mejorar. No hay cobro real en esta fase."
+      title="¿Cómo te sentís ahora?"
+      lead="Si querés, contanos cómo fue tu pausa."
       actions={
         <>
           <button
@@ -76,42 +76,36 @@ export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
         </div>
       </div>
 
-      <fieldset className="field">
-        <legend>¿Cuál opción elegirías? (hipótesis, sin cobro)</legend>
-        <div className="price-options">
-          {(Object.keys(PRICE_OPTIONS) as PriceOption[]).map((key) => {
-            const opt = PRICE_OPTIONS[key];
-            return (
-              <label
-                key={key}
-                className={`price-option${selectedPrice === key ? ' selected' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="price"
-                  checked={selectedPrice === key}
-                  onChange={() => sessionApi.setSelectedPrice(key)}
-                />
-                <span className="price-option-body">
-                  <span className="price-amount">{opt.amount}</span>
-                  <span className="price-label"> — {opt.label}</span>
-                  <span className="field-hint">{opt.description}</span>
-                </span>
-              </label>
-            );
-          })}
-        </div>
-        <p className="field-hint">
-          Son hipótesis de precio. No se cobra ni se promete acceso hasta autorización
-          explícita.
-        </p>
-      </fieldset>
-
-      <p className="field-hint">
-        Las fuentes que podés agregar (perfil, calendario, diario, redes) se encuentran
-        en el paso "Contexto adicional". Las conexiones en línea equivalentes siguen
-        desactivadas hasta que exista una configuración real.
-      </p>
+      <details className="collapsible-details">
+        <summary>Ayudanos a pensar futuras opciones</summary>
+        <fieldset className="field">
+          <legend>¿Cuál opción elegirías?</legend>
+          <p className="field-hint">Es una encuesta opcional. No se cobra nada.</p>
+          <div className="price-options">
+            {(Object.keys(PRICE_OPTIONS) as PriceOption[]).map((key) => {
+              const opt = PRICE_OPTIONS[key];
+              return (
+                <label
+                  key={key}
+                  className={`price-option${selectedPrice === key ? ' selected' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="price"
+                    checked={selectedPrice === key}
+                    onChange={() => sessionApi.setSelectedPrice(key)}
+                  />
+                  <span className="price-option-body">
+                    <span className="price-amount">{opt.amount}</span>
+                    <span className="price-label"> — {opt.label}</span>
+                    <span className="field-hint">{opt.description}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      </details>
     </StepLayout>
   );
 }

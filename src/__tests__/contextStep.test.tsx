@@ -18,38 +18,39 @@ function makeSessionApi(): SessionApi {
 }
 
 describe('ContextStep', () => {
-  it('keeps the diary visible and collapses JSON/CSV/social extras', () => {
+  it('keeps the diary visible and extra notes/files optional without inactive connections', () => {
     render(<ContextStep sessionApi={makeSessionApi()} />);
 
+    expect(screen.getByLabelText(/tu nota de hoy/i)).toBeInTheDocument();
     expect(
-      screen.getByLabelText(/contenido de diario manual — hoy/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /agregar otra fuente manual/i }),
-    ).toBeInTheDocument();
-
-    const details = screen.getByText(/agregar contexto opcional/i).closest('details');
+      screen.getByRole('checkbox', { name: /usar la nota de hoy/i }),
+    ).not.toBeChecked();
+    expect(screen.queryByText(/\d{4}-\d{2}-\d{2}/)).not.toBeInTheDocument();
+    const details = screen.getByText(/agregar otra nota o archivo/i).closest('details');
     expect(details).toBeTruthy();
     expect(details).not.toHaveAttribute('open');
-    expect(screen.getByLabelText(/fuentes que podés agregar/i)).toBeInTheDocument();
     expect(
-      screen.getByLabelText(/importar archivo local \(texto o json\)/i),
-    ).toBeInTheDocument();
+      screen.queryByLabelText(/fuentes que podés agregar/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/caracteres|no se simulan|OAuth|desactivada/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/elegir un archivo/i)).toBeInTheDocument();
   });
 
-  it('still exposes import and future sources after opening the optional block', () => {
-    render(<ContextStep sessionApi={makeSessionApi()} />);
-    const details = screen.getByText(/agregar contexto opcional/i).closest('details');
+  it('can add a note or choose files after opening the optional block', () => {
+    const sessionApi = makeSessionApi();
+    render(<ContextStep sessionApi={sessionApi} />);
+    const details = screen.getByText(/agregar otra nota o archivo/i).closest('details');
     expect(details).toBeTruthy();
-    fireEvent.click(screen.getByText(/agregar contexto opcional/i));
+    fireEvent.click(screen.getByText(/agregar otra nota o archivo/i));
     expect(details).toHaveAttribute('open');
-    expect(
-      screen.getByRole('button', {
-        name: /conectar google calendar.*desactivada/i,
-      }),
-    ).toBeDisabled();
-    expect(
-      screen.getByLabelText(/importar uno o más archivos locales para calendario/i),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^agregar otra nota$/i }));
+    expect(sessionApi.updateContextSources).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'Otra nota', content: '' }),
+      ]),
+    );
+    expect(screen.getByLabelText(/elegir un archivo/i)).toHaveAttribute('type', 'file');
   });
 });

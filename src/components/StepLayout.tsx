@@ -54,9 +54,8 @@ export function DeleteSessionButton({ sessionApi }: { sessionApi: SessionApi }) 
       >
         <p id="delete-confirm-title">¿Borrar todos los datos de esta sesión?</p>
         <p id="delete-confirm-desc" className="delete-confirm-desc">
-          Se vaciará el check-in, el diario y el guion, se borrarán las preferencias
-          locales y se detendrá cualquier audio en curso. Vas a ver una confirmación
-          explícita del borrado.
+          Se borrarán tus respuestas, el diario, el guion y las preferencias de este
+          dispositivo. El audio se detendrá. Tu cuenta no se elimina.
         </p>
         <div className="step-actions-row">
           <button

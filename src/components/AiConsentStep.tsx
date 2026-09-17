@@ -1,21 +1,18 @@
-import { useState } from 'react';
 import {
   buildAiTransmissionData,
   payloadToPreviewEntries,
-  serializeExactTechnicalJson,
 } from '../lib/aiTransmissionPayload';
 import type { SessionApi } from '../hooks/useSession';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 
 const SECTION_LABELS = {
-  operational: 'Configuración operativa',
-  personal: 'Contexto personal',
-  context: 'Fuentes de contexto seleccionadas',
+  operational: 'Tu práctica',
+  personal: 'Sobre vos',
+  context: 'Contexto que elegiste',
 } as const;
 
 export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { checkIn, summaryExcluded, contextSources, consent } = sessionApi.session;
-  const [showTechnicalJson, setShowTechnicalJson] = useState(false);
   const payload = buildAiTransmissionData(checkIn, summaryExcluded, contextSources);
   const previewEntries = payloadToPreviewEntries(payload);
   const grouped = {
@@ -23,12 +20,11 @@ export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
     personal: previewEntries.filter((entry) => entry.section === 'personal'),
     context: previewEntries.filter((entry) => entry.section === 'context'),
   };
-  const exactJson = serializeExactTechnicalJson(payload);
 
   return (
     <StepLayout
-      title="Consentimiento para transmitir a IA"
-      lead="Antes de enviar datos al servidor local de IA, revisá exactamente qué campos se transmitirán. Nunca se envía el diario completo ni campos excluidos. Los consentimientos no se incluyen en el cuerpo transmitido."
+      title="Antes de compartir tus datos"
+      lead="Para crear tu meditación con inteligencia artificial, enviaremos sólo los datos que ves abajo al servicio de IA. Podés volver para cambiar esta selección."
       actions={
         <>
           <button
@@ -40,11 +36,11 @@ export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             }
             onClick={() => sessionApi.confirmAiGenerate()}
           >
-            Transmitir y generar con IA
+            Crear mi meditación con IA
           </button>
           {!consent.aiTransmission && (
             <p id="ai-consent-continue-hint" className="field-hint">
-              Marcá el permiso de transmisión para continuar.
+              Necesitamos tu permiso para compartir estos datos.
             </p>
           )}
           <button
@@ -58,10 +54,14 @@ export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
         </>
       }
     >
-      <div className="ai-fields-preview" role="region" aria-label="Campos a transmitir">
-        <h3>Datos exactos a transmitir</h3>
+      <div
+        className="ai-fields-preview"
+        role="region"
+        aria-label="Datos que se compartirán"
+      >
+        <h3>Esto es lo que se compartirá</h3>
         {previewEntries.length === 0 ? (
-          <p className="field-hint">No hay campos seleccionados para transmitir.</p>
+          <p className="field-hint">No elegiste datos para compartir.</p>
         ) : (
           (['operational', 'personal', 'context'] as const).map((section) => {
             const entries = grouped[section];
@@ -83,17 +83,6 @@ export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
         )}
       </div>
 
-      <details
-        className="technical-json-details"
-        open={showTechnicalJson}
-        onToggle={(event) => setShowTechnicalJson(event.currentTarget.open)}
-      >
-        <summary>Ver datos técnicos exactos</summary>
-        <pre className="technical-json" aria-label="JSON exacto transmitido">
-          {exactJson}
-        </pre>
-      </details>
-
       <div className="field">
         <label className="checkbox-option" htmlFor="consent-ai">
           <input
@@ -106,19 +95,18 @@ export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             aria-describedby="consent-ai-hint"
           />
           <span>
-            Permito transmitir únicamente los campos listados arriba al servidor local
-            de IA para generar el guion.{' '}
+            Autorizo enviar sólo los datos mostrados arriba al servicio de inteligencia
+            artificial para crear mi meditación.{' '}
             <span id="consent-ai-hint" className="field-hint">
-              Consentimiento independiente del procesamiento de sesión. La clave API
-              nunca sale del servidor.
+              Este permiso es opcional y vale sólo para esta sesión.
             </span>
           </span>
         </label>
       </div>
 
       <p className="field-hint">
-        Si el servidor de IA no responde o la respuesta no cumple los límites de
-        calidad, se usará automáticamente el motor local por reglas.
+        Si la inteligencia artificial no está disponible, prepararemos la meditación en
+        tu dispositivo.
       </p>
     </StepLayout>
   );

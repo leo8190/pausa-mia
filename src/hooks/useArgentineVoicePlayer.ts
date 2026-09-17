@@ -194,10 +194,8 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     const audio = new Audio();
     configureAudioElementForCompatibility(audio);
     audio.controls = true;
-    audio.setAttribute(
-      'aria-label',
-      'Reproductor nativo del audio WAV de este segmento',
-    );
+    audio.setAttribute('controlslist', 'nodownload noplaybackrate');
+    audio.setAttribute('aria-label', 'Audio de tu meditación');
     audioRef.current = audio;
     return audio;
   }, []);

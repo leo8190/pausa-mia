@@ -144,6 +144,77 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     await waitFor(() => expect(playSpy).toHaveBeenCalled());
   });
 
+  it.each(['es-AR', 'es-neutro'] as const)(
+    'keeps playback free of fragment counts and audio-file actions (%s)',
+    async (variant) => {
+      mockDeviceVoiceAvailable();
+      vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
+      const { container } = render(
+        <PlaybackStep sessionApi={makeSessionApi(variant)} />,
+      );
+      if (variant === 'es-AR') await prepareLocalAudio();
+      expect(
+        screen.queryByRole('button', { name: /^reiniciar$/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /terminar mi pausa/i }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /^reproducir$/i }));
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /^pausar$/i })).toBeInTheDocument(),
+      );
+      expect(container.textContent).not.toMatch(
+        /\d+ de \d+|descargar|segmento actual|guardar este audio|abrir audio/i,
+      );
+      expect(container.querySelector('a[download]')).toBeNull();
+      expect(screen.getByRole('button', { name: /^detener$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^reiniciar$/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /terminar mi pausa/i }),
+      ).toBeInTheDocument();
+      const script = screen.getByText('Cerrá los ojos y respirá.');
+      expect(script).not.toBeVisible();
+      fireEvent.click(screen.getByText('Leer la meditación'));
+      expect(script).toBeVisible();
+    },
+  );
+
+  it.each(['es-AR', 'es-neutro'] as const)(
+    'allows editing the practice before starting playback (%s)',
+    (variant) => {
+      mockDeviceVoiceAvailable();
+      const sessionApi = makeSessionApi(variant);
+      render(<PlaybackStep sessionApi={sessionApi} />);
+      fireEvent.click(screen.getByRole('button', { name: /editar mi pausa/i }));
+      expect(sessionApi.setStep).toHaveBeenCalledWith('checkin');
+    },
+  );
+
+  it('keeps the iPhone audio control usable without downloads or duplicate play buttons', async () => {
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
+    window.HTMLMediaElement.prototype.play = vi
+      .fn()
+      .mockRejectedValueOnce(new DOMException('Denied', 'NotAllowedError'))
+      .mockResolvedValue(undefined);
+    const { container } = render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
+    await prepareLocalAudio();
+    fireEvent.click(screen.getByRole('button', { name: /^reproducir$/i }));
+    await waitFor(() => expect(container.querySelector('audio')).toBeInTheDocument());
+    expect(container.querySelector('audio')).toHaveAttribute(
+      'controlslist',
+      'nodownload noplaybackrate',
+    );
+    expect(container.querySelector('audio')).toHaveAccessibleName(
+      'Audio de tu meditación',
+    );
+    expect(container.querySelector('a[download]')).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^reproducir$/i })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: /^reproducir$/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^pausar$/i })).toBeInTheDocument(),
+    );
+  });
+
   it('shows a simple error and requires an explicit choice before changing the voice', async () => {
     mockDeviceVoiceAvailable();
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
@@ -363,13 +434,11 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     await waitFor(() =>
       expect(screen.getByText(/tocá reproducir para empezar/i)).toBeInTheDocument(),
     );
-    expect(
-      screen.getByRole('button', { name: /^reproducir audio$/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeInTheDocument();
     expect(document.querySelector('audio[controls]')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /guardar este audio/i })).toHaveAttribute(
-      'href',
-      'blob:mock-url',
-    );
+    expect(
+      screen.queryByRole('link', { name: /guardar este audio/i }),
+    ).not.toBeInTheDocument();
+    expect(document.querySelector('a[download]')).toBeNull();
   });
 });

@@ -47,14 +47,16 @@ describe('App flow', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: /meditación a medida/i }),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(screen.queryByText(/paso \d+ de \d+/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
-    expect(screen.getByText(/consentimiento de sesión/i)).toBeInTheDocument();
+    expect(screen.getByText(/tu privacidad/i)).toBeInTheDocument();
   });
 
   it('requires session processing consent before continuing', async () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
-    const continueBtn = screen.getByRole('button', { name: /continuar al check-in/i });
+    const continueBtn = screen.getByRole('button', { name: /^continuar$/i });
     expect(continueBtn).toBeDisabled();
     acceptSessionConsent();
     expect(continueBtn).not.toBeDisabled();
@@ -64,12 +66,12 @@ describe('App flow', () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
     acceptSessionConsent();
-    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
     fillMinimalCheckIn();
 
     const contextBtn = screen.getByRole('button', {
-      name: /personalizar contexto y resumen/i,
+      name: /personalizar un poco más/i,
     });
     expect(contextBtn).not.toBeDisabled();
     fireEvent.click(contextBtn);
@@ -80,7 +82,7 @@ describe('App flow', () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
     acceptSessionConsent();
-    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
     fillMinimalCheckIn();
 
@@ -100,7 +102,7 @@ describe('App flow', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText(/paso 1 de 8/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole('region', { name: /guion en reproducción/i }),
+      screen.getByRole('region', { name: /guion en reproducción/i, hidden: true }),
     ).toBeInTheDocument();
   });
 
@@ -137,7 +139,7 @@ describe('App flow', () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
     acceptSessionConsent();
-    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
     fillMinimalCheckIn();
     fireEvent.click(screen.getByLabelText(/^Español argentino$/i));
     fireEvent.click(screen.getByRole('button', { name: /empezar ahora/i }));
@@ -162,7 +164,7 @@ describe('App flow', () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
     acceptSessionConsent();
-    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
     fillMinimalCheckIn();
 
     const startBtn = screen.getByRole('button', { name: /empezar ahora/i });
@@ -184,7 +186,7 @@ describe('App flow', () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
     acceptSessionConsent();
-    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
     fireEvent.click(screen.getByLabelText(/ahora, en este momento/i));
     fireEvent.click(screen.getByLabelText(/^sensible$/i));
@@ -210,7 +212,7 @@ describe('App flow', () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
     acceptSessionConsent();
-    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
     fireEvent.click(screen.getByLabelText(/ahora, en este momento/i));
     fireEvent.click(screen.getByLabelText(/^sensible$/i));
@@ -221,9 +223,7 @@ describe('App flow', () => {
     const textarea = screen.getByLabelText(/situación reciente/i);
     fireEvent.change(textarea, { target: { value: 'quiero suicidarme' } });
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /personalizar contexto y resumen/i }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /personalizar un poco más/i }));
     fireEvent.click(screen.getByRole('button', { name: /continuar al resumen/i }));
     fireEvent.click(screen.getByRole('button', { name: /generar guion/i }));
 
@@ -241,7 +241,7 @@ describe('App flow', () => {
     await renderApp();
     fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
     acceptSessionConsent();
-    fireEvent.click(screen.getByRole('button', { name: /continuar al check-in/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
     const argentineOption = screen.getByLabelText(/español argentino/i);
     const neutralOption = screen.getByLabelText(/español neutro/i);

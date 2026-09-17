@@ -41,7 +41,7 @@ const PROVIDER_COPY: Record<SupportedProvider, ConsentProfile> = {
 };
 
 function toFriendlyProviderState(status: ProviderStatus): string {
-  if (!status.configured) return 'No configurado';
+  if (!status.configured) return 'No disponible';
   if (status.state === 'connected') return 'Conectada';
   return 'Desconectada';
 }
@@ -99,7 +99,8 @@ export function AccountPanel({ locale }: { locale: string }) {
     () =>
       providerStatuses.filter(
         (entry): entry is ProviderStatus =>
-          entry.provider === 'google_calendar' || entry.provider === 'google_drive',
+          (entry.provider === 'google_calendar' || entry.provider === 'google_drive') &&
+          (entry.configured || entry.state === 'connected'),
       ),
     [providerStatuses],
   );
@@ -146,7 +147,7 @@ export function AccountPanel({ locale }: { locale: string }) {
       .catch(() => {
         if (!cancelled) {
           setConnectorError(
-            'No pudimos cargar el estado de conectores. Podés seguir como invitado sin conectar nada.',
+            'No pudimos ver tus conexiones. Podés meditar sin conectarlas.',
           );
         }
       });
@@ -215,17 +216,13 @@ export function AccountPanel({ locale }: { locale: string }) {
       if (code === 'UNAUTHORIZED') {
         setConnectorError('Tu sesión venció. Iniciá sesión de nuevo para conectar.');
       } else if (code === 'CONSENT_REQUIRED') {
-        setConnectorError(
-          'Hace falta un consentimiento activo con permisos antes de iniciar Google.',
-        );
+        setConnectorError('Necesitamos tu permiso antes de conectar Google.');
       } else if (code === 'CONNECTOR_NOT_CONFIGURED') {
         setConnectorError(
-          `${providerName} no está configurado todavía en producción. Tu cuenta sigue funcionando sin conectarlo.`,
+          `${providerName} no está disponible por ahora. Podés usar tu cuenta sin conectarlo.`,
         );
       } else if (code === 'OAUTH_START_MISSING_URL') {
-        setConnectorError(
-          `No recibimos la URL de autorización de ${providerName}. Probá de nuevo.`,
-        );
+        setConnectorError(`No pudimos abrir ${providerName}. Probá de nuevo.`);
       } else {
         setConnectorError(
           `No pudimos iniciar la conexión con ${providerName}. Probá de nuevo.`,
@@ -300,94 +297,99 @@ export function AccountPanel({ locale }: { locale: string }) {
               Tu identificador es <strong>{account.user.id}</strong>. Lo vas a necesitar
               para volver a iniciar sesión.
             </p>
-            <section
-              className="account-connectors"
-              aria-label="Conectar Google Calendar y Google Drive"
-            >
-              <h4>Conectar Google (opcional)</h4>
-              <p className="account-hint">
-                Modo invitado sigue disponible. Conectar es opcional y sólo ocurre
-                después de mostrar propósito y permisos.
-              </p>
-              {visibleProviders.map((entry) => {
-                const copy = PROVIDER_COPY[entry.provider];
-                const statusLabel = toFriendlyProviderState(entry);
-                const isBusy = connectorBusy === entry.provider;
-                return (
-                  <article className="account-connector-card" key={entry.provider}>
-                    <div className="account-connector-head">
-                      <strong>{copy.title}</strong>
-                      <span
-                        className={`account-connector-state${entry.configured ? '' : ' is-warning'}`}
-                      >
-                        {statusLabel}
-                      </span>
-                    </div>
-                    <p className="account-hint">{copy.purpose}</p>
-                    <p className="account-hint">
-                      Permiso solicitado: solo lectura de{' '}
-                      {entry.provider === 'google_calendar'
-                        ? 'tu calendario'
-                        : 'los archivos que elijas'}
-                      .
-                    </p>
-                    <label
-                      className="checkbox-option"
-                      htmlFor={`consent-${entry.provider}`}
-                    >
-                      <input
-                        id={`consent-${entry.provider}`}
-                        type="checkbox"
-                        checked={consentChecks[entry.provider]}
-                        onChange={(event) =>
-                          setConsentChecks((prev) => ({
-                            ...prev,
-                            [entry.provider]: event.target.checked,
-                          }))
-                        }
-                        disabled={!entry.configured || isBusy}
-                      />
-                      <span>
-                        Entiendo el propósito y autorizo iniciar Google para este
-                        conector.
-                      </span>
-                    </label>
-                    <div className="account-actions">
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-small"
-                        disabled={
-                          !entry.configured || isBusy || entry.state === 'connected'
-                        }
-                        onClick={() => void handleConnect(entry.provider)}
-                      >
-                        {isBusy ? 'Conectando…' : `Conectar ${copy.title}`}
-                      </button>
-                      {entry.state === 'connected' && (
-                        <button
-                          type="button"
-                          className="btn btn-danger btn-small"
-                          disabled={isBusy}
-                          onClick={() => void handleRevoke(entry.provider)}
+            {(visibleProviders.length > 0 || connectorError || connectorMessage) && (
+              <section
+                className="account-connectors"
+                aria-label="Conectar Google Calendar y Google Drive"
+              >
+                <h4>Conectar Google (opcional)</h4>
+                {visibleProviders.map((entry) => {
+                  const copy = PROVIDER_COPY[entry.provider];
+                  const statusLabel = toFriendlyProviderState(entry);
+                  const isBusy = connectorBusy === entry.provider;
+                  return (
+                    <article className="account-connector-card" key={entry.provider}>
+                      <div className="account-connector-head">
+                        <strong>{copy.title}</strong>
+                        <span
+                          className={`account-connector-state${entry.configured ? '' : ' is-warning'}`}
                         >
-                          {isBusy ? 'Desconectando…' : `Desconectar ${copy.title}`}
-                        </button>
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <p className="account-hint">{copy.purpose}</p>
+                      {entry.state !== 'connected' && (
+                        <>
+                          <p className="account-hint">
+                            Permiso solicitado: solo lectura de{' '}
+                            {entry.provider === 'google_calendar'
+                              ? 'tu calendario'
+                              : 'tus archivos de Google Drive'}
+                            .
+                          </p>
+                          <label
+                            className="checkbox-option"
+                            htmlFor={`consent-${entry.provider}`}
+                          >
+                            <input
+                              id={`consent-${entry.provider}`}
+                              type="checkbox"
+                              checked={consentChecks[entry.provider]}
+                              onChange={(event) =>
+                                setConsentChecks((prev) => ({
+                                  ...prev,
+                                  [entry.provider]: event.target.checked,
+                                }))
+                              }
+                              disabled={!entry.configured || isBusy}
+                            />
+                            <span>
+                              Autorizo conectar {copy.title} para este propósito.
+                            </span>
+                          </label>
+                        </>
                       )}
-                    </div>
-                  </article>
-                );
-              })}
-              {connectorError && (
-                <p className="account-error" role="alert">
-                  {connectorError}
-                </p>
-              )}
-              {connectorMessage && (
-                <p className="account-success" role="status">
-                  {connectorMessage}
-                </p>
-              )}
-            </section>
+                      <div className="account-actions">
+                        {entry.state !== 'connected' && (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-small"
+                            disabled={
+                              !entry.configured ||
+                              isBusy ||
+                              !consentChecks[entry.provider]
+                            }
+                            onClick={() => void handleConnect(entry.provider)}
+                          >
+                            {isBusy ? 'Conectando…' : `Conectar ${copy.title}`}
+                          </button>
+                        )}
+                        {entry.state === 'connected' && (
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-small"
+                            disabled={isBusy}
+                            onClick={() => void handleRevoke(entry.provider)}
+                          >
+                            {isBusy ? 'Desconectando…' : `Desconectar ${copy.title}`}
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+                {connectorError && (
+                  <p className="account-error" role="alert">
+                    {connectorError}
+                  </p>
+                )}
+                {connectorMessage && (
+                  <p className="account-success" role="status">
+                    {connectorMessage}
+                  </p>
+                )}
+              </section>
+            )}
             <div className="account-actions">
               <button
                 type="button"
@@ -409,95 +411,94 @@ export function AccountPanel({ locale }: { locale: string }) {
           </div>
         ) : (
           <>
-            <p className="account-hint">
-              Una cuenta permite conservar preferencias y, más adelante, conectar
-              fuentes con tu permiso. Nunca es necesaria para probar la meditación.
-            </p>
             {!account.backendAvailable && (
               <p className="account-unavailable" role="status">
-                Las cuentas todavía no están habilitadas en esta dirección. Podés
-                continuar como invitado.
+                Las cuentas no están disponibles ahora. Podés continuar como invitado.
               </p>
             )}
-            <div
-              className="account-mode-toggle"
-              role="tablist"
-              aria-label="Acceso a la cuenta"
-            >
-              <button
-                type="button"
-                className={mode === 'register' ? 'is-active' : ''}
-                onClick={() => {
-                  setMode('register');
-                  setMessage(null);
-                }}
-              >
-                Crear cuenta
-              </button>
-              <button
-                type="button"
-                className={mode === 'login' ? 'is-active' : ''}
-                onClick={() => {
-                  setMode('login');
-                  setMessage(null);
-                }}
-              >
-                Ya tengo una
-              </button>
-            </div>
-            <form
-              className="account-form"
-              onSubmit={(event) => void handleSubmit(event)}
-            >
-              {mode === 'register' ? (
-                <label>
-                  Apodo <span>(opcional)</span>
-                  <input
-                    value={displayName}
-                    onChange={(event) => setDisplayName(event.target.value)}
-                    maxLength={80}
-                    autoComplete="nickname"
+            {account.backendAvailable && (
+              <>
+                <div
+                  className="account-mode-toggle"
+                  role="tablist"
+                  aria-label="Acceso a la cuenta"
+                >
+                  <button
+                    type="button"
+                    className={mode === 'register' ? 'is-active' : ''}
+                    onClick={() => {
+                      setMode('register');
+                      setMessage(null);
+                    }}
+                  >
+                    Crear cuenta
+                  </button>
+                  <button
+                    type="button"
+                    className={mode === 'login' ? 'is-active' : ''}
+                    onClick={() => {
+                      setMode('login');
+                      setMessage(null);
+                    }}
+                  >
+                    Ya tengo una
+                  </button>
+                </div>
+                <form
+                  className="account-form"
+                  onSubmit={(event) => void handleSubmit(event)}
+                >
+                  {mode === 'register' ? (
+                    <label>
+                      Apodo <span>(opcional)</span>
+                      <input
+                        value={displayName}
+                        onChange={(event) => setDisplayName(event.target.value)}
+                        maxLength={80}
+                        autoComplete="nickname"
+                        disabled={!account.backendAvailable || busy}
+                      />
+                    </label>
+                  ) : (
+                    <label>
+                      Identificador de cuenta
+                      <input
+                        value={userId}
+                        onChange={(event) => setUserId(event.target.value)}
+                        required
+                        autoComplete="username"
+                        disabled={!account.backendAvailable || busy}
+                      />
+                    </label>
+                  )}
+                  <label>
+                    Clave de acceso
+                    <input
+                      type="password"
+                      value={loginSecret}
+                      onChange={(event) => setLoginSecret(event.target.value)}
+                      minLength={8}
+                      required
+                      autoComplete={
+                        mode === 'register' ? 'new-password' : 'current-password'
+                      }
+                      disabled={!account.backendAvailable || busy}
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    className="btn btn-secondary btn-small"
                     disabled={!account.backendAvailable || busy}
-                  />
-                </label>
-              ) : (
-                <label>
-                  Identificador de cuenta
-                  <input
-                    value={userId}
-                    onChange={(event) => setUserId(event.target.value)}
-                    required
-                    autoComplete="username"
-                    disabled={!account.backendAvailable || busy}
-                  />
-                </label>
-              )}
-              <label>
-                Clave de acceso
-                <input
-                  type="password"
-                  value={loginSecret}
-                  onChange={(event) => setLoginSecret(event.target.value)}
-                  minLength={8}
-                  required
-                  autoComplete={
-                    mode === 'register' ? 'new-password' : 'current-password'
-                  }
-                  disabled={!account.backendAvailable || busy}
-                />
-              </label>
-              <button
-                type="submit"
-                className="btn btn-secondary btn-small"
-                disabled={!account.backendAvailable || busy}
-              >
-                {busy
-                  ? 'Procesando…'
-                  : mode === 'register'
-                    ? 'Crear cuenta'
-                    : 'Iniciar sesión'}
-              </button>
-            </form>
+                  >
+                    {busy
+                      ? 'Procesando…'
+                      : mode === 'register'
+                        ? 'Crear cuenta'
+                        : 'Iniciar sesión'}
+                  </button>
+                </form>
+              </>
+            )}
             {account.error && (
               <p className="account-error" role="alert">
                 {account.error}

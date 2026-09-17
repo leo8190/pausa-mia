@@ -18,8 +18,8 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
 
   return (
     <StepLayout
-      title="Check-in breve"
-      lead="Cada dato se usa solo para personalizar tu pausa. Podés omitir lo que no quieras compartir."
+      title="Tu pausa de hoy"
+      lead="Elegí cómo querés que te acompañemos. Los detalles personales son opcionales."
       actions={
         <>
           <form
@@ -36,20 +36,15 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
               aria-describedby={
                 conflicts.length
                   ? 'practice-conflicts'
-                  : sessionApi.isCheckInComplete
-                    ? 'start-now-hint'
-                    : 'checkin-incomplete-hint'
+                  : !sessionApi.isCheckInComplete
+                    ? 'checkin-incomplete-hint'
+                    : undefined
               }
             >
               Empezar ahora
             </button>
           </form>
-          {sessionApi.isCheckInComplete ? (
-            <p id="start-now-hint" className="field-hint">
-              Empezás con la duración y la voz que elegiste. Podés leer el guion en
-              reproducción.
-            </p>
-          ) : (
+          {!sessionApi.isCheckInComplete && (
             <p id="checkin-incomplete-hint" className="field-hint">
               Completá momento, estado, intención, experiencia y estilo para seguir.
             </p>
@@ -61,7 +56,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
             aria-describedby={conflicts.length ? 'practice-conflicts' : undefined}
             onClick={() => sessionApi.setStep('context')}
           >
-            Personalizar contexto y resumen
+            Personalizar un poco más
           </button>
           <button
             type="button"
@@ -85,9 +80,6 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           maxLength={50}
           placeholder="Cómo querés que te nombremos en el guion"
         />
-        <p className="field-hint">
-          Se usa para personalizar la bienvenida, si lo compartís.
-        </p>
       </div>
 
       <fieldset className="field">
@@ -127,14 +119,10 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           maxLength={600}
           placeholder="Algo que pasó hoy o esta semana, sin necesidad de detalles íntimos"
         />
-        <p className="field-hint">
-          Se usa una referencia breve y segura en el guion, sin leer el texto
-          literalmente entre comillas. Máximo 600 caracteres.
-        </p>
       </div>
 
       <fieldset className="field">
-        <legend>Estado percibido</legend>
+        <legend>¿Cómo te sentís?</legend>
         <div className="radio-group">
           {(
             [
@@ -180,9 +168,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
 
       <fieldset className="field">
         <legend>Intención de esta pausa</legend>
-        <p className="field-hint">
-          Qué querés acompañar hoy. No es la técnica que vamos a usar.
-        </p>
+        <p className="field-hint">Qué necesitás en este momento.</p>
         <div className="radio-group">
           {(
             [
@@ -236,8 +222,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
       <fieldset className="field">
         <legend>Estilo de práctica</legend>
         <p className="field-hint">
-          Cómo te vamos a guiar. Por ejemplo, recorrer el cuerpo puede ayudarte tanto a
-          descansar como a reunir la atención.
+          Cómo preferís meditar para acompañar esa intención.
         </p>
         <div className="radio-group">
           {(
@@ -279,10 +264,6 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           maxLength={200}
           placeholder="Palabras separadas por comas"
         />
-        <p className="field-hint">
-          Evitaremos esas referencias sin dejar frases incompletas. Si se cruzan con la
-          práctica elegida, te avisamos.
-        </p>
         {conflicts.length > 0 && (
           <div id="practice-conflicts" role="alert">
             {conflicts.map((conflict) => (
@@ -334,10 +315,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           ))}
         </div>
         <p className="field-hint">
-          Elegí el acento que preferís. Te guiaremos despacio, con pausas para
-          acompañarte. La voz neutra depende de las voces disponibles en tu dispositivo.
-          Si la voz argentina necesita internet, te pediremos permiso antes de enviar el
-          guion.
+          Te guiaremos despacio, con pausas para acompañarte.
         </p>
       </fieldset>
     </StepLayout>

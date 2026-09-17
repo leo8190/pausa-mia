@@ -25,7 +25,7 @@ export function SafetyStep({ sessionApi }: { sessionApi: SessionApi }) {
               sessionApi.setStep('checkin');
             }}
           >
-            Borrar texto y volver al check-in
+            Borrar texto y volver
           </button>
           <DeleteSessionButton sessionApi={sessionApi} />
         </>

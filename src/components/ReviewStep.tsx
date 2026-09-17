@@ -1,19 +1,14 @@
-import { FIELD_LABELS } from '../types';
-import { DURATION_TOLERANCE_MINUTES } from '../lib/durationEstimator';
 import type { SessionApi } from '../hooks/useSession';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 
 export function ReviewStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { script, scriptFallbackUsed } = sessionApi.session;
   if (!script) return null;
-  const usedDetailLabels = script.usedDetails
-    .map((detail) => FIELD_LABELS[detail])
-    .filter(Boolean);
 
   return (
     <StepLayout
-      title="Revisión del guion"
-      lead="Leé el texto completo antes de reproducirlo."
+      title="Tu meditación"
+      lead="Podés leerla antes de escucharla."
       actions={
         <>
           <button
@@ -37,19 +32,12 @@ export function ReviewStep({ sessionApi }: { sessionApi: SessionApi }) {
       <div className="script-meta">
         <h3 className="script-title">{script.title}</h3>
         <p className="field-hint">
-          Intención: {script.intentionLabel} · Objetivo: {script.targetDuration} min ·
-          Estimada: {script.estimatedMinutes} min (±{DURATION_TOLERANCE_MINUTES})
+          Duración aproximada: {script.estimatedMinutes} minutos
         </p>
-        <p className="engine-badge" role="status">
-          {scriptFallbackUsed
-            ? 'Preparamos tu guion en este dispositivo porque no pudimos usar la inteligencia artificial.'
-            : script.engine === 'ai'
-              ? 'Guion preparado con ayuda de inteligencia artificial.'
-              : 'Guion preparado para vos.'}
-        </p>
-        {usedDetailLabels.length > 0 && (
-          <p className="field-hint">
-            Personalizado con: {usedDetailLabels.join(', ')}.
+        {scriptFallbackUsed && (
+          <p className="field-hint" role="status">
+            No pudimos usar la inteligencia artificial. Preparamos esta meditación con
+            tus respuestas en este dispositivo.
           </p>
         )}
       </div>
