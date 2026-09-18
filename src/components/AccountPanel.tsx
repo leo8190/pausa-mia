@@ -125,10 +125,21 @@ export function AccountPanel({ locale }: { locale: string }) {
   }
 
   async function handleDelete() {
-    if (!window.confirm('¿Querés eliminar tu cuenta y todo el contexto guardado?'))
+    if (
+      !window.confirm('¿Querés eliminar tu cuenta y los datos que guardaste en ella?')
+    )
       return;
     setBusy(true);
-    await account.deleteAccount();
+    setMessage(null);
+    const deleted = await account.deleteAccount();
+    if (deleted) {
+      setDisplayName('');
+      setUserId('');
+      setLoginSecret('');
+      setMessage(
+        'Tu cuenta y su contexto guardado se eliminaron de Pausa Mía. Esto no borra los datos que guardaste en este dispositivo.',
+      );
+    }
     setBusy(false);
   }
 
@@ -286,6 +297,24 @@ export function AccountPanel({ locale }: { locale: string }) {
       </summary>
 
       <div className="account-panel-content">
+        {account.deletionWarning && (
+          <p className="account-error" role="alert">
+            No pudimos confirmar que Google retiró los permisos. Tu cuenta de Pausa Mía
+            sí se eliminó. Revisá las conexiones de Google y quitá Pausa Mía si aparece.{' '}
+            <a
+              href="https://myaccount.google.com/connections"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Revisar permisos en Google
+            </a>
+          </p>
+        )}
+        {account.error && (
+          <p className="account-error" role="alert">
+            {account.error}
+          </p>
+        )}
         {account.user ? (
           <div className="account-user-state">
             <p className="account-user-line">
@@ -498,11 +527,6 @@ export function AccountPanel({ locale }: { locale: string }) {
                   </button>
                 </form>
               </>
-            )}
-            {account.error && (
-              <p className="account-error" role="alert">
-                {account.error}
-              </p>
             )}
             {message && (
               <p className="account-success" role="status">

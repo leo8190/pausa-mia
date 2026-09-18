@@ -289,9 +289,9 @@ export function createGoogleOAuthService(options = {}) {
     };
   }
 
-  async function revokeLinkedAccount(linkedAccount) {
+  async function revokeLinkedAccount(linkedAccount, { signal } = {}) {
     if (!linkedAccount?.tokenCiphertext) {
-      return { ok: true };
+      throw new Error('OAUTH_TOKEN_NOT_AVAILABLE');
     }
     const decrypted = decryptTokenPayload(linkedAccount.tokenCiphertext);
     const tokenToRevoke =
@@ -299,7 +299,7 @@ export function createGoogleOAuthService(options = {}) {
         ? decrypted.refreshToken
         : decrypted?.accessToken;
     if (!tokenToRevoke) {
-      return { ok: true };
+      throw new Error('OAUTH_TOKEN_NOT_AVAILABLE');
     }
 
     const body = new URLSearchParams();
@@ -308,6 +308,7 @@ export function createGoogleOAuthService(options = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
+      signal,
     });
     if (!response.ok) {
       throw new Error('OAUTH_TOKEN_REVOKE_FAILED');

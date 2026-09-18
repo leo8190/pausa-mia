@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -71,6 +71,48 @@ function options(method = 'GET', cookie = '') {
 }
 
 describe('account server endpoints', () => {
+  it.each([false, true])('deletes local account after attempting Google revocation (failure=%s)', async fails => {
+    const revoke = vi.fn();
+    const googleOAuthService = { isProviderConfigured: () => true, revokeLinkedAccount: revoke };
+    await withTestServerOptions({ googleOAuthService }, async ({ port, store }) => {
+      const register = await fetch(`http://127.0.0.1:${port}/api/account/register`, {
+        ...options('POST'), body: JSON.stringify({ displayName: 'Deletion test', locale: 'es-AR', loginSecret: 'synthetic-password' }),
+      });
+      const { user } = await register.json();
+      const cookie = register.headers.get('set-cookie');
+      const otherUser = store.createUser({ displayName: 'Otra cuenta', locale: 'es-AR' });
+      store.upsertLinkedAccount({ userId: otherUser.id, provider: 'google_drive', tokenCiphertext: 'other-synthetic-ciphertext' });
+      store.upsertLinkedAccount({ userId: user.id, provider: 'google_drive', tokenCiphertext: 'synthetic-ciphertext' });
+      revoke.mockImplementation(async linked => {
+        expect(linked.provider).toBe('google_drive');
+        expect(store.listLinkedAccountsByUser(user.id)).toHaveLength(1);
+        if (fails) throw new Error('synthetic-ciphertext');
+        return { ok: true };
+      });
+      const response = await fetch(`http://127.0.0.1:${port}/api/account`, options('DELETE', cookie));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ ok: true, googleRevocation: fails ? 'unconfirmed' : 'revoked' });
+      expect(revoke).toHaveBeenCalledTimes(1);
+      expect(store.listLinkedAccountsByUser(user.id)).toHaveLength(0);
+      expect(store.listLinkedAccountsByUser(otherUser.id)).toHaveLength(1);
+      expect(response.headers.get('set-cookie')).toMatch(/Max-Age=0/);
+      const status = await fetch(`http://127.0.0.1:${port}/api/account/status`, options('GET', cookie));
+      expect((await status.json()).authenticated).toBe(false);
+    });
+  });
+
+  it('cannot revoke or delete an account without authentication', async () => {
+    const revoke = vi.fn();
+    await withTestServerOptions({ googleOAuthService: { isProviderConfigured: () => true, revokeLinkedAccount: revoke } }, async ({ port, store }) => {
+      const user = store.createUser({ displayName: 'Preserved', locale: 'es-AR' });
+      store.upsertLinkedAccount({ userId: user.id, provider: 'google_drive', tokenCiphertext: 'synthetic-ciphertext' });
+      const response = await fetch(`http://127.0.0.1:${port}/api/account`, options('DELETE'));
+      expect(response.status).toBe(401);
+      expect(revoke).not.toHaveBeenCalled();
+      expect(store.listLinkedAccountsByUser(user.id)).toHaveLength(1);
+    });
+  });
+
   it('registra cuenta, setea cookie httpOnly y devuelve estado autenticado', async () => {
     await withTestServer(async ({ port }) => {
       const register = await fetch(`http://127.0.0.1:${port}/api/account/register`, {
@@ -415,6 +457,7 @@ describe('account server endpoints', () => {
         options('DELETE', cookie),
       );
       expect(del.status).toBe(200);
+      expect(await del.json()).toEqual({ ok: true, googleRevocation: 'not_linked' });
       expect(del.headers.get('set-cookie') ?? '').toMatch(/Max-Age=0/);
 
       const status = await fetch(`http://127.0.0.1:${port}/api/account/status`, {

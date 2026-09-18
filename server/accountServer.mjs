@@ -23,6 +23,7 @@ import {
   SUPPORTED_CONNECTOR_PROVIDERS,
 } from './connectors.mjs';
 import { createGoogleOAuthService } from './googleOAuth.mjs';
+import { revokeGoogleAccountsBeforeDeletion } from './accountDeletion.mjs';
 import {
   hashVisitorId,
   isValidProductEvent,
@@ -387,11 +388,21 @@ export function createAppHandler(options = {}) {
         return;
       }
 
+      const googleRevocation = await revokeGoogleAccountsBeforeDeletion(
+        store.listLinkedAccountsByUser(auth.user.id),
+        (linked, options) => googleOAuth.revokeLinkedAccount(linked, options),
+      );
+      // A provider failure must not retain the user's account or local secrets.
       store.deleteAccount(auth.user.id);
       const secureCookie =
         req.headers['x-forwarded-proto'] === 'https' ||
         requestUrl.protocol === 'https:';
-      sendJson(res, 200, { ok: true }, buildSessionCookieClear(secureCookie));
+      sendJson(
+        res,
+        200,
+        { ok: true, googleRevocation },
+        buildSessionCookieClear(secureCookie),
+      );
       return;
     }
 

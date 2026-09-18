@@ -7,6 +7,83 @@ function jsonResponse(body: unknown, ok = true) {
 }
 
 describe('AccountPanel', () => {
+  it.each(['revoked', 'not_linked', 'unconfirmed', undefined] as const)(
+    'reports deletion honestly when Google is %s',
+    async (googleRevocation) => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input);
+          if (url.endsWith('/api/account/status'))
+            return jsonResponse({
+              user: {
+                id: 'test-delete',
+                displayName: 'Prueba',
+                locale: 'es-AR',
+                status: 'active',
+              },
+            });
+          if (url.endsWith('/api/connectors/providers'))
+            return jsonResponse({ providers: [] });
+          expect(init?.method).toBe('DELETE');
+          return jsonResponse({ ok: true, googleRevocation });
+        }),
+      );
+      render(<AccountPanel locale="es-AR" />);
+      fireEvent.click(screen.getByText(/crear cuenta opcional/i));
+      fireEvent.click(await screen.findByRole('button', { name: /eliminar cuenta/i }));
+      expect(
+        await screen.findByText(/se eliminaron de Pausa Mía/i),
+      ).toBeInTheDocument();
+      if (googleRevocation === 'unconfirmed' || googleRevocation === undefined) {
+        expect(screen.getByRole('alert')).toHaveTextContent(
+          /no pudimos confirmar.*Google/i,
+        );
+        expect(
+          screen.getByRole('link', { name: /revisar permisos en Google/i }),
+        ).toHaveAttribute('href', 'https://myaccount.google.com/connections');
+      } else {
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      }
+      expect(
+        screen.queryByRole('button', { name: /eliminar cuenta/i }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it('keeps the account and shows an error when deletion itself fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/api/account/status'))
+          return jsonResponse({
+            user: {
+              id: 'test-delete',
+              displayName: 'Prueba',
+              locale: 'es-AR',
+              status: 'active',
+            },
+          });
+        if (url.endsWith('/api/connectors/providers'))
+          return jsonResponse({ providers: [] });
+        return jsonResponse({ error: 'INTERNAL_ERROR' }, false);
+      }),
+    );
+    render(<AccountPanel locale="es-AR" />);
+    fireEvent.click(screen.getByText(/crear cuenta opcional/i));
+    fireEvent.click(await screen.findByRole('button', { name: /eliminar cuenta/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /no pudimos completar la acción/i,
+    );
+    expect(
+      screen.getByRole('button', { name: /eliminar cuenta/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/se eliminaron de Pausa Mía/i)).not.toBeInTheDocument();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();

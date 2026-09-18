@@ -7,6 +7,30 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
+### Borrado de cuenta y permisos Google — 18/09/2026 (local, sin publicar)
+
+- Antes de borrar la cuenta y sus datos del servidor, se intenta revocar cada
+  vínculo de Google. La espera total está limitada a cinco segundos, en paralelo
+  y sin reintentos; se cancela la solicitud si vence el plazo. Después se elimina
+  la cuenta local aunque Google falle, sin conservar tokens para reintentos.
+- La respuesta distingue permiso revocado, ausencia de vínculo y revocación no
+  confirmada. Un token ausente o una respuesta ambigua no acreditan revocación.
+  Los errores del proveedor y los secretos no se devuelven al navegador.
+- Si la revocación no se confirma, la interfaz muestra un aviso y el enlace a las
+  conexiones de Google para retirar el permiso manualmente. También advierte
+  ante un servidor anterior que no informa el resultado. Un fallo del propio
+  borrado muestra error y no anuncia éxito ni oculta la cuenta.
+- El mensaje diferencia los datos de la cuenta de los guardados en el dispositivo.
+  No se implementó el borrado de analítica ni de copias de respaldo; tampoco se
+  declara resuelto el flujo independiente de desconexión (L04/L05).
+- Verificación: 378 pruebas en 43 archivos (16 nuevas), lint, formato, sintaxis
+  del servidor y compilación correctos. Cuatro regresiones de borrado/aviso
+  fallaban antes de implementar. Google está simulado: sin cuentas reales,
+  llamadas de revocación externas ni despliegue.
+- Esta rama conserva la mejora de arranque `eb578e5`. Requiere entrega coordinada
+  de interfaz y servidor; la versión anterior de la interfaz no muestra el nuevo
+  aviso. Las bases Android/iPhone no se modificaron.
+
 ### Arranque argentino sin trabajo descartado — 17/09/2026 (local, sin publicar)
 
 - «Preparar audio» y «Empezar ahora» preparan el primer segmento real en el

@@ -81,8 +81,17 @@ describe('googleOAuth service', () => {
     const state = new URL(started.authorizationUrl).searchParams.get('state');
     const linked = await oauth.exchangeCode({ code: 'code-xyz', state });
 
-    await oauth.revokeLinkedAccount({ tokenCiphertext: linked.tokenCiphertext });
+    const controller = new AbortController();
+    await oauth.revokeLinkedAccount({ tokenCiphertext: linked.tokenCiphertext }, { signal: controller.signal });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[1][0]).toContain('oauth2.googleapis.com/revoke');
+    expect(fetchMock.mock.calls[1][1].signal).toBe(controller.signal);
+  });
+
+  it('does not report remote revocation success when no token is available', async () => {
+    const fetchMock = vi.fn();
+    const oauth = createGoogleOAuthService({ config: oauthConfig, fetchImpl: fetchMock });
+    await expect(oauth.revokeLinkedAccount({ tokenCiphertext: null })).rejects.toThrow('OAUTH_TOKEN_NOT_AVAILABLE');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

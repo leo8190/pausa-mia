@@ -13,6 +13,7 @@ type AccountState = {
   phase: 'loading' | 'guest' | 'account' | 'unavailable';
   user: AccountUser | null;
   error: string | null;
+  deletionWarning?: boolean;
 };
 
 const GENERIC_ERROR = 'No pudimos completar la acción. Probá de nuevo.';
@@ -29,6 +30,7 @@ async function requestAccount(path: string, init: RequestInit = {}) {
   const body = (await response.json().catch(() => ({}))) as {
     error?: string;
     user?: AccountUser;
+    googleRevocation?: 'revoked' | 'not_linked' | 'unconfirmed';
   };
   if (!response.ok) {
     throw new Error(body.error ?? GENERIC_ERROR);
@@ -114,8 +116,15 @@ export function useAccount() {
 
   const deleteAccount = useCallback(async () => {
     try {
-      await requestAccount('/api/account', { method: 'DELETE' });
-      setState({ phase: 'guest', user: null, error: null });
+      const body = await requestAccount('/api/account', { method: 'DELETE' });
+      setState({
+        phase: 'guest',
+        user: null,
+        error: null,
+        // An older server's empty response does not prove Google revocation.
+        deletionWarning:
+          body.googleRevocation !== 'revoked' && body.googleRevocation !== 'not_linked',
+      });
       return true;
     } catch (error) {
       setState((current) => ({ ...current, error: friendlyError(error) }));
