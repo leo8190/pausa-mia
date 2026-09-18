@@ -122,7 +122,9 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
   it('Empezar ahora prepares and plays once without sending text online', async () => {
     configureOnlineHelp();
     const remoteSpy = vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice');
-    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
+    const synthesis = vi
+      .spyOn(voiceEngine, 'synthesizeArgentineVoice')
+      .mockResolvedValue(audioBlob());
     const sessionApi = makeSessionApi('es-AR', { autoStartPlayback: true });
     render(<PlaybackStep sessionApi={sessionApi} />);
     await waitFor(() =>
@@ -130,18 +132,24 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     );
     expect(sessionApi.clearAutoStartPlayback).toHaveBeenCalledTimes(1);
     expect(remoteSpy).not.toHaveBeenCalled();
+    expect(synthesis).toHaveBeenCalledTimes(1);
+    expect(synthesis.mock.calls[0][0]).toBe('Cerrá los ojos y respirá.');
   });
 
   it('does not play manually prepared audio until Reproducir is pressed', async () => {
     const playSpy = vi
       .spyOn(window.HTMLMediaElement.prototype, 'play')
       .mockResolvedValue(undefined);
-    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
+    const synthesis = vi
+      .spyOn(voiceEngine, 'synthesizeArgentineVoice')
+      .mockResolvedValue(audioBlob());
     render(<PlaybackStep sessionApi={makeSessionApi('es-AR')} />);
     await prepareLocalAudio();
     expect(playSpy).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: /^reproducir$/i }));
     await waitFor(() => expect(playSpy).toHaveBeenCalled());
+    expect(synthesis).toHaveBeenCalledTimes(1);
+    expect(synthesis.mock.calls[0][0]).toBe('Cerrá los ojos y respirá.');
   });
 
   it.each(['es-AR', 'es-neutro'] as const)(

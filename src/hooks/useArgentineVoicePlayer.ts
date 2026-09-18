@@ -141,6 +141,8 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   const pauseStartTimeRef = useRef(0);
   const pendingNextIndexRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  // Sólo en memoria, para un único comienzo local. No persistir texto ni audio.
+  const preparedOpeningRef = useRef<{ text: string; blob: Blob } | null>(null);
   const playSegmentRef = useRef<(index: number) => Promise<void>>(async () => {});
 
   const releaseObjectUrl = useCallback(() => {
@@ -224,6 +226,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   );
 
   const resetPlaybackFlags = useCallback(() => {
+    preparedOpeningRef.current = null;
     playbackIdRef.current += 1;
     stoppedRef.current = false;
     pausedRef.current = false;
@@ -237,6 +240,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   // Al cambiar de local ↔ remoto se descarta audio y estado previos.
   useEffect(() => {
     if (modeRef.current === mode) return;
+    preparedOpeningRef.current = null;
     modeRef.current = mode;
     playbackIdRef.current += 1;
     stoppedRef.current = true;
@@ -250,44 +254,72 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   }, [mode, abortInFlight, clearPauseTimer, teardownAudio]);
 
   /**
-   * Local: descarga/cachea el modelo y ejecuta una síntesis de prueba.
+   * Local: prepara el comienzo real para reutilizarlo al reproducir. Sin texto,
+   * conserva la prueba de voz genérica para consumidores que sólo verifican voz.
    * Remoto: hace warm-up con una frase fija no sensible (sin guion).
    */
-  const prepare = useCallback(async (): Promise<boolean> => {
-    const requestMode = mode;
-    playbackIdRef.current += 1;
-    stoppedRef.current = false;
-    pausedRef.current = false;
-    synthesizingRef.current = false;
-    betweenSegmentsRef.current = false;
-    clearPauseTimer();
-    abortInFlight();
-    teardownAudio();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const isStale = () => controller.signal.aborted || modeRef.current !== requestMode;
+  const prepare = useCallback(
+    async (firstSegmentText?: string): Promise<boolean> => {
+      preparedOpeningRef.current = null;
+      const requestMode = mode;
+      playbackIdRef.current += 1;
+      stoppedRef.current = false;
+      pausedRef.current = false;
+      synthesizingRef.current = false;
+      betweenSegmentsRef.current = false;
+      clearPauseTimer();
+      abortInFlight();
+      teardownAudio();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const isStale = () =>
+        controller.signal.aborted || modeRef.current !== requestMode;
 
-    setState({
-      status: 'preparing',
-      progress: requestMode === 'local' ? { loaded: 0, total: 0 } : null,
-      error: null,
-      currentSegmentIndex: 0,
-      mode: requestMode,
-      nativeAudioUrl: null,
-      nativeControlsRequired: false,
-    });
+      setState({
+        status: 'preparing',
+        progress: requestMode === 'local' ? { loaded: 0, total: 0 } : null,
+        error: null,
+        currentSegmentIndex: 0,
+        mode: requestMode,
+        nativeAudioUrl: null,
+        nativeControlsRequired: false,
+      });
 
-    try {
-      if (requestMode === 'remote') {
-        if (!isRemoteArgentineTtsConfigured()) {
-          throw new Error(
-            'No hay un endpoint remoto configurado (VITE_ARGENTINE_TTS_ENDPOINT).',
-          );
+      try {
+        if (requestMode === 'remote') {
+          if (!isRemoteArgentineTtsConfigured()) {
+            throw new Error(
+              'No hay un endpoint remoto configurado (VITE_ARGENTINE_TTS_ENDPOINT).',
+            );
+          }
+          await synthesizeRemoteArgentineVoice(REMOTE_WARMUP_TEXT, {
+            signal: controller.signal,
+          });
+          if (isStale()) return false;
+          setState((prev) => ({
+            ...prev,
+            status: 'ready',
+            error: null,
+            mode: requestMode,
+            nativeAudioUrl: null,
+            nativeControlsRequired: false,
+          }));
+          return true;
         }
-        await synthesizeRemoteArgentineVoice(REMOTE_WARMUP_TEXT, {
-          signal: controller.signal,
-        });
+
+        const openingText = firstSegmentText?.trim() ? firstSegmentText : null;
+        const blob = await synthesizeArgentineVoice(
+          openingText ?? 'Hola. Esta es la voz argentina.',
+          (progress) => {
+            if (isStale()) return;
+            setState((prev) => ({ ...prev, progress }));
+          },
+          controller.signal,
+        );
         if (isStale()) return false;
+        if (openingText) {
+          preparedOpeningRef.current = { text: openingText, blob };
+        }
         setState((prev) => ({
           ...prev,
           status: 'ready',
@@ -297,46 +329,31 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           nativeControlsRequired: false,
         }));
         return true;
+      } catch (err) {
+        if (isStale() || isAbortLike(err)) return false;
+        setState((prev) => ({
+          ...prev,
+          status: 'error',
+          error: toErrorMessage(err),
+          mode: requestMode,
+          nativeAudioUrl: null,
+          nativeControlsRequired: false,
+        }));
+        return false;
+      } finally {
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+        }
       }
-
-      await synthesizeArgentineVoice(
-        'Hola. Esta es la voz argentina.',
-        (progress) => {
-          if (isStale()) return;
-          setState((prev) => ({ ...prev, progress }));
-        },
-        controller.signal,
-      );
-      if (isStale()) return false;
-      setState((prev) => ({
-        ...prev,
-        status: 'ready',
-        error: null,
-        mode: requestMode,
-        nativeAudioUrl: null,
-        nativeControlsRequired: false,
-      }));
-      return true;
-    } catch (err) {
-      if (isStale() || isAbortLike(err)) return false;
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        error: toErrorMessage(err),
-        mode: requestMode,
-        nativeAudioUrl: null,
-        nativeControlsRequired: false,
-      }));
-      return false;
-    } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-      }
-    }
-  }, [abortInFlight, clearPauseTimer, mode, teardownAudio]);
+    },
+    [abortInFlight, clearPauseTimer, mode, teardownAudio],
+  );
 
   const synthesizeSegment = useCallback(
     async (text: string): Promise<Blob> => {
+      const prepared = preparedOpeningRef.current;
+      preparedOpeningRef.current = null;
+      if (mode === 'local' && prepared?.text === text) return prepared.blob;
       abortInFlight();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -535,7 +552,13 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
 
   const play = useCallback(
     (segments: ScriptSegment[]) => {
+      const prepared = preparedOpeningRef.current;
       resetPlaybackFlags();
+      // reset cancela trabajo viejo; conservar únicamente el comienzo idéntico
+      // ya terminado. La siguiente síntesis lo consume y libera la referencia.
+      if (mode === 'local' && prepared?.text === segments[0]?.text) {
+        preparedOpeningRef.current = prepared;
+      }
       setState((prev) => ({
         ...prev,
         nativeAudioUrl: null,
@@ -657,6 +680,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   }, []);
 
   const stop = useCallback(() => {
+    preparedOpeningRef.current = null;
     playbackIdRef.current += 1;
     stoppedRef.current = true;
     pausedRef.current = false;
@@ -687,6 +711,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     const unregister = registerSpeechCancel(stop);
     return () => {
       unregister();
+      preparedOpeningRef.current = null;
       playbackIdRef.current += 1;
       stoppedRef.current = true;
       clearPauseTimer();

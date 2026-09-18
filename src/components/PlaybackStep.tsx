@@ -88,7 +88,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         return;
       }
       if (neuralState.status === 'idle') {
-        void prepareNeural();
+        void prepareNeural(script.segments[0]?.text);
         return;
       }
       if (neuralState.status === 'preparing') return;
@@ -343,7 +343,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  onClick={() => void prepareNeural()}
+                  onClick={() => void prepareNeural(script.segments[0]?.text)}
                 >
                   Preparar audio
                 </button>
@@ -376,7 +376,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => void prepareNeural()}
+                onClick={() => void prepareNeural(script.segments[0]?.text)}
               >
                 Reintentar
               </button>

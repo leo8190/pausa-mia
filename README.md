@@ -7,6 +7,26 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
+### Arranque argentino sin trabajo descartado — 17/09/2026 (local, sin publicar)
+
+- «Preparar audio» y «Empezar ahora» preparan el primer segmento real en el
+  dispositivo; al reproducir se consume ese mismo audio una sola vez. Se elimina
+  la síntesis previa de una frase de prueba que se descartaba. No se cambia voz,
+  cadencia, guion ni controles nativos de iPhone.
+- El comienzo preparado vive sólo en memoria. Se descarta al cambiar su texto,
+  preparar otra vez, detener, reiniciar, cambiar de modo, borrar la sesión o salir
+  del reproductor. Una preparación cancelada que termina tarde no puede revivirlo.
+- El calentamiento remoto sigue usando exclusivamente una frase fija, nunca el
+  comienzo personal; conserva el consentimiento explícito. No se hicieron llamadas
+  reales al servicio ni se modificó el servidor.
+- Verificado: 362 pruebas en 42 archivos, lint, formato y build correctos. Once
+  pruebas nuevas del ciclo del audio y dos pruebas de interfaz reforzadas.
+  La evidencia demuestra una síntesis inicial en lugar de dos; no es una medición
+  de segundos ahorrados en teléfonos. La descarga inicial del modelo y la demora
+  del servicio remoto siguen pendientes. No hay validación auditiva nueva.
+- Entrega local separada de la base Android; requiere integración y publicación
+  posteriores. La web vigente sigue siendo `ddb9549`.
+
 ### Estado personal opcional — 17/09/2026 (L07)
 
 - «¿Cómo te sentís?» permite «Prefiero no responder». Se puede completar el flujo
