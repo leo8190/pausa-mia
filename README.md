@@ -7,7 +7,7 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
-### Borrado de cuenta y permisos Google — 18/09/2026 (local, sin publicar)
+### Borrado de cuenta y permisos Google — 18/09/2026
 
 - Antes de borrar la cuenta y sus datos del servidor, se intenta revocar cada
   vínculo de Google. La espera total está limitada a cinco segundos, en paralelo
@@ -27,11 +27,11 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
   del servidor y compilación correctos. Cuatro regresiones de borrado/aviso
   fallaban antes de implementar. Google está simulado: sin cuentas reales,
   llamadas de revocación externas ni despliegue.
-- Esta rama conserva la mejora de arranque `eb578e5`. Requiere entrega coordinada
+- Esta entrega conserva la mejora de arranque `eb578e5`. Requiere entrega coordinada
   de interfaz y servidor; la versión anterior de la interfaz no muestra el nuevo
   aviso. Las bases Android/iPhone no se modificaron.
 
-### Arranque argentino sin trabajo descartado — 17/09/2026 (local, sin publicar)
+### Arranque argentino sin trabajo descartado — 17/09/2026
 
 - «Preparar audio» y «Empezar ahora» preparan el primer segmento real en el
   dispositivo; al reproducir se consume ese mismo audio una sola vez. Se elimina
@@ -48,8 +48,8 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
   La evidencia demuestra una síntesis inicial en lugar de dos; no es una medición
   de segundos ahorrados en teléfonos. La descarga inicial del modelo y la demora
   del servicio remoto siguen pendientes. No hay validación auditiva nueva.
-- Entrega local separada de la base Android; requiere integración y publicación
-  posteriores. La web vigente sigue siendo `ddb9549`.
+- La integración en la base Android se entrega por separado. El código compartido
+  no sustituye una prueba de arranque y audio en un dispositivo real.
 
 ### Estado personal opcional — 17/09/2026 (L07)
 
