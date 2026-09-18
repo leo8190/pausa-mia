@@ -32,14 +32,13 @@ export function createEmptyCheckIn(): CheckInData {
 }
 
 /**
- * Completa sólo campos vacíos del atajo. Nunca cambia la duración ni la voz
- * que la persona acaba de elegir en el formulario.
+ * Completa sólo elecciones de práctica vacías del atajo. Nunca inventa un
+ * estado personal ni cambia la duración o la voz elegidas.
  */
 export function applyStartNowDefaults(checkIn: CheckInData): CheckInData {
   return {
     ...checkIn,
     moment: checkIn.moment || 'ahora',
-    perceivedState: checkIn.perceivedState || 'tranquilo',
     intention: checkIn.intention || 'calmar-ritmo',
     experience: checkIn.experience || 'primera-vez',
     style: checkIn.style || 'respiracion-natural',
@@ -82,7 +81,6 @@ export function isConsentValid(consent: ConsentState): boolean {
 export function isCheckInComplete(checkIn: CheckInData): boolean {
   return (
     checkIn.moment !== '' &&
-    checkIn.perceivedState !== '' &&
     checkIn.intention !== '' &&
     checkIn.experience !== '' &&
     checkIn.style !== ''

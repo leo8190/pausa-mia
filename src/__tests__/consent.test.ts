@@ -142,12 +142,12 @@ describe('session deletion', () => {
 });
 
 describe('start-now defaults', () => {
-  it('fills closed fields so a blank check-in becomes complete', () => {
+  it('fills practice defaults without inventing a personal state', () => {
     const filled = applyStartNowDefaults(createBlankCheckIn());
     expect(filled.duration).toBe(5);
     expect(filled.voiceVariant).toBe('es-neutro');
     expect(filled.moment).toBe('ahora');
-    expect(filled.perceivedState).toBe('tranquilo');
+    expect(filled.perceivedState).toBe('');
     expect(filled.intention).toBe('calmar-ritmo');
     expect(filled.experience).toBe('primera-vez');
     expect(filled.style).toBe('respiracion-natural');

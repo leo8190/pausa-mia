@@ -59,6 +59,10 @@ export function useSession() {
   const updateCheckIn = useCallback((checkIn: Partial<CheckInData>) => {
     setSession((prev) => {
       const nextCheckIn = { ...prev.checkIn, ...checkIn };
+      // Al omitir el estado o dejar «Otro», no conservar texto personal oculto.
+      if (nextCheckIn.perceivedState !== 'otro') {
+        nextCheckIn.perceivedStateOther = '';
+      }
       if (prev.consent.savePreferences && checkIn.duration !== undefined) {
         savePreferences({
           duration: nextCheckIn.duration,

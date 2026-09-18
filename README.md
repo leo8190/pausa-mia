@@ -7,6 +7,26 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
+### Estado personal opcional — 17/09/2026 (preparación local, L07)
+
+- «¿Cómo te sentís?» permite «Prefiero no responder». Se puede completar el flujo
+  rápido o revisar el guion sin ese dato; el atajo no inventa un estado tranquilo.
+- Al dejar «Otro» se descarta su texto, sin mantenerlo oculto ni usarlo al generar.
+  El resumen y el envío a IA omiten el estado no compartido. Consentimiento y pausa
+  de seguridad siguen vigentes para los demás datos presentes.
+- El guion local conserva al menos dos detalles distintos de práctica. Cliente y
+  servidor rechazan una salida que declare usar un estado no proporcionado; el
+  cliente recurre al motor local. El prompt prohíbe inferir el estado omitido.
+- Este control verifica los identificadores declarados por la IA, no demuestra
+  ausencia de toda inferencia posible en lenguaje natural. No constituye aprobación
+  legal ni aceptación de Apple/Google. No se modificaron voces ni cobros.
+- Cambios aislados para integrar después: no publicados ni incorporados todavía al
+  APK Android. El servidor también requiere despliegue posterior separado.
+- Verificación: 351 pruebas en 41 archivos, lint, formato, compilación de producción
+  y sintaxis del servidor correctos. Incluye 120 combinaciones sin estado, ambos
+  recorridos de la interfaz, descarte de texto y respuesta IA inválida simulada.
+  Sin prueba nueva de audio real ni cambios de infraestructura.
+
 ### Interfaz simplificada — 17/09/2026
 
 - Sin descargas de fragmentos, contadores de segmentos ni pasos numerados. Al

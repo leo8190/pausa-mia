@@ -58,7 +58,10 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
           const value = getCheckInSummaryValue(field, checkIn);
           const excluded = summaryExcluded.has(field);
           const isOptional =
-            field === 'name' || field === 'recentSituation' || field === 'avoidTopics';
+            field === 'name' ||
+            field === 'recentSituation' ||
+            field === 'avoidTopics' ||
+            field === 'perceivedState';
 
           if (!value && isOptional) return null;
 

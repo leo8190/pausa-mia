@@ -46,7 +46,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           </form>
           {!sessionApi.isCheckInComplete && (
             <p id="checkin-incomplete-hint" className="field-hint">
-              Completá momento, estado, intención, experiencia y estilo para seguir.
+              Completá momento, intención, experiencia y estilo para seguir.
             </p>
           )}
           <button
@@ -122,22 +122,27 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
       </div>
 
       <fieldset className="field">
-        <legend>¿Cómo te sentís?</legend>
+        <legend>¿Cómo te sentís? (opcional)</legend>
         <div className="radio-group">
           {(
             [
+              ['', 'Prefiero no responder'],
               ['tranquilo', 'Tranquilo'],
               ['acelerado', 'Acelerado'],
               ['disperso', 'Disperso'],
               ['cansado', 'Cansado'],
               ['sensible', 'Sensible'],
               ['otro', 'Otro'],
-            ] as [PerceivedState, string][]
+            ] as [PerceivedState | '', string][]
           ).map(([value, label]) => (
-            <label className="radio-option" htmlFor={`state-${value}`} key={value}>
+            <label
+              className="radio-option"
+              htmlFor={`state-${value || 'omitido'}`}
+              key={value}
+            >
               <input
                 type="radio"
-                id={`state-${value}`}
+                id={`state-${value || 'omitido'}`}
                 name="perceivedState"
                 value={value}
                 checked={checkIn.perceivedState === value}

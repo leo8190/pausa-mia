@@ -295,7 +295,8 @@ export function buildPrompt(payload) {
 }
 
 Reglas estrictas:
-- Usar al menos 2 detalles concretos del contexto proporcionado, sin copiar frases literales
+- Usar al menos 2 detalles concretos distintos del contexto proporcionado, sin copiar frases literales
+- Estado percibido es opcional: si no figura en el contexto, NO inferir cómo se siente la persona ni incluir perceivedState en usedDetails. Personalizar con las elecciones de práctica disponibles.
 - NO copiar más de 3 palabras consecutivas de ninguna entrada del usuario; parafrasear de forma abstracta
 - ${buildAllowedUsedDetailsPromptLine()}
 - NO diagnosticar, NO prometer resultados, NO inventar recuerdos
@@ -340,13 +341,22 @@ export function validateScriptOutput(script, targetDuration, payload = null) {
     issues.push('SCRIPT_SEGMENTS_EXCESS');
   }
 
-  if (!Array.isArray(script.usedDetails) || script.usedDetails.length < 2) {
+  if (!Array.isArray(script.usedDetails) || new Set(script.usedDetails).size < 2) {
     issues.push('SCRIPT_USED_DETAILS_INSUFFICIENT');
   }
 
   issues.push(...validateUsedDetailsAllowlist(script.usedDetails));
 
   if (Array.isArray(script.usedDetails)) {
+    if (
+      payload &&
+      script.usedDetails.includes('perceivedState') &&
+      !payload.personal.some(
+        (field) => field.label === 'Estado percibido' && field.value.trim(),
+      )
+    ) {
+      issues.push('SCRIPT_UNPROVIDED_STATE');
+    }
     for (const detail of script.usedDetails) {
       if (!isNonEmptyString(detail, USED_DETAIL_MAX_LENGTH)) {
         issues.push('SCRIPT_USED_DETAIL_INVALID');

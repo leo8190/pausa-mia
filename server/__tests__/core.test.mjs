@@ -228,6 +228,39 @@ describe('server/core validators', () => {
     expect(prompt).toMatch(/más de 3 palabras consecutivas/i);
     expect(prompt).toMatch(/usedDetails debe ser un arreglo/i);
     expect(prompt).toMatch(/moment/);
+    expect(prompt).toMatch(/Estado percibido es opcional/);
+    expect(prompt).toMatch(/NO inferir cómo se siente/);
+  });
+
+  it('rechaza estado personal inventado y admite una práctica sin ese dato', () => {
+    const payload = {
+      ...validPayload,
+      personal: [
+        { label: 'Momento del día', value: 'Ahora, en este momento' },
+        { label: 'Estilo de práctica', value: 'Atención abierta' },
+      ],
+    };
+    expect(validatePayload(payload)).toEqual([]);
+    expect(validateScriptOutput(makeValidScript(), 5, payload)).toContain(
+      'SCRIPT_UNPROVIDED_STATE',
+    );
+    expect(
+      validateScriptOutput(
+        { ...makeValidScript(), usedDetails: ['moment', 'style'] },
+        5,
+        payload,
+      ),
+    ).toEqual([]);
+  });
+
+  it('no cuenta detalles repetidos como dos elecciones distintas', () => {
+    expect(
+      validateScriptOutput(
+        { ...makeValidScript(), usedDetails: ['moment', 'moment'] },
+        5,
+        validPayload,
+      ),
+    ).toContain('SCRIPT_USED_DETAILS_INSUFFICIENT');
   });
 
   it('detecta OpenAI oficial por hostname parseado', () => {

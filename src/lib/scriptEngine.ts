@@ -2175,8 +2175,17 @@ export function validateScriptQuality(
 
   issues.push(...validateUsedDetailsAllowlist(script.usedDetails));
 
-  if (script.usedDetails.length < 2) {
+  if (!Array.isArray(script.usedDetails) || new Set(script.usedDetails).size < 2) {
     issues.push('El guion debe incluir al menos dos detalles concretos del usuario.');
+  }
+
+  if (
+    options.checkIn &&
+    (!options.checkIn.perceivedState || options.excluded?.has('perceivedState')) &&
+    Array.isArray(script.usedDetails) &&
+    script.usedDetails.includes('perceivedState')
+  ) {
+    issues.push('El guion no puede usar un estado personal omitido o excluido.');
   }
 
   if (!AUTONOMY_PATTERN.test(script.fullText)) {
