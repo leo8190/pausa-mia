@@ -7,7 +7,7 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
-### Estado personal opcional — 17/09/2026 (preparación local, L07)
+### Estado personal opcional — 17/09/2026 (L07)
 
 - «¿Cómo te sentís?» permite «Prefiero no responder». Se puede completar el flujo
   rápido o revisar el guion sin ese dato; el atajo no inventa un estado tranquilo.
@@ -20,8 +20,8 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 - Este control verifica los identificadores declarados por la IA, no demuestra
   ausencia de toda inferencia posible en lenguaje natural. No constituye aprobación
   legal ni aceptación de Apple/Google. No se modificaron voces ni cobros.
-- Cambios aislados para integrar después: no publicados ni incorporados todavía al
-  APK Android. El servidor también requiere despliegue posterior separado.
+- El cambio forma parte del código compartido por web y móvil. Cada paquete debe
+  reconstruirse; el despliegue del servidor es independiente.
 - Verificación: 351 pruebas en 41 archivos, lint, formato, compilación de producción
   y sintaxis del servidor correctos. Incluye 120 combinaciones sin estado, ambos
   recorridos de la interfaz, descarte de texto y respuesta IA inválida simulada.
