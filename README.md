@@ -7,6 +7,21 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
+### Comentarios voluntarios de la beta — 24/09/2026
+
+- Sección opcional al finalizar y acceso desplegable desde la bienvenida, sin
+  obligar a completar una sesión, crear una cuenta ni responder la encuesta.
+- Abre el correo con destinatario, asunto y cuerpo fijos; no adjunta datos de la
+  cuenta, diario, respuestas ni guion. El usuario puede editar y decide enviarlo.
+  Se avisa que el destinatario verá su dirección de remitente.
+- Dirección visible y botón para copiarla; si el navegador no permite copiar,
+  queda seleccionada para hacerlo manualmente, sin anunciar un éxito inexistente.
+- Verificación: 384 pruebas en 44 archivos, lint, formato y compilación correctos.
+  Incluye seis regresiones de contenido fijo, copia y sección opcional. No prueba
+  recepción de correos ni suma participantes reales al experimento.
+- Entrega estática separada desde `4fee855`: no incorpora L04, cambios de
+  servidores, permisos Google, voces, analítica, dependencias ni anuncios pagos.
+
 ### Borrado de cuenta y permisos Google — 18/09/2026
 
 - Antes de borrar la cuenta y sus datos del servidor, se intenta revocar cada

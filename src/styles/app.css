@@ -890,6 +890,89 @@ fieldset.field {
   margin-top: 0.35rem;
 }
 
+/* ---------- Optional beta comments ---------- */
+
+.beta-comments {
+  display: grid;
+  gap: 0.85rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  text-align: left;
+}
+
+.beta-comments p,
+.beta-comments h3 {
+  margin: 0;
+}
+
+.beta-comments h3 {
+  font-size: 1.25rem;
+}
+
+.beta-comments-kicker {
+  color: var(--color-primary-darker);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.beta-comments-privacy {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.beta-comments .btn {
+  white-space: normal;
+  text-align: center;
+}
+
+.beta-comments-copy {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.beta-comments-copy label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.beta-comments-copy input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 1rem;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.beta-comments-copy input:focus-visible {
+  outline: 2px solid var(--color-primary-darker);
+  outline-offset: 2px;
+}
+
+.beta-comments-copy .btn {
+  justify-self: start;
+  color: var(--color-primary-darker);
+}
+
+.welcome-comments {
+  margin-top: 1.25rem;
+  text-align: left;
+}
+
+.welcome-comments .beta-comments {
+  border: 0;
+  background: transparent;
+}
+
 /* ---------- Summary ---------- */
 
 .summary-list {

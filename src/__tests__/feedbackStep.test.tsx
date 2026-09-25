@@ -45,6 +45,23 @@ describe('FeedbackStep repeat choice', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('offers voluntary comments without requiring a rating or payment', () => {
+    render(<FeedbackHarness />);
+    expect(
+      screen.getByRole('region', { name: '¿Qué mejorarías?' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Escribir comentario por correo' }),
+    ).toHaveAttribute(
+      'href',
+      expect.stringContaining('mailto:leonardo23322@gmail.com?'),
+    );
+    expect(
+      screen.getByRole('button', { name: 'Copiar dirección de contacto' }),
+    ).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Nueva sesión' })).toBeEnabled();
+  });
+
   it('starts with both options unpressed and without the selected visual state', () => {
     render(<FeedbackHarness />);
 

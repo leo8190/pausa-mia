@@ -3,6 +3,7 @@ import { PRICE_OPTIONS, type PriceOption } from '../types';
 import type { SessionApi } from '../hooks/useSession';
 import { reportSessionComplete } from '../lib/visitorPing';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { BetaComments } from './BetaComments';
 
 export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { rating, selectedPrice, wouldRepeat } = sessionApi.session;
@@ -75,6 +76,8 @@ export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
           </button>
         </div>
       </div>
+
+      <BetaComments />
 
       <details className="collapsible-details">
         <summary>Ayudanos a pensar futuras opciones</summary>
