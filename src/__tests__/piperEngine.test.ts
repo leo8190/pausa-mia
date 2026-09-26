@@ -18,6 +18,7 @@ import {
 describe('piperEngine', () => {
   describe('serene cadence', () => {
     it('multiplies model length_scale by the serene factor within safe bounds', () => {
+      expect(SENTENCE_SILENCE_SECONDS).toBe(0.9);
       expect(SERENE_CADENCE_SCALE).toBeCloseTo(1.6, 2);
       expect(resolveSereneLengthScale(1)).toBeCloseTo(1.6, 5);
       expect(resolveSereneLengthScale(1.1)).toBeCloseTo(1.1 * SERENE_CADENCE_SCALE, 5);
@@ -240,6 +241,7 @@ describe('piperEngine', () => {
 
       expect(blob).toBeInstanceOf(Blob);
       expect(blob.type).toBe('audio/x-wav');
+      expect(blob.size).toBe(44 + 3 * 2);
       expect(run).toHaveBeenCalledTimes(1);
       expect(phonemize).toHaveBeenCalledWith('Hola. Respirá.', 'es-419');
       const feeds = run.mock.calls[0][0] as Record<string, { data?: number[] }>;
@@ -304,6 +306,31 @@ describe('piperEngine', () => {
       expect(blob.size).toBe(
         44 + 2 * (4 + Math.round(22050 * SENTENCE_SILENCE_SECONDS)),
       );
+    });
+
+    it('preserves both sentence waveforms with silence only between them', async () => {
+      const run = vi
+        .fn()
+        .mockResolvedValueOnce({ output: { data: new Float32Array([0.5, 0.25]) } })
+        .mockResolvedValueOnce({ output: { data: new Float32Array([-0.5, -0.25]) } });
+      const blob = await synthesizeWithSession('Tu ritmo. Sin hacerlo perfecto.', {
+        ort: makeOrt(),
+        ortSession: { run },
+        modelConfig: makeModelConfig(),
+        phonemize: vi.fn().mockResolvedValue([1, 92, 2, 1, 30, 2]),
+      });
+      const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as ArrayBuffer);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsArrayBuffer(blob);
+      });
+      const pcm = new Int16Array(buffer.slice(44));
+      const gap = Math.round(22050 * SENTENCE_SILENCE_SECONDS);
+      expect(Array.from(pcm.slice(0, 2))).toEqual([16384, 8192]);
+      expect(pcm.slice(2, 2 + gap).every((sample) => sample === 0)).toBe(true);
+      expect(Array.from(pcm.slice(2 + gap))).toEqual([-16384, -8192]);
+      expect(pcm).toHaveLength(4 + gap);
     });
 
     it('adds a speaker id tensor only when the model declares multiple speakers', async () => {

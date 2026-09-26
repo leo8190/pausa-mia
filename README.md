@@ -741,6 +741,28 @@ palabras difíciles ni se contrató otro proveedor.
 Los valores y recomendaciones de voz anteriores en este README son históricos;
 esta sección describe la entrega del 17 de septiembre.
 
+## Voz más cálida — preparación local 26/09/2026
+
+Se amplió la pausa entre oraciones de Piper de 0.65 a 0.9 segundos en navegador y
+servicio. Se conserva la articulación anterior: `length_scale=1.6`, ruido 0.5/0.3,
+tono natural y reproducción 1x. No se agrega silencio antes de la primera palabra.
+Web Speech mantiene velocidad 0.62/0.6 y prefiere voces locales identificadas como
+Premium o Enhanced/Mejorada dentro del idioma compatible, si el navegador ya las
+ofrece. Es una preferencia por metadatos, no una medida perceptual de calidad.
+No descarga voces, selecciona un proveedor nuevo ni agrega controles técnicos.
+
+Algunas indicaciones de llegada y respiración ahora invitan con «Podés/Puedes»;
+se mantiene la escritura de «ritmo» y «hacerlo perfecto». No se modifican el
+guion recibido de IA, la personalización ni los permisos.
+
+Verificación: `npm test -- --reporter=dot` (395/395, 44 archivos), `npm run lint`,
+`npm run format:check`, `npm run build`; servicio de voz 10/10 y TypeScript sin
+errores. Tests nuevos verifican PCM de ambas oraciones, silencio sólo entre ellas,
+idioma, selección de calidad sin nuevas voces de red y guiones/duración.
+No hubo síntesis/escucha nueva con modelo real, QA en iPhone ni publicación. La
+calidez del timbre sigue pendiente de escucha; no se declara conseguida por tests.
+Detalle y límites: [VOICE_WARMTH_2026-09-26.md](docs/VOICE_WARMTH_2026-09-26.md).
+
 ## Límites del producto
 
 - No es terapia, psicología, tratamiento ni diagnóstico.

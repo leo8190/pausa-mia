@@ -246,9 +246,10 @@ const EXPERIENCE_ADAPTATION: Record<Experience, TimedPhrase> = {
 const EXPERIENCE_PRACTICE_SUPPORT: Record<Experience, TimedPhrase> = {
   'primera-vez': {
     text: {
-      'es-AR': 'Tomá una sola indicación por vez. Si te perdés, volvé a esa y alcanza.',
+      'es-AR':
+        'Podés tomar una sola indicación por vez. Si te perdés, está bien volver a ella.',
       'es-neutro':
-        'Toma una sola indicación por vez. Si te pierdes, vuelve a esa y basta.',
+        'Puedes tomar una sola indicación por vez. Si te pierdes, está bien volver a ella.',
     },
     pauseAfterMs: 5500,
   },
@@ -284,13 +285,13 @@ function buildArrivalBlock(
   const openings =
     variant === 'es-AR'
       ? [
-          'Tomate un momento para detenerte.',
-          'Permitite que este espacio sea solo para vos.',
+          'Podés darte este momento, sin apuro.',
+          'Este espacio puede ser solo para vos.',
           'Podés quedarte acá, sin apuro.',
         ]
       : [
-          'Toma un momento para detenerte.',
-          'Permite que este espacio sea solo para ti.',
+          'Puedes darte este momento, sin apuro.',
+          'Este espacio puede ser solo para ti.',
           'Puedes quedarte aquí, sin apuro.',
         ];
 
@@ -593,9 +594,9 @@ const STYLE_FOCUS: Record<MeditationStyle, TimedPhrase[]> = {
     {
       text: {
         'es-AR':
-          'Buscá el lugar donde la respiración se nota más: la nariz, el pecho o el abdomen. Quedate ahí.',
+          'Tal vez notes la respiración en la nariz, el pecho o el abdomen. Podés quedarte donde te resulte más cómodo.',
         'es-neutro':
-          'Busca el lugar donde la respiración se nota más: la nariz, el pecho o el abdomen. Quédate ahí.',
+          'Tal vez notes la respiración en la nariz, el pecho o el abdomen. Puedes quedarte donde te resulte más cómodo.',
       },
       pauseAfterMs: 8000,
     },

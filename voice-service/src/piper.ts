@@ -7,7 +7,7 @@ import { buildSilentWav, wrapPcm16MonoToWav } from './wav.js';
 // Keep the remote voice aligned with the browser's serene Piper cadence.
 // These synthesis settings preserve natural pitch; silence follows sentences,
 // so it does not add a deliberate delay before the first spoken word.
-export const SENTENCE_SILENCE_SECONDS = 0.65;
+export const SENTENCE_SILENCE_SECONDS = 0.9;
 export const CLEAR_NOISE_SCALE = 0.5;
 export const CLEAR_NOISE_WIDTH = 0.3;
 

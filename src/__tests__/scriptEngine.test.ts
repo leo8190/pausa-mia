@@ -43,6 +43,26 @@ describe('scriptEngine', () => {
 
   const genOpts = { sessionProcessing: true };
 
+  it.each(['es-AR', 'es-neutro'] as const)(
+    'uses invitations in the opening and first-time guidance (%s)',
+    (voiceVariant) => {
+      const checkIn = {
+        ...baseCheckIn(),
+        voiceVariant,
+        experience: 'primera-vez' as const,
+      };
+      const script = generateScript(checkIn, new Set(), genOpts);
+      expect(script.segments[0].text).toMatch(/Podés|Puedes|Este espacio/);
+      expect(script.fullText).toContain('está bien volver a ella');
+      expect(script.fullText).not.toMatch(/Quedate ahí\.|Quédate ahí\./);
+      expect(script.fullText).toContain('hacerlo perfecto');
+      expect(script.fullText).toContain('tu ritmo');
+      expect(isDurationWithinTolerance(script.estimatedMinutes, checkIn.duration)).toBe(
+        true,
+      );
+    },
+  );
+
   it('rejects generation without session processing consent', () => {
     expect(() =>
       generateScript(baseCheckIn(), new Set(), { sessionProcessing: false }),

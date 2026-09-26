@@ -41,6 +41,35 @@ function matchesLocale(voice: SpeechSynthesisVoice, locales: string[]): boolean 
 }
 
 /**
+ * Some systems expose several qualities of the same voice, with the compact
+ * version first. Prefer an explicitly labelled, already installed upgrade.
+ * This is only a metadata hint, not a guarantee of warmth. Never select a new
+ * network voice or download anything on the strength of a quality label.
+ */
+function selectInstalledQuality(
+  voices: SpeechSynthesisVoice[],
+): SpeechSynthesisVoice | undefined {
+  const normalizeLocale = (lang: string) => lang.replace(/_/g, '-').toLowerCase();
+  const first = voices[0];
+  if (!first) return undefined;
+  const locale = normalizeLocale(first.lang);
+  const quality = (voice: SpeechSynthesisVoice) => {
+    if (!voice.localService) return 0;
+    const label = `${voice.name} ${voice.voiceURI}`;
+    if (/\bpremium\b/i.test(label)) return 2;
+    if (/\benhanced\b|\bmejorad[ao]\b|\balta calidad\b/i.test(label)) return 1;
+    return 0;
+  };
+  return voices.reduce(
+    (best, voice) =>
+      normalizeLocale(voice.lang) === locale && quality(voice) > quality(best)
+        ? voice
+        : best,
+    first,
+  );
+}
+
+/**
  * Verdadero sólo cuando la voz declara explícitamente el locale argentino
  * (`es-AR`/`es_AR`). Voces de otros países hispanohablantes (es-MX, es-ES,
  * es-US, es-419, etc.) nunca deben etiquetarse como argentinas, aunque se
@@ -68,7 +97,9 @@ export function selectVoice(
   }
 
   if (variant === 'es-AR') {
-    const argentine = voices.find((v) => matchesLocale(v, ARGENTINE_LOCALES));
+    const argentine = selectInstalledQuality(
+      voices.filter((v) => matchesLocale(v, ARGENTINE_LOCALES)),
+    );
     if (argentine) {
       return {
         voice: argentine,
@@ -79,7 +110,9 @@ export function selectVoice(
       };
     }
 
-    const spanish = voices.find((v) => v.lang.startsWith('es'));
+    const spanish = selectInstalledQuality(
+      voices.filter((v) => v.lang.startsWith('es')),
+    );
     if (spanish) {
       return {
         voice: spanish,
@@ -102,7 +135,9 @@ export function selectVoice(
   }
 
   for (const locale of getNeutralFallbackOrder()) {
-    const match = voices.find((v) => matchesLocale(v, [locale]));
+    const match = selectInstalledQuality(
+      voices.filter((v) => matchesLocale(v, [locale])),
+    );
     if (match) {
       const isExact = locale === 'es-MX';
       return {
@@ -117,7 +152,9 @@ export function selectVoice(
     }
   }
 
-  const anySpanish = voices.find((v) => v.lang.startsWith('es'));
+  const anySpanish = selectInstalledQuality(
+    voices.filter((v) => v.lang.startsWith('es')),
+  );
   if (anySpanish) {
     return {
       voice: anySpanish,

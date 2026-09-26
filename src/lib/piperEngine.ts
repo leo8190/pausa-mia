@@ -22,7 +22,9 @@ import { normalizeTextForTts } from './ttsPronunciation';
  * Valores > 1 alargan el audio en Piper sin bajar artificialmente el tono.
  */
 export const SERENE_CADENCE_SCALE = 1.6;
-export const SENTENCE_SILENCE_SECONDS = 0.65;
+// Leave room after a complete thought without stretching consonants further.
+// Inserted only between sentences: no extra wait before the opening word.
+export const SENTENCE_SILENCE_SECONDS = 0.9;
 // Reduce stochastic articulation/duration variation without speeding up speech.
 export const CLEAR_NOISE_SCALE = 0.5;
 export const CLEAR_NOISE_WIDTH = 0.3;

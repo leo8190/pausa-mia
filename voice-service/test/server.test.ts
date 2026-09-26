@@ -62,7 +62,7 @@ describe('voice-service piper CLI', () => {
         '0.3',
         '--output_raw',
         '--sentence_silence',
-        '0.65',
+        '0.9',
       ],
     );
   });
@@ -74,7 +74,11 @@ describe('voice-service piper CLI', () => {
     );
     const browserScale = browserPiper.match(/SERENE_CADENCE_SCALE = ([\d.]+)/)?.[1];
     assert.equal(Number(browserScale), DEFAULT_ARGENTINE_LENGTH_SCALE);
-    assert.equal(SENTENCE_SILENCE_SECONDS, 0.65);
+    assert.equal(SENTENCE_SILENCE_SECONDS, 0.9);
+    assert.equal(
+      Number(browserPiper.match(/SENTENCE_SILENCE_SECONDS = ([\d.]+)/)?.[1]),
+      SENTENCE_SILENCE_SECONDS,
+    );
     const args = buildPiperCliArgs({
       modelPath: 'voice.onnx',
       configPath: 'voice.json',

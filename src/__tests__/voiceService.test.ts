@@ -21,6 +21,71 @@ function mockVoice(name: string, lang: string): SpeechSynthesisVoice {
 }
 
 describe('voiceService', () => {
+  it.each(['es-AR', 'es-neutro'] as const)(
+    'prefers an installed higher-quality voice without changing locale (%s)',
+    (variant) => {
+      const locale = getRequestedLocale(variant);
+      const compact = mockVoice('Voice', locale);
+      const enhanced = mockVoice('Voice (Enhanced)', locale);
+      const premium = mockVoice('Voice (Premium)', locale);
+      const voices = [compact, enhanced, premium];
+      expect(selectVoice(variant, voices).voice).toBe(premium);
+      expect(voices).toEqual([compact, enhanced, premium]);
+      expect(selectVoice(variant, [compact, enhanced]).voice).toBe(enhanced);
+    },
+  );
+
+  it('recognizes an installed quality marker in the URI or Spanish label', () => {
+    const compact = mockVoice('Paulina', 'es-MX');
+    const enhanced = mockVoice('Paulina (Mejorada)', 'es-MX');
+    const premium = {
+      ...compact,
+      voiceURI: 'com.apple.voice.premium.es-MX.Paulina',
+    };
+    expect(selectVoice('es-neutro', [compact, enhanced]).voice).toBe(enhanced);
+    expect(selectVoice('es-neutro', [compact, enhanced, premium]).voice).toBe(premium);
+  });
+
+  it('does not select a network voice merely because its name says Premium', () => {
+    const local = mockVoice('Paulina', 'es-MX');
+    const remote = { ...mockVoice('Premium', 'es-MX'), localService: false };
+    expect(selectVoice('es-neutro', [local, remote]).voice).toBe(local);
+  });
+
+  it('does not trade the requested accent for a quality label', () => {
+    const neutral = mockVoice('Paulina', 'es-MX');
+    const argentine = mockVoice('Diego', 'es-AR');
+    const spain = mockVoice('Voice (Premium)', 'es-ES');
+    expect(selectVoice('es-neutro', [spain, neutral]).voice).toBe(neutral);
+    expect(selectVoice('es-AR', [spain, neutral, argentine]).voice).toBe(argentine);
+  });
+
+  it('keeps the existing voice when no explicit quality upgrade is available', () => {
+    const first = mockVoice('Paulina', 'es-MX');
+    expect(selectVoice('es-neutro', [first, mockVoice('Another', 'es-MX')]).voice).toBe(
+      first,
+    );
+  });
+
+  it('keeps the previous fallback accent when Argentine is unavailable', () => {
+    const mexican = mockVoice('Paulina', 'es-MX');
+    const spain = mockVoice('Mónica (Premium)', 'es-ES');
+    const upgrade = mockVoice('Paulina (Enhanced)', 'es_MX');
+    expect(selectVoice('es-AR', [mexican, spain]).voice).toBe(mexican);
+    const selection = selectVoice('es-AR', [mexican, spain, upgrade]);
+    expect(selection.voice).toBe(upgrade);
+    expect(selection.isArgentine).toBe(false);
+    expect(selection.fallbackMessage).toContain('no tiene acento argentino');
+  });
+
+  it('preserves the first fallback region when neutral reaches generic Spanish', () => {
+    const colombian = mockVoice('Colombian', 'es-CO');
+    const spain = mockVoice('Mónica (Premium)', 'es-ES');
+    const upgrade = mockVoice('Colombian (Enhanced)', 'es-CO');
+    expect(selectVoice('es-neutro', [colombian, spain]).voice).toBe(colombian);
+    expect(selectVoice('es-neutro', [colombian, spain, upgrade]).voice).toBe(upgrade);
+  });
+
   it('requests es-AR for argentine variant', () => {
     expect(getRequestedLocale('es-AR')).toBe('es-AR');
   });
