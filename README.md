@@ -7,6 +7,20 @@ Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
 ## Objetivo de esta fase
 
+### Embudo de uso: primera fase local — 26/09/2026
+
+- Separados entrada consentida, cuestionario, guion válido, audio iniciado,
+  audio terminado, cierre, feedback y errores genéricos. Finalizar audio exige
+  callbacks de todos los segmentos; detener/adelantar/cancelar no cuenta.
+- Observador sólo en memoria, opcional y exclusivo de desarrollo:
+  `VITE_PRODUCT_FUNNEL_PREVIEW=true npm run dev`. Se borra al retirar permiso,
+  borrar o reiniciar sesión. Sin texto privado, identificadores, red ni persistencia.
+- NO PUBLICADO. La rama retira los pings legados automáticos, pero no implementa
+  aún colector remoto, estadísticas por campaña ni retención de producción.
+  No mezclar los cinco session_complete históricos con audios escuchados enteros.
+- Auditoría, unidades, pruebas y fase pendiente en
+  [PRODUCT_FUNNEL_AUDIT_2026-09-26.md](docs/PRODUCT_FUNNEL_AUDIT_2026-09-26.md).
+
 ### Comentarios voluntarios de la beta — 24/09/2026
 
 - Sección opcional al finalizar y acceso desplegable desde la bienvenida, sin
@@ -320,7 +334,7 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
 - `ACCOUNT_STORE_JSON_PATH` — ruta del store JSON fallback.
 - `ACCOUNT_ALLOWED_ORIGINS` — lista separada por comas para CORS en
   `/api/account*`, `/api/connectors*`, `/api/visit`, `/api/visitors/count`,
-  `/api/health` y `/api/generate-script`.
+  `/api/funnel/*`, `/api/health` y `/api/generate-script`.
   Si queda vacía usa sólo localhost/127.0.0.1 (puertos 5173/4173). Con cookies
   (`credentials`), `*` se rechaza por seguridad. En Fly el origen publicado es
   `https://leo8190.github.io` (la app vive en `/pausa-mia`).
@@ -347,44 +361,36 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
 - `VITE_ACCOUNT_API_URL` — backend de cuentas opcional para frontend (`http(s)` sin
   credenciales embebidas). Si queda vacío, el cliente usa rutas relativas
   (`/api/...`) en el mismo origen. En el sitio publicado apunta a
-  `https://pausa-mia-api.fly.dev` y también recibe el ping de visitantes únicos.
+  `https://pausa-mia-api.fly.dev`; también recibe las métricas voluntarias.
 
-### Contador first-party de visitantes y eventos de producto
+### Métricas voluntarias del recorrido
 
-Sin GA/Plausible/Mixpanel ni píxeles de terceros. Al cargar la app (origen
-publicado `https://leo8190.github.io/pausa-mia`), el cliente genera (o reutiliza)
-un UUID anónimo en `localStorage` (`pausa-mia-vid`) y hace `POST /api/visit` con
-`{ id, event: "pageview" }` hacia el API allowlisteado. Cuando la persona termina
-la reproducción o llega al cierre del flujo, envía `{ id, event: "session_complete" }`
-(una vez por ciclo; no al borrar sin completar). El servidor guarda sólo
-`SHA-256(pepper:id)` en `unique_visitors` y filas mínimas (`event_name` + hash) en
-`product_events`; no registra IP, nombres, cuestionario, diario, estado, guion ni
-voz. El modo demo sin API falla en silencio.
+El cliente nuevo no envía visitas automáticas. Sólo tras un permiso separado y
+opcional envía nombres cerrados de pasos del recorrido a `/api/funnel/event`:
+entrada consentida, inicio de cuestionario, guion generado, audio iniciado,
+audio terminado por callbacks, cierre, feedback y errores genéricos. El token
+aleatorio de cada recorrido vive sólo en memoria; el servidor guarda su hash,
+fecha UTC, fuente de enlace de una lista cerrada y los pasos. Nunca envía
+respuestas, diario, guion, audio, calificación, cuenta, URL, referrer ni cookies.
+Una práctica nueva vuelve a pedir permiso. Retirar permiso o borrar sesión pide
+eliminar los recorridos de esa pestaña; si falla, la interfaz avisa y permite
+reintentar antes de cerrarla. No se interpreta un evento de audio como prueba de
+que alguien lo escuchó. El informe privado agregado se obtiene dentro de la
+máquina del servidor con `node /app/server/funnelReport.mjs`; no hay endpoint
+público de informe. Conserva sólo los últimos 30 días en la base activa y purga
+al iniciar o usar la API; una máquina detenida purga al despertar. Pruebas con
+`?pm_qa=1` se excluyen. `?pm_source=instagram|tiktok|okara|newsletter|shared`
+clasifica sólo esos enlaces; los demás quedan sin atribución. Detalles y límites
+en `docs/PRODUCT_FUNNEL_RELEASE_2026-09-26.md`.
 
-Leer totales (ops; Origin opcional como health; orígenes ajenos → 403):
+El contador anterior queda como **histórico, separado y no comparable**. Su API
+sigue disponible para operaciones y clientes viejos, pero la interfaz nueva no
+lo consulta ni muestra como si fueran personas o prácticas completadas:
 
 ```bash
 curl -sS https://pausa-mia-api.fly.dev/api/visitors/count
 # {"uniqueVisitors":N,"pageviews":N,"sessionCompletes":N}
 ```
-
-Con origen allowlisted:
-
-```bash
-curl -sS -H 'Origin: https://leo8190.github.io' \
-  https://pausa-mia-api.fly.dev/api/visitors/count
-```
-
-No inventar ni copiar números: el valor válido es el que devuelve ese endpoint
-(o conteos sobre `unique_visitors` / `product_events` en el volumen Fly
-`/data/app.db`).
-
-En la UI, los mismos totales aparecen (sólo lectura) dentro del panel colapsado
-**Información técnica (opcional)** → compatibilidad/diagnóstico, con etiquetas
-«Visitas únicas», «Entradas» y «Sesiones completas». Si el API no responde
-(modo demo), la fila no se muestra. El cliente acepta tanto la forma nueva
-`{ uniqueVisitors, pageviews, sessionCompletes }` como la antigua
-`{ uniqueVisitors }` por si Fly aún no desplegó la revisión de #23.
 
 ## Motores de voz
 

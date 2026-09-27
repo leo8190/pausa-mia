@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { FUNNEL_RETENTION_DAYS, FUNNEL_RUN_HOURS } from '../funnel.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const schemaPath = resolve(__dirname, 'schema.sql');
@@ -45,10 +46,76 @@ export async function createSqliteStore(dbPath) {
     };
   }
 
+  function purgeFunnel(at = nowIso()) {
+    const cutoff = new Date(
+      Date.parse(at) - FUNNEL_RETENTION_DAYS * 86_400_000,
+    ).toISOString();
+    db.prepare('DELETE FROM funnel_runs WHERE created_at < ?').run(cutoff);
+  }
+
+  purgeFunnel();
+
   return {
     kind: 'sqlite',
     close() {
       db.close();
+    },
+    recordFunnelEvent({ runHash, event, source, qa = false, at = nowIso() }) {
+      purgeFunnel(at);
+      if (event === 'entry') {
+        const expiresAt = new Date(
+          Date.parse(at) + FUNNEL_RUN_HOURS * 3_600_000,
+        ).toISOString();
+        db.prepare(
+          `INSERT OR IGNORE INTO funnel_runs
+           (run_hash, source, qa, created_at, expires_at, revoked_at)
+           VALUES (?, ?, ?, ?, ?, NULL)`,
+        ).run(runHash, source, qa ? 1 : 0, at, expiresAt);
+      }
+      const run = db
+        .prepare('SELECT expires_at, revoked_at FROM funnel_runs WHERE run_hash = ?')
+        .get(runHash);
+      if (!run || run.revoked_at || at >= run.expires_at) return 'gone';
+      const written = db
+        .prepare(
+          `INSERT OR IGNORE INTO funnel_events
+           (run_hash, event_name, day_utc, created_at) VALUES (?, ?, ?, ?)`,
+        )
+        .run(runHash, event, at.slice(0, 10), at);
+      return written.changes === 1 ? 'stored' : 'duplicate';
+    },
+    revokeFunnelRun(runHash, at = nowIso()) {
+      purgeFunnel(at);
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        const expiresAt = new Date(
+          Date.parse(at) + FUNNEL_RUN_HOURS * 3_600_000,
+        ).toISOString();
+        db.prepare(
+          `INSERT INTO funnel_runs
+           (run_hash, source, qa, created_at, expires_at, revoked_at)
+           VALUES (?, 'unattributed', 1, ?, ?, ?)
+           ON CONFLICT(run_hash) DO UPDATE SET revoked_at = excluded.revoked_at`,
+        ).run(runHash, at, expiresAt, at);
+        db.prepare('DELETE FROM funnel_events WHERE run_hash = ?').run(runHash);
+        db.exec('COMMIT');
+      } catch (error) {
+        db.exec('ROLLBACK');
+        throw error;
+      }
+    },
+    getFunnelReport(at = nowIso()) {
+      purgeFunnel(at);
+      return db
+        .prepare(
+          `SELECT e.day_utc AS dayUtc, r.source, e.event_name AS event,
+                  COUNT(*) AS count
+           FROM funnel_events e JOIN funnel_runs r ON r.run_hash = e.run_hash
+           WHERE r.qa = 0 AND r.revoked_at IS NULL
+           GROUP BY e.day_utc, r.source, e.event_name
+           ORDER BY e.day_utc, r.source, e.event_name`,
+        )
+        .all();
     },
     createUser({
       displayName = null,
@@ -448,9 +515,7 @@ export async function createSqliteStore(dbPath) {
     countProductEvents(eventName) {
       if (typeof eventName !== 'string' || eventName.length === 0) return 0;
       const row = db
-        .prepare(
-          `SELECT COUNT(*) AS total FROM product_events WHERE event_name = ?`,
-        )
+        .prepare(`SELECT COUNT(*) AS total FROM product_events WHERE event_name = ?`)
         .get(eventName);
       return Number(row?.total ?? 0);
     },

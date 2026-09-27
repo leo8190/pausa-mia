@@ -7,7 +7,6 @@ import {
   checkRemoteWavPlaybackSupport,
 } from '../lib/voiceEngine';
 import { isRemoteArgentineTtsConfigured } from '../lib/remoteVoiceService';
-import { reportSessionComplete } from '../lib/visitorPing';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 
 export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
@@ -125,37 +124,6 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     canSpeak,
     playWebSpeech,
     clearAutoStartPlayback,
-  ]);
-
-  // Reproducción natural terminada (último segmento) = sesión usada.
-  useEffect(() => {
-    if (!script) return;
-    const segmentCount = script.segments.length;
-    if (segmentCount === 0) return;
-
-    if (useNeuralEngine) {
-      if (
-        neuralState.status === 'stopped' &&
-        neuralState.currentSegmentIndex >= segmentCount
-      ) {
-        reportSessionComplete();
-      }
-      return;
-    }
-
-    if (
-      playerState.status === 'stopped' &&
-      playerState.currentSegmentIndex >= segmentCount
-    ) {
-      reportSessionComplete();
-    }
-  }, [
-    script,
-    useNeuralEngine,
-    neuralState.status,
-    neuralState.currentSegmentIndex,
-    playerState.status,
-    playerState.currentSegmentIndex,
   ]);
 
   if (!script) return null;

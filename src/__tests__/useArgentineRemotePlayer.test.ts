@@ -10,6 +10,7 @@ import {
 import * as voiceEngine from '../lib/voiceEngine';
 import * as remoteVoice from '../lib/remoteVoiceService';
 import { REMOTE_ARGENTINE_PLAYBACK_RATE } from '../lib/voiceCadence';
+import { productFunnel } from '../lib/productFunnel';
 
 describe('isAutoplayPolicyError', () => {
   it('detects NotAllowedError from DOMException and similar messages', () => {
@@ -52,9 +53,130 @@ describe('useArgentineVoicePlayer — remoto', () => {
   });
 
   afterEach(() => {
+    productFunnel.setConsent(false);
+    vi.unstubAllEnvs();
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
+
+  it('records a generic preparation error without private error text', async () => {
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PRODUCT_FUNNEL_PREVIEW', 'true');
+    productFunnel.setConsent(true);
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockRejectedValue(
+      new Error('PRIVATE-AUDIO-TEXT'),
+    );
+    const { result } = renderHook(() => useArgentineVoicePlayer('local'));
+    await act(async () => {
+      await result.current.prepare('PRIVATE-SCRIPT');
+    });
+    expect(productFunnel.snapshot().map((x) => x.event)).toEqual([
+      'entry',
+      'audio_error',
+    ]);
+    expect(JSON.stringify(productFunnel.snapshot())).not.toContain('PRIVATE');
+  });
+
+  it('autoplay refusal does not count as started until native playback actually begins', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PRODUCT_FUNNEL_PREVIEW', 'true');
+    productFunnel.setConsent(true);
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
+      new Blob(['audio']),
+    );
+    const play = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+    play.mockRejectedValue(new DOMException('Not allowed', 'NotAllowedError'));
+    const { result } = renderHook(() => useArgentineVoicePlayer('local'));
+    await act(async () => result.current.play([{ text: 'Uno.', pauseAfterMs: 0 }]));
+    expect(result.current.state.status).toBe('needs-native-play');
+    expect(productFunnel.snapshot().map((x) => x.event)).toEqual(['entry']);
+    const audio = play.mock.contexts.at(-1) as HTMLAudioElement;
+    Object.defineProperty(audio, 'paused', { configurable: true, value: false });
+    act(() => audio.onplaying?.call(audio, new Event('playing')));
+    act(() => audio.onended?.call(audio, new Event('ended')));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(productFunnel.snapshot().map((x) => x.event)).toEqual([
+      'entry',
+      'audio_started',
+      'audio_finished',
+    ]);
+  });
+
+  it.each(['local', 'remote'] as const)(
+    'observes real playing and natural completion in %s, not synthesis or play()',
+    async (mode) => {
+      vi.useFakeTimers();
+      vi.stubEnv('DEV', true);
+      vi.stubEnv('VITE_PRODUCT_FUNNEL_PREVIEW', 'true');
+      productFunnel.setConsent(true);
+      vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
+        new Blob(['audio']),
+      );
+      vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice').mockResolvedValue(
+        new Blob(['audio']),
+      );
+      const play = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+      const { result } = renderHook(() => useArgentineVoicePlayer(mode));
+      await act(async () =>
+        result.current.play([
+          { text: 'Uno.', pauseAfterMs: 0 },
+          { text: 'Dos.', pauseAfterMs: 0 },
+        ]),
+      );
+      expect(productFunnel.snapshot().map((x) => x.event)).toEqual(['entry']);
+      for (let index = 0; index < 2; index++) {
+        const audio = play.mock.contexts.at(-1) as HTMLAudioElement;
+        Object.defineProperty(audio, 'paused', { configurable: true, value: false });
+        act(() => audio.onplaying?.call(audio, new Event('playing')));
+        act(() => audio.onended?.call(audio, new Event('ended')));
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1);
+        });
+      }
+      expect(productFunnel.snapshot().map((x) => x.event)).toEqual([
+        'entry',
+        'audio_started',
+        'audio_finished',
+      ]);
+    },
+  );
+
+  it.each(['seek', 'stop', 'error'] as const)(
+    'never counts complete after %s in native audio',
+    async (interruption) => {
+      vi.useFakeTimers();
+      vi.stubEnv('DEV', true);
+      vi.stubEnv('VITE_PRODUCT_FUNNEL_PREVIEW', 'true');
+      productFunnel.setConsent(true);
+      vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(
+        new Blob(['audio']),
+      );
+      const play = window.HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+      const { result } = renderHook(() => useArgentineVoicePlayer('local'));
+      await act(async () => result.current.play([{ text: 'Uno.', pauseAfterMs: 0 }]));
+      const audio = play.mock.contexts.at(-1) as HTMLAudioElement;
+      Object.defineProperty(audio, 'paused', { configurable: true, value: false });
+      act(() => audio.onplaying?.call(audio, new Event('playing')));
+      const lateEnd = audio.onended;
+      act(() => {
+        if (interruption === 'seek') audio.onseeking?.call(audio, new Event('seeking'));
+        if (interruption === 'stop') result.current.stop();
+        if (interruption === 'error') audio.onerror?.call(audio, new Event('error'));
+        lateEnd?.call(audio, new Event('ended'));
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1);
+      });
+      expect(productFunnel.snapshot().map((x) => x.event)).not.toContain(
+        'audio_finished',
+      );
+      if (interruption === 'error')
+        expect(productFunnel.snapshot().map((x) => x.event)).toContain('audio_error');
+    },
+  );
 
   it('ignores synthesis from before a restart even when local inference cannot abort', async () => {
     let resolveOld!: (blob: Blob) => void;

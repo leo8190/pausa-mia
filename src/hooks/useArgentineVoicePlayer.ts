@@ -18,6 +18,7 @@
 // segmento rompe la cadena de gesto del navegador (Safari/iOS pide otro toque).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ScriptSegment } from '../types';
+import { createAudioObservation, productFunnel } from '../lib/productFunnel';
 import { synthesizeArgentineVoice, type Progress } from '../lib/voiceEngine';
 import {
   assertRemoteSessionTextLimits,
@@ -144,6 +145,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   // Sólo en memoria, para un único comienzo local. No persistir texto ni audio.
   const preparedOpeningRef = useRef<{ text: string; blob: Blob } | null>(null);
   const playSegmentRef = useRef<(index: number) => Promise<void>>(async () => {});
+  const observationRef = useRef<ReturnType<typeof createAudioObservation> | null>(null);
 
   const releaseObjectUrl = useCallback(() => {
     if (objectUrlRef.current) {
@@ -170,6 +172,8 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     audio.onended = null;
     audio.onerror = null;
     audio.onplay = null;
+    audio.onplaying = null;
+    audio.onseeking = null;
     audio.onpause = null;
   }, []);
 
@@ -226,6 +230,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   );
 
   const resetPlaybackFlags = useCallback(() => {
+    observationRef.current?.invalidate();
     preparedOpeningRef.current = null;
     playbackIdRef.current += 1;
     stoppedRef.current = false;
@@ -240,6 +245,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   // Al cambiar de local ↔ remoto se descarta audio y estado previos.
   useEffect(() => {
     if (modeRef.current === mode) return;
+    observationRef.current?.invalidate();
     preparedOpeningRef.current = null;
     modeRef.current = mode;
     playbackIdRef.current += 1;
@@ -260,6 +266,8 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
    */
   const prepare = useCallback(
     async (firstSegmentText?: string): Promise<boolean> => {
+      const observePreparation = productFunnel.capture();
+      observationRef.current?.invalidate();
       preparedOpeningRef.current = null;
       const requestMode = mode;
       playbackIdRef.current += 1;
@@ -331,6 +339,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         return true;
       } catch (err) {
         if (isStale() || isAbortLike(err)) return false;
+        observePreparation('audio_error');
         setState((prev) => ({
           ...prev,
           status: 'error',
@@ -408,6 +417,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         modeRef.current === mode;
       const segments = segmentsRef.current;
       if (index >= segments.length) {
+        observationRef.current?.complete();
         stoppedRef.current = true;
         betweenSegmentsRef.current = false;
         teardownAudio();
@@ -453,10 +463,18 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
 
         audio.onended = () => {
           if (!isCurrent() || betweenSegmentsRef.current) return;
+          observationRef.current?.ended(index);
           scheduleNextSegment(index);
+        };
+        audio.onplaying = () => {
+          if (isCurrent() && !audio.paused) observationRef.current?.started(index);
+        };
+        audio.onseeking = () => {
+          if (isCurrent()) observationRef.current?.invalidate();
         };
         audio.onerror = () => {
           if (!isCurrent()) return;
+          observationRef.current?.failed();
           stoppedRef.current = true;
           teardownAudio();
           setState((prev) => ({
@@ -526,6 +544,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         if (!isCurrent() || isAbortLike(err)) {
           return;
         }
+        observationRef.current?.failed();
         synthesizingRef.current = false;
         stoppedRef.current = true;
         teardownAudio();
@@ -554,6 +573,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     (segments: ScriptSegment[]) => {
       const prepared = preparedOpeningRef.current;
       resetPlaybackFlags();
+      observationRef.current = createAudioObservation(segments.length);
       // reset cancela trabajo viejo; conservar únicamente el comienzo idéntico
       // ya terminado. La siguiente síntesis lo consume y libera la referencia.
       if (mode === 'local' && prepared?.text === segments[0]?.text) {
@@ -569,6 +589,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         try {
           assertRemoteSessionTextLimits(segments.map((s) => s.text).join('\n'));
         } catch (err) {
+          observationRef.current?.failed();
           stoppedRef.current = true;
           setState((prev) => ({
             ...prev,
@@ -655,6 +676,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
           return;
         }
         if (!isAbortLike(err)) {
+          observationRef.current?.failed();
           setState((prev) => ({
             ...prev,
             status: 'error',
@@ -680,6 +702,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
   }, []);
 
   const stop = useCallback(() => {
+    observationRef.current?.invalidate();
     preparedOpeningRef.current = null;
     playbackIdRef.current += 1;
     stoppedRef.current = true;
@@ -699,6 +722,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
 
   const restart = useCallback(() => {
     resetPlaybackFlags();
+    observationRef.current = createAudioObservation(segmentsRef.current.length);
     setState((prev) => ({
       ...prev,
       nativeAudioUrl: null,
@@ -711,6 +735,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     const unregister = registerSpeechCancel(stop);
     return () => {
       unregister();
+      observationRef.current?.invalidate();
       preparedOpeningRef.current = null;
       playbackIdRef.current += 1;
       stoppedRef.current = true;

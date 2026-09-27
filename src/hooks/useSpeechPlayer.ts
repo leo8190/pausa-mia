@@ -10,6 +10,7 @@ import type { VoiceVariant } from '../types';
 import { registerSpeechCancel } from '../lib/speechController';
 import { checkWebSpeechEngineSupport } from '../lib/voiceEngine';
 import { scalePausesForArgentineDelivery } from '../lib/voiceCadence';
+import { createAudioObservation } from '../lib/productFunnel';
 
 function getSpeechSynthesis(): SpeechSynthesis | null {
   if (typeof window === 'undefined' || !window.speechSynthesis) return null;
@@ -37,6 +38,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
   const remainingPauseMsRef = useRef(0);
   const pauseStartTimeRef = useRef(0);
   const pendingNextIndexRef = useRef(0);
+  const observationRef = useRef<ReturnType<typeof createAudioObservation> | null>(null);
 
   const clearPauseTimer = useCallback(() => {
     if (pauseTimerRef.current !== null) {
@@ -46,6 +48,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
   }, []);
 
   const invalidatePlayback = useCallback(() => {
+    observationRef.current?.invalidate();
     // cancel() puede entregar eventos ahora o después de iniciar otra sesión.
     // Invalidar primero evita que esos eventos hablen o salteen otra frase.
     sessionIdRef.current += 1;
@@ -53,6 +56,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
     pausedRef.current = false;
     betweenSegmentsRef.current = false;
     if (utteranceRef.current) {
+      utteranceRef.current.onstart = null;
       utteranceRef.current.onend = null;
       utteranceRef.current.onerror = null;
       utteranceRef.current = null;
@@ -95,6 +99,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
       if (!synthesis || !voiceRef.current) return;
       const segments = segmentsRef.current;
       if (index >= segments.length) {
+        observationRef.current?.complete();
         stoppedRef.current = true;
         betweenSegmentsRef.current = false;
         setPlayerState({ status: 'stopped', currentSegmentIndex: segments.length });
@@ -115,8 +120,12 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
         !stoppedRef.current &&
         sessionId === sessionIdRef.current &&
         utteranceRef.current === utterance;
+      utterance.onstart = () => {
+        if (isCurrent()) observationRef.current?.started(index);
+      };
       utterance.onend = () => {
         if (!isCurrent()) return;
+        observationRef.current?.ended(index);
         utteranceRef.current = null;
         betweenSegmentsRef.current = true;
         pendingNextIndexRef.current = index + 1;
@@ -139,6 +148,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
       };
       const failPlayback = () => {
         if (!isCurrent()) return;
+        observationRef.current?.failed();
         utteranceRef.current = null;
         stoppedRef.current = true;
         pausedRef.current = false;
@@ -168,6 +178,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
         return;
       }
       invalidatePlayback();
+      observationRef.current = createAudioObservation(segments.length);
       // cancel() clears the queue, not the browser's paused flag.
       if (synthesis.paused) synthesis.resume();
       segmentsRef.current =
@@ -232,6 +243,7 @@ export function useSpeechPlayer(voiceVariant: VoiceVariant) {
     }
     invalidatePlayback();
     if (synthesis.paused) synthesis.resume();
+    observationRef.current = createAudioObservation(segmentsRef.current.length);
     loadVoices();
     setPlaybackError(null);
     stoppedRef.current = false;

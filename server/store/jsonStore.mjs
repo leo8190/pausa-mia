@@ -7,6 +7,7 @@ import {
 } from 'node:fs';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { FUNNEL_RETENTION_DAYS, FUNNEL_RUN_HOURS } from '../funnel.mjs';
 
 function nowIso() {
   return new Date().toISOString();
@@ -21,6 +22,8 @@ function emptyState() {
     contextItems: [],
     uniqueVisitors: [],
     productEvents: [],
+    funnelRuns: [],
+    funnelEvents: [],
   };
 }
 
@@ -50,9 +53,112 @@ export function createJsonStore(path) {
     return user ? { ...user } : null;
   }
 
+  function purgeFunnel(at = nowIso()) {
+    const cutoff = new Date(
+      Date.parse(at) - FUNNEL_RETENTION_DAYS * 86_400_000,
+    ).toISOString();
+    const originalRuns = state.funnelRuns.length;
+    const originalEvents = state.funnelEvents.length;
+    state.funnelRuns = state.funnelRuns.filter((run) => run.createdAt >= cutoff);
+    const active = new Set(state.funnelRuns.map((run) => run.runHash));
+    state.funnelEvents = state.funnelEvents.filter((event) =>
+      active.has(event.runHash),
+    );
+    if (
+      state.funnelRuns.length !== originalRuns ||
+      state.funnelEvents.length !== originalEvents
+    ) {
+      persist();
+    }
+  }
+
+  purgeFunnel();
+
   return {
     kind: 'json',
     close() {},
+    recordFunnelEvent({ runHash, event, source, qa = false, at = nowIso() }) {
+      purgeFunnel(at);
+      let run = state.funnelRuns.find((item) => item.runHash === runHash);
+      if (!run && event === 'entry') {
+        run = {
+          runHash,
+          source,
+          qa: Boolean(qa),
+          createdAt: at,
+          expiresAt: new Date(
+            Date.parse(at) + FUNNEL_RUN_HOURS * 3_600_000,
+          ).toISOString(),
+          revokedAt: null,
+        };
+        state.funnelRuns.push(run);
+      }
+      if (!run || run.revokedAt || at >= run.expiresAt) return 'gone';
+      if (
+        state.funnelEvents.some(
+          (item) => item.runHash === runHash && item.event === event,
+        )
+      ) {
+        return 'duplicate';
+      }
+      state.funnelEvents.push({
+        runHash,
+        event,
+        dayUtc: at.slice(0, 10),
+        createdAt: at,
+      });
+      persist();
+      return 'stored';
+    },
+    revokeFunnelRun(runHash, at = nowIso()) {
+      purgeFunnel(at);
+      let run = state.funnelRuns.find((item) => item.runHash === runHash);
+      if (!run) {
+        run = {
+          runHash,
+          source: 'unattributed',
+          qa: true,
+          createdAt: at,
+          expiresAt: new Date(
+            Date.parse(at) + FUNNEL_RUN_HOURS * 3_600_000,
+          ).toISOString(),
+          revokedAt: at,
+        };
+        state.funnelRuns.push(run);
+      } else {
+        run.revokedAt = at;
+      }
+      state.funnelEvents = state.funnelEvents.filter(
+        (item) => item.runHash !== runHash,
+      );
+      persist();
+    },
+    getFunnelReport(at = nowIso()) {
+      purgeFunnel(at);
+      const runs = new Map(
+        state.funnelRuns
+          .filter((run) => !run.qa && !run.revokedAt)
+          .map((run) => [run.runHash, run]),
+      );
+      const counts = new Map();
+      for (const item of state.funnelEvents) {
+        const source = runs.get(item.runHash)?.source;
+        if (!source) continue;
+        const key = JSON.stringify([item.dayUtc, source, item.event]);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      return [...counts]
+        .map(([key, count]) => {
+          const [dayUtc, source, event] = JSON.parse(key);
+          return { dayUtc, source, event, count };
+        })
+        .sort(
+          (a, b) =>
+            a.dayUtc.localeCompare(b.dayUtc) ||
+            a.source.localeCompare(b.source) ||
+            a.event.localeCompare(b.event),
+        );
+    },
     createUser({
       displayName = null,
       locale = 'es-AR',

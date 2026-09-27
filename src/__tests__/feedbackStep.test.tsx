@@ -5,6 +5,7 @@ import { FeedbackStep } from '../components/FeedbackStep';
 import type { SessionApi } from '../hooks/useSession';
 import type { SessionState } from '../types';
 import { resetVisitorPingForTests } from '../lib/visitorPing';
+import { productFunnel } from '../lib/productFunnel';
 
 function FeedbackHarness() {
   const [wouldRepeat, setWouldRepeat] = useState<boolean | null>(null);
@@ -24,6 +25,8 @@ function FeedbackHarness() {
 
 describe('FeedbackStep repeat choice', () => {
   afterEach(() => {
+    productFunnel.setConsent(false);
+    vi.unstubAllEnvs();
     resetVisitorPingForTests();
     localStorage.clear();
     vi.unstubAllGlobals();
@@ -109,7 +112,10 @@ describe('FeedbackStep repeat choice', () => {
     expect(no).toHaveClass('selected');
   });
 
-  it('emite session_complete al llegar al cierre (sin cuestionario)', () => {
+  it('observa cierre, no audio terminado ni session_complete, y no envía datos', () => {
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PRODUCT_FUNNEL_PREVIEW', 'true');
+    productFunnel.setConsent(true);
     const id = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
     localStorage.setItem('pausa-mia-vid', id);
     const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
@@ -117,12 +123,10 @@ describe('FeedbackStep repeat choice', () => {
 
     render(<FeedbackHarness />);
 
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    expect(url).toMatch(/\/api\/visit$/);
-    expect(JSON.parse(init.body as string)).toEqual({
-      id,
-      event: 'session_complete',
-    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(productFunnel.snapshot().map(({ event }) => event)).toEqual([
+      'entry',
+      'closing_reached',
+    ]);
   });
 });

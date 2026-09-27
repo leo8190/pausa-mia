@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSpeechPlayer } from '../hooks/useSpeechPlayer';
+import { productFunnel } from '../lib/productFunnel';
 
 const segments = [
   { text: 'Primera parte.', pauseAfterMs: 1000 },
@@ -34,6 +35,8 @@ describe('useSpeechPlayer playback lifecycle', () => {
 
   afterEach(() => {
     cleanup();
+    productFunnel.setConsent(false);
+    vi.unstubAllEnvs();
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
@@ -53,6 +56,51 @@ describe('useSpeechPlayer playback lifecycle', () => {
       'Primera parte.',
     ]);
     expect(result.current.playerState.currentSegmentIndex).toBe(0);
+  });
+
+  it('observes actual speech start and all natural ends, never the play request', () => {
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PRODUCT_FUNNEL_PREVIEW', 'true');
+    productFunnel.setConsent(true);
+    const { result } = renderHook(() => useSpeechPlayer('es-neutro'));
+    act(() => result.current.play(segments));
+    expect(productFunnel.snapshot().map((x) => x.event)).toEqual(['entry']);
+    for (let index = 0; index < segments.length; index++) {
+      act(() =>
+        utterances[index].onstart?.call(utterances[index], {} as SpeechSynthesisEvent),
+      );
+      act(() => fireEnd(utterances[index]));
+      act(() => vi.advanceTimersByTime(1000));
+    }
+    expect(productFunnel.snapshot().map((x) => x.event)).toEqual([
+      'entry',
+      'audio_started',
+      'audio_finished',
+    ]);
+  });
+
+  it('does not observe completion when stopped or when permission is withdrawn', () => {
+    vi.stubEnv('DEV', true);
+    vi.stubEnv('VITE_PRODUCT_FUNNEL_PREVIEW', 'true');
+    productFunnel.setConsent(true);
+    const { result } = renderHook(() => useSpeechPlayer('es-neutro'));
+    act(() => result.current.play(segments));
+    const oldStart = utterances[0].onstart;
+    const oldEnd = utterances[0].onend;
+    act(() => result.current.stop());
+    act(() => {
+      oldStart?.call(utterances[0], {} as SpeechSynthesisEvent);
+      oldEnd?.call(utterances[0], {} as SpeechSynthesisEvent);
+      vi.advanceTimersByTime(5000);
+    });
+    expect(productFunnel.snapshot().map((x) => x.event)).toEqual(['entry']);
+    act(() => result.current.play(segments.slice(0, 1)));
+    act(() => utterances[1].onstart?.call(utterances[1], {} as SpeechSynthesisEvent));
+    productFunnel.setConsent(false);
+    productFunnel.setConsent(true);
+    act(() => fireEnd(utterances[1]));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(productFunnel.snapshot().map((x) => x.event)).toEqual(['entry']);
   });
 
   it('ignores old completion and error callbacks delivered after a new play', () => {

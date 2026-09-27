@@ -1,16 +1,16 @@
 import { useEffect } from 'react';
 import { PRICE_OPTIONS, type PriceOption } from '../types';
 import type { SessionApi } from '../hooks/useSession';
-import { reportSessionComplete } from '../lib/visitorPing';
+import { productFunnel } from '../lib/productFunnel';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 import { BetaComments } from './BetaComments';
 
 export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { rating, selectedPrice, wouldRepeat } = sessionApi.session;
 
-  // Llegó al cierre del flujo = usó la sesión (no bounce ni wipe-only).
+  // Llegar al cierre nunca acredita que el audio haya terminado.
   useEffect(() => {
-    reportSessionComplete();
+    productFunnel.record('closing_reached');
   }, []);
 
   return (

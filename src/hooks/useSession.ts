@@ -18,7 +18,7 @@ import {
 } from '../lib/scriptProvider';
 import { savePreferences, clearPreferences } from '../lib/preferencesStorage';
 import { cancelActiveSpeech } from '../lib/speechController';
-import { allowNextSessionComplete } from '../lib/visitorPing';
+import { productFunnel } from '../lib/productFunnel';
 import type { MeditationStyle } from '../types';
 
 export function useSession() {
@@ -36,6 +36,7 @@ export function useSession() {
   }, []);
 
   const setStep = useCallback((step: AppStep) => {
+    if (step === 'checkin') productFunnel.record('questionnaire_started');
     setSession((prev) => ({ ...prev, step }));
   }, []);
 
@@ -96,6 +97,7 @@ export function useSession() {
 
   const generateWithProvider = useCallback(
     async (provider: ScriptProvider, afterGenerate: AppStep = 'review') => {
+      const observe = productFunnel.capture();
       const prev = sessionRef.current;
       const safety = scanCheckInForDanger(prev.checkIn);
       const contextText = prev.contextSources
@@ -134,9 +136,11 @@ export function useSession() {
           excluded: prev.summaryExcluded,
         });
         if (!quality.valid) {
+          observe('script_error');
           return false;
         }
 
+        observe('script_generated');
         setSession((s) => ({
           ...s,
           script: result.script,
@@ -146,6 +150,7 @@ export function useSession() {
         }));
         return true;
       } catch {
+        observe('script_error');
         return false;
       }
     },
@@ -176,6 +181,7 @@ export function useSession() {
    * la sesión en welcome vía createInitialSession / setStep('welcome').
    */
   const startNow = useCallback(() => {
+    const observe = productFunnel.capture();
     const prev = sessionRef.current;
     if (!prev.consent.sessionProcessing) return false;
     if (!isCheckInComplete(prev.checkIn)) return false;
@@ -214,9 +220,11 @@ export function useSession() {
         excluded: prev.summaryExcluded,
       });
       if (!quality.valid) {
+        observe('script_error');
         return false;
       }
 
+      observe('script_generated');
       // El clic de Empezar ahora es el gesto: reproducción intenta play una vez.
       const playbackSession = {
         ...prev,
@@ -233,6 +241,7 @@ export function useSession() {
       setSession(playbackSession);
       return true;
     } catch {
+      observe('script_error');
       return false;
     }
   }, []);
@@ -257,6 +266,7 @@ export function useSession() {
   }, [generateWithProvider]);
 
   const deleteSession = useCallback(() => {
+    productFunnel.setConsent(false);
     cancelActiveSpeech();
     clearPreferences();
     setSession({ ...clearSession(), step: 'deleted' });
@@ -264,11 +274,12 @@ export function useSession() {
 
   const resetToWelcome = useCallback(() => {
     cancelActiveSpeech();
-    allowNextSessionComplete();
+    productFunnel.finishRun();
     setSession(createInitialSession());
   }, []);
 
   const setRating = useCallback((rating: number) => {
+    productFunnel.record('feedback_given');
     setSession((prev) => ({ ...prev, rating }));
   }, []);
 
@@ -277,6 +288,7 @@ export function useSession() {
   }, []);
 
   const setWouldRepeat = useCallback((value: boolean) => {
+    productFunnel.record('feedback_given');
     setSession((prev) => ({ ...prev, wouldRepeat: value }));
   }, []);
 

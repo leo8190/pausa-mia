@@ -10,6 +10,8 @@ import { ReviewStep } from './components/ReviewStep';
 import { PlaybackStep } from './components/PlaybackStep';
 import { FeedbackStep } from './components/FeedbackStep';
 import { DeletedStep } from './components/DeletedStep';
+import { ProductFunnelPreview } from './components/ProductFunnelPreview';
+import { ProductFunnelConsent } from './components/ProductFunnelConsent';
 
 function App() {
   const sessionApi = useSession();
@@ -33,6 +35,7 @@ function App() {
         </div>
       </header>
       <main className="app-main" id="main-content">
+        <ProductFunnelPreview />
         {step === 'welcome' && <WelcomeStep sessionApi={sessionApi} />}
         {step === 'consent' && <ConsentStep sessionApi={sessionApi} />}
         {step === 'checkin' && <CheckInStep sessionApi={sessionApi} />}
@@ -45,6 +48,7 @@ function App() {
         {step === 'feedback' && <FeedbackStep sessionApi={sessionApi} />}
         {step === 'deleted' && <DeletedStep sessionApi={sessionApi} />}
       </main>
+      <ProductFunnelConsent deleted={step === 'deleted'} />
     </div>
   );
 }

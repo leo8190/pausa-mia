@@ -35,6 +35,28 @@
     max(1rem, env(safe-area-inset-left));
 }
 
+.funnel-consent {
+  width: min(100%, 52rem);
+  margin: 0 auto;
+  padding: 0 max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+}
+
+.funnel-consent details {
+  border-top: 1px solid rgba(183, 197, 190, 0.55);
+  padding-top: 0.6rem;
+}
+
+.funnel-consent summary {
+  cursor: pointer;
+}
+
+.funnel-consent .checkbox-option {
+  margin-top: 0.7rem;
+}
+
 /* ---------- Brand ---------- */
 
 .brand {

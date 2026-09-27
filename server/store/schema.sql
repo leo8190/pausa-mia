@@ -92,3 +92,26 @@ CREATE TABLE IF NOT EXISTS product_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_product_events_name ON product_events(event_name);
+
+-- Recorridos de métricas opcionales, separados del contador histórico.
+-- Sólo hash de un token efímero; nunca cuenta, texto, IP, URL ni cookie.
+CREATE TABLE IF NOT EXISTS funnel_runs (
+  run_hash TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  qa INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS funnel_events (
+  run_hash TEXT NOT NULL,
+  event_name TEXT NOT NULL,
+  day_utc TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (run_hash, event_name),
+  FOREIGN KEY (run_hash) REFERENCES funnel_runs(run_hash) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_funnel_runs_created ON funnel_runs(created_at);
+CREATE INDEX IF NOT EXISTS idx_funnel_events_day ON funnel_events(day_utc, event_name);

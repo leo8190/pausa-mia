@@ -183,7 +183,7 @@ describe('DeviceCompatibilityPanel', () => {
   });
 
   it('renders Spanish title, verdicts and copy control without claiming remote availability', () => {
-    render(<DeviceCompatibilityPanel report={makeReport()} visitorCounts={null} />);
+    render(<DeviceCompatibilityPanel report={makeReport()} />);
 
     expect(
       screen.getByRole('heading', { name: /compatibilidad de este dispositivo/i }),
@@ -198,55 +198,15 @@ describe('DeviceCompatibilityPanel', () => {
     expect(screen.queryByText(/visitas únicas/i)).not.toBeInTheDocument();
   });
 
-  it('muestra visitas únicas, entradas y sesiones completas con la forma nueva', () => {
-    render(
-      <DeviceCompatibilityPanel
-        report={makeReport()}
-        visitorCounts={{
-          uniqueVisitors: 12,
-          pageviews: 40,
-          sessionCompletes: 7,
-        }}
-      />,
-    );
+  it('no carga ni muestra métricas históricas en la interfaz de meditación', () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    render(<DeviceCompatibilityPanel report={makeReport()} />);
 
-    expect(screen.getByText('Visitas únicas')).toBeInTheDocument();
-    expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.getByText('Entradas')).toBeInTheDocument();
-    expect(screen.getByText('40')).toBeInTheDocument();
-    expect(screen.getByText('Sesiones completas')).toBeInTheDocument();
-    expect(screen.getByText('7')).toBeInTheDocument();
-  });
-
-  it('con la forma antigua sólo muestra visitas únicas', () => {
-    render(
-      <DeviceCompatibilityPanel
-        report={makeReport()}
-        visitorCounts={{
-          uniqueVisitors: 5,
-          pageviews: null,
-          sessionCompletes: null,
-        }}
-      />,
-    );
-
-    expect(screen.getByText('Visitas únicas')).toBeInTheDocument();
-    expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.queryByText('Entradas')).not.toBeInTheDocument();
-    expect(screen.queryByText('Sesiones completas')).not.toBeInTheDocument();
-  });
-
-  it('oculta la fila de totales si el API no responde (modo demo)', async () => {
-    const fetchCounts = vi.fn().mockResolvedValue(null);
-    render(
-      <DeviceCompatibilityPanel report={makeReport()} fetchCounts={fetchCounts} />,
-    );
-
-    await waitFor(() => {
-      expect(fetchCounts).toHaveBeenCalled();
-    });
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.queryByText(/visitas únicas/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/totales first-party/i)).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it('copies the diagnostic and announces success via aria-live', async () => {
@@ -256,7 +216,7 @@ describe('DeviceCompatibilityPanel', () => {
       value: { writeText },
     });
 
-    render(<DeviceCompatibilityPanel report={makeReport()} visitorCounts={null} />);
+    render(<DeviceCompatibilityPanel report={makeReport()} />);
     fireEvent.click(screen.getByRole('button', { name: /copiar diagnóstico/i }));
 
     await waitFor(() => {
@@ -273,7 +233,7 @@ describe('DeviceCompatibilityPanel', () => {
       value: undefined,
     });
 
-    render(<DeviceCompatibilityPanel report={makeReport()} visitorCounts={null} />);
+    render(<DeviceCompatibilityPanel report={makeReport()} />);
     fireEvent.click(screen.getByRole('button', { name: /copiar diagnóstico/i }));
 
     await waitFor(() => {

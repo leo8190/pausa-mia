@@ -31,6 +31,13 @@ import {
   isVisitPath,
   isVisitorsCountPath,
 } from './visitors.mjs';
+import {
+  hashFunnelRunId,
+  isFunnelEventPath,
+  isFunnelRevokePath,
+  validateFunnelEvent,
+  validateFunnelRevoke,
+} from './funnel.mjs';
 
 const VALID_LOCALES = new Set(['es-AR', 'es-neutro']);
 
@@ -146,10 +153,82 @@ export function createAppHandler(options = {}) {
     provider === 'google_calendar' || provider === 'google_drive';
   const isProviderConfigured = (provider) =>
     isGoogleProvider(provider) ? googleOAuth.isProviderConfigured(provider) : false;
+  const recentFunnelStarts = [];
 
   return async function appHandler(req, res) {
     const requestUrl = new URL(req.url ?? '/', 'http://localhost');
     const pathname = requestUrl.pathname;
+
+    if (isFunnelEventPath(pathname) || isFunnelRevokePath(pathname)) {
+      setCorsHeaders(req, res, allowedOrigins, false);
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      if (!getCorsAllowOrigin(req.headers.origin, allowedOrigins, false)) {
+        sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
+        return;
+      }
+      if (req.method === 'OPTIONS') {
+        sendNoContent(res);
+        return;
+      }
+      if (
+        (req.method !== 'POST' || !isFunnelEventPath(pathname)) &&
+        (req.method !== 'DELETE' || !isFunnelRevokePath(pathname))
+      ) {
+        res.writeHead(405);
+        res.end();
+        return;
+      }
+      try {
+        const body = await readJsonBody(req);
+        if (req.method === 'POST') {
+          const input = validateFunnelEvent(body);
+          if (!input) {
+            sendError(res, 400, 'FUNNEL_EVENT_INVALID');
+            return;
+          }
+          if (input.event === 'entry') {
+            const now = Date.now();
+            while (recentFunnelStarts[0] < now - 60_000) {
+              recentFunnelStarts.shift();
+            }
+            if (recentFunnelStarts.length >= 120) {
+              sendError(res, 429, 'FUNNEL_RATE_LIMIT');
+              return;
+            }
+            recentFunnelStarts.push(now);
+          }
+          const result = store.recordFunnelEvent({
+            runHash: hashFunnelRunId(input.runId, sessionPepper),
+            event: input.event,
+            source: input.source,
+            qa: input.qa,
+          });
+          if (result === 'gone') {
+            sendError(res, 410, 'FUNNEL_RUN_GONE');
+            return;
+          }
+          sendNoContent(res);
+          return;
+        }
+        const runId = validateFunnelRevoke(body);
+        if (!runId) {
+          sendError(res, 400, 'FUNNEL_REVOKE_INVALID');
+          return;
+        }
+        store.revokeFunnelRun(hashFunnelRunId(runId, sessionPepper));
+        sendNoContent(res);
+      } catch (error) {
+        if (error instanceof Error && error.message === 'BODY_INVALID') {
+          sendError(res, 400, 'BODY_INVALID');
+        } else if (error instanceof Error && error.message === 'BODY_TOO_LARGE') {
+          sendError(res, 413, 'BODY_TOO_LARGE');
+        } else {
+          sendError(res, 500, 'INTERNAL_ERROR');
+        }
+      }
+      return;
+    }
 
     // Contador first-party: CORS allowlist (sin cookies). Count permite sin Origin (ops).
     if (isVisitPath(pathname) || isVisitorsCountPath(pathname)) {
@@ -182,9 +261,7 @@ export function createAppHandler(options = {}) {
 
           // event opcional: por defecto pageview (compat con el ping #18).
           const rawEvent =
-            body.event === undefined || body.event === null
-              ? 'pageview'
-              : body.event;
+            body.event === undefined || body.event === null ? 'pageview' : body.event;
           if (!isValidProductEvent(rawEvent)) {
             sendError(res, 400, 'EVENT_INVALID');
             return;
@@ -545,8 +622,12 @@ export function createAppHandler(options = {}) {
           });
           sendJson(res, 200, { ok: true, provider, state: 'connected' });
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'OAUTH_CALLBACK_FAILED';
-          if (message === 'OAUTH_STATE_INVALID' || message === 'OAUTH_CALLBACK_INVALID') {
+          const message =
+            error instanceof Error ? error.message : 'OAUTH_CALLBACK_FAILED';
+          if (
+            message === 'OAUTH_STATE_INVALID' ||
+            message === 'OAUTH_CALLBACK_INVALID'
+          ) {
             sendError(res, 400, message);
             return;
           }
