@@ -86,3 +86,25 @@ Tras los intentos, la API pública respondió saludable y conservó la imagen
 `sha256:b7bfb0a3408f0b139a0ff3723cfcff1423aa295eed9544e53571a2d0725df660`;
 `origin/main` siguió en `e0d3ec56b0b6d765ba8b764ca0737bdeac540201`.
 **No subir la rama a main ni activar Pages hasta verificar primero el backend.**
+
+Continuación manual 26/09, 22:52 ART: `origin/main` y la imagen Fly siguen
+iguales. Se investigó una alternativa oficial de build local: Fly documenta
+[`--local-only`](https://www.fly.io/docs/launch/deploy/) con un daemon Docker,
+y [Colima](https://colima.run/docs/installation/) documenta instalar Colima y
+el cliente Docker por Homebrew. Ambos se instalaron sin suscripción ni compra;
+Homebrew añadió Lima. Se intentó una VM aislada de Colima con 2 CPU, 3 GiB de
+memoria y perfil exclusivo `pausa-mia-deploy`, sin servicio de inicio automático
+ni cambiar el contexto Docker principal. Su arranque quedó esperando la sesión
+SSH del usuario; el log mostraba `sudo: unable to resolve host
+lima-colima-pausa-mia-deploy`. Se canceló, se forzó la detención de esa VM y se
+eliminó el perfil temporal; `colima list` confirmó que no queda ninguna VM activa.
+Los programas Homebrew quedan instalados, inactivos. No se construyó imagen ni
+se hizo deploy. La API pública conserva el digest anterior.
+
+Una tercera vía de Fly (`--buildkit`) existe, pero el costo vigente para esta
+cuenta no se pudo verificar en la [tabla oficial](https://fly.io/docs/about/pricing/);
+por el límite de no generar
+cargos adicionales no se usó. Siguiente paso seguro: diagnosticar la inicialización
+DNS/SSH de Colima y demostrar `docker info` local antes de desplegar, o esperar
+que Fly confirme un constructor remoto operativo sin costo extra. No repetir
+el inicio colgado ni el deploy anterior sin cambio técnico comprobable.
