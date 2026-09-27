@@ -95,16 +95,19 @@ el cliente Docker por Homebrew. Ambos se instalaron sin suscripción ni compra;
 Homebrew añadió Lima. Se intentó una VM aislada de Colima con 2 CPU, 3 GiB de
 memoria y perfil exclusivo `pausa-mia-deploy`, sin servicio de inicio automático
 ni cambiar el contexto Docker principal. Su arranque quedó esperando la sesión
-SSH del usuario; el log mostraba `sudo: unable to resolve host
-lima-colima-pausa-mia-deploy`. Se canceló, se forzó la detención de esa VM y se
+SSH del usuario; el log mostró además `sudo: unable to resolve host
+lima-colima-pausa-mia-deploy`, sin demostrar que ésa fuera la causa. Se canceló,
+se forzó la detención de esa VM y se
 eliminó el perfil temporal; `colima list` confirmó que no queda ninguna VM activa.
 Los programas Homebrew quedan instalados, inactivos. No se construyó imagen ni
 se hizo deploy. La API pública conserva el digest anterior.
+Hay [reportes en el proyecto Colima](https://github.com/abiosoft/colima/issues/1307)
+del mismo paso de inicio atascado; no prueban la causa en esta Mac.
 
 Una tercera vía de Fly (`--buildkit`) existe, pero el costo vigente para esta
 cuenta no se pudo verificar en la [tabla oficial](https://fly.io/docs/about/pricing/);
 por el límite de no generar
 cargos adicionales no se usó. Siguiente paso seguro: diagnosticar la inicialización
-DNS/SSH de Colima y demostrar `docker info` local antes de desplegar, o esperar
+de Colima y demostrar `docker info` local antes de desplegar, o esperar
 que Fly confirme un constructor remoto operativo sin costo extra. No repetir
 el inicio colgado ni el deploy anterior sin cambio técnico comprobable.
