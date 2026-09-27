@@ -1,8 +1,40 @@
 # Métricas voluntarias: entrega y límites
 
-Fecha de implementación: 26/09/2026. Estado comprobado el 26/09 a las 23:07 ART:
-**API publicada y verificada; publicación del cliente en curso**.
-No inferir producción del cliente por el despliegue del servidor.
+Fecha de implementación: 26/09/2026. Estado comprobado el 26/09 a las 23:10 ART:
+**API y cliente publicados y verificados**.
+
+## Entrega completa — 26/09/2026, 23:10 ART
+
+- Main publicado: `b65e30e6893a8969a42f4723724e64a0f09cdf05`.
+- [Pages completado correctamente](https://github.com/leo8190/pausa-mia/actions/runs/36287621738):
+  build 27s y deploy 10s. No se declara publicación sólo por el push.
+- [Web pública](https://leo8190.github.io/pausa-mia/) HTTP200. Bundle
+  `index-gzhA623Z.js`, SHA256
+  `d96acfe391ba2d080149550b2ebad512056fd07e2eaabde1ef465c378e3129f7`:
+  idéntico byte a byte al build local con las variables de producción.
+- QA visual mediante navegador integrado en `?pm_qa=1`: permiso separado,
+  desplegable cerrado al llegar y casilla desmarcada al abrir. El botón Comenzar
+  permite acceder al paso de privacidad sin aceptar estadísticas. Sin introducir
+  respuestas ni datos personales, sin aceptar el permiso opcional y sin prueba
+  física de iPhone. La revocación se verificó contra la API, no mediante un clic
+  de navegador en este turno. Captura local:
+  `/Users/leonardoapollonio/.codex/visualizations/2026/08/19/01a019db-aad9-73d2-8339-9e30a3d7aa9e/pausa-mia-estadisticas-publicadas-20260926.png`.
+- Informe privado a las 23:09:55 ART: `counts: []`. Las pruebas propias no se
+  convierten en testers, visitas nuevas ni escuchas. Las cifras empiezan a
+  acumular recorridos consentidos desde esta entrega, no reconstruyen el pasado.
+- Fuentes desplegadas verificadas por SHA256: `server/index.mjs`
+  `7395db902d5bff9263e9ade2258a54011e34c260ffa87b181d8e78fb41984fa1` y
+  `server/funnel.mjs`
+  `55ec2e5c3981dbc1cb49ac8587d5cc36c2ef48a89f6723708761f9d195e65679`.
+- Aviso no bloqueante de Actions: acciones v4 usan el runtime Node20 deprecado
+  y el runner fuerza Node24. Actualizar esas acciones es mantenimiento separado,
+  no se alteró durante esta entrega. No se abren nuevas funcionalidades ni tareas.
+
+Este registro posterior se guarda en la rama de entrega, sin volver a desplegar
+la web por un cambio documental. Próximo uso: consultar agregados en el flujo
+canónico de métricas cuando existan sesiones consentidas; no repetir despliegues
+ni pruebas para llenar estadísticas. L04, tiendas, voz y marketing conservan
+sus alcances y pendientes separados.
 
 ## Entrega del servidor — 26/09/2026, 23:07 ART
 
@@ -31,8 +63,8 @@ Verificación pública y privada con un token sintético `qa:true`:
 `origin/main` verificado aún en `e0d3ec56b0b6d765ba8b764ca0737bdeac540201`
 antes de integrar. Build con las mismas variables de Pages: `index-gzhA623Z.js`,
 SHA256 `d96acfe391ba2d080149550b2ebad512056fd07e2eaabde1ef465c378e3129f7`.
-Resta comprobar la ejecución de Pages y el artefacto público antes de declarar
-terminada la entrega de la web.
+La ejecución de Pages y el artefacto público se comprobaron después; ver entrega
+completa arriba.
 
 ## Qué se mide
 
