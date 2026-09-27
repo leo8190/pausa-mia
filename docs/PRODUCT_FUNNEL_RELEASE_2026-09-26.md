@@ -1,8 +1,38 @@
 # Métricas voluntarias: entrega y límites
 
-Fecha de implementación: 26/09/2026. Estado comprobado el 26/09 a las 22:39 ART:
-**preparado en la rama `codex/product-funnel-release-20260926`, no publicado**.
-No inferir producción por un commit.
+Fecha de implementación: 26/09/2026. Estado comprobado el 26/09 a las 23:07 ART:
+**API publicada y verificada; publicación del cliente en curso**.
+No inferir producción del cliente por el despliegue del servidor.
+
+## Entrega del servidor — 26/09/2026, 23:07 ART
+
+Resuelto el bloqueo: el constructor existente `fly-builder-golden-leaf-3783`
+ejecutaba BuildKit (`:1234`), mientras los intentos anteriores sin `--buildkit`
+buscaban Docker (`:2375`). La vía correcta reutilizó exactamente ese constructor
+mediante `--buildkit --buildkit-addr fly-builder-golden-leaf-3783.flycast:1234`
+y `--depot=false`; sin crear servicios ni contratar un plan. La conclusión previa
+de necesitar Colima o un constructor nuevo queda superada. El hosting existente
+mantiene sus costos; no se afirma gratuidad.
+
+Publicada la API desde `a6739599beea3949c3ba309c759bee53409eeeed`, actualizando
+sólo la máquina `6837939a09e398`. Imagen
+`registry.fly.io/pausa-mia-api:deployment-01M3G9SNEAMSJ5T7QRD9GTR2CY`, digest
+`sha256:f812ceb755ab2cdf9bb16033f7f064893ec666c609d34bb6d93592a4e4332c3a`.
+Se conservan volumen, secretos, CPU/memoria, región y autostop. Voz sin cambios.
+
+Verificación pública y privada con un token sintético `qa:true`:
+
+- Salud HTTP200; dos envíos de `entry` y uno de `audio_started`, HTTP204.
+- SQLite confirma exactamente un evento de cada tipo: deduplicación real.
+- Informe privado `counts: []`: la prueba queda fuera de las cifras de producto.
+- Revocación HTTP204; evento tardío del mismo token HTTP410 `FUNNEL_RUN_GONE`.
+- Respuestas de métricas con `Cache-Control: no-store`; ningún dato personal usado.
+
+`origin/main` verificado aún en `e0d3ec56b0b6d765ba8b764ca0737bdeac540201`
+antes de integrar. Build con las mismas variables de Pages: `index-gzhA623Z.js`,
+SHA256 `d96acfe391ba2d080149550b2ebad512056fd07e2eaabde1ef465c378e3129f7`.
+Resta comprobar la ejecución de Pages y el artefacto público antes de declarar
+terminada la entrega de la web.
 
 ## Qué se mide
 
@@ -71,6 +101,8 @@ Pruebas locales: contrato de campos, origen, idempotencia, revocación, exclusi�
 QA, expiración, purga, migración aditiva de SQLite viejo, motor JSON, callbacks
 de audio, permiso y transportes. Registrar aquí los resultados y la evidencia
 remota antes de afirmar que la versión está publicada.
+
+### Historial de preparación y bloqueos ya superados
 
 Resultado local: 433/433 pruebas correctas en 47 archivos, lint, formato,
 compilación de producción y revisión de diff correctos. Dos intentos de deploy
