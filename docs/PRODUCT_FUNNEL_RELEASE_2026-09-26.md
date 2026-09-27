@@ -1,7 +1,8 @@
 # Métricas voluntarias: entrega y límites
 
-Fecha de implementación: 26/09/2026. Estado de publicación: pendiente de
-verificación remota en este documento; no inferir producción por un commit.
+Fecha de implementación: 26/09/2026. Estado comprobado el 26/09 a las 22:39 ART:
+**preparado en la rama `codex/product-funnel-release-20260926`, no publicado**.
+No inferir producción por un commit.
 
 ## Qué se mide
 
@@ -70,3 +71,18 @@ Pruebas locales: contrato de campos, origen, idempotencia, revocación, exclusi�
 QA, expiración, purga, migración aditiva de SQLite viejo, motor JSON, callbacks
 de audio, permiso y transportes. Registrar aquí los resultados y la evidencia
 remota antes de afirmar que la versión está publicada.
+
+Resultado local: 433/433 pruebas correctas en 47 archivos, lint, formato,
+compilación de producción y revisión de diff correctos. Dos intentos de deploy
+de la API con el constructor remoto Fly quedaron esperando a su daemon; se
+cancelaron sin llegar a construir ni reemplazar la máquina. Un intento usando
+conexión HTTPS en vez de WireGuard quedó esperando la compatibilidad del
+constructor y también se canceló. No hay Docker local; GitHub no tiene un
+secreto Fly configurado para desplegar por Actions. `fly doctor` pasó sus
+chequeos, pero eso no resolvió el constructor. No repetir el mismo despliegue
+sin cambio comprobable en el constructor/conectividad o una vía autorizada.
+
+Tras los intentos, la API pública respondió saludable y conservó la imagen
+`sha256:b7bfb0a3408f0b139a0ff3723cfcff1423aa295eed9544e53571a2d0725df660`;
+`origin/main` siguió en `e0d3ec56b0b6d765ba8b764ca0737bdeac540201`.
+**No subir la rama a main ni activar Pages hasta verificar primero el backend.**
