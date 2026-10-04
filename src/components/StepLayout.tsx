@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { SessionApi } from '../hooks/useSession';
 
 interface StepLayoutProps {
@@ -23,6 +23,12 @@ export function StepLayout({
   cardClassName,
 }: StepLayoutProps) {
   const titleId = useId();
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    titleRef.current?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [title]);
 
   return (
     <div className="step-container">
@@ -31,7 +37,9 @@ export function StepLayout({
         aria-labelledby={titleId}
       >
         {hero}
-        <h2 id={titleId}>{title}</h2>
+        <h2 id={titleId} ref={titleRef} tabIndex={-1}>
+          {title}
+        </h2>
         {lead && <p className="step-lead">{lead}</p>}
         <div className="step-body">{children}</div>
         {actions && <div className="step-actions">{actions}</div>}

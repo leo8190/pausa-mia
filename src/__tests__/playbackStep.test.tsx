@@ -6,6 +6,7 @@ import type { SessionState } from '../types';
 import { REMOTE_WARMUP_TEXT } from '../hooks/useArgentineVoicePlayer';
 import * as voiceEngine from '../lib/voiceEngine';
 import * as remoteVoice from '../lib/remoteVoiceService';
+import { productFunnel } from '../lib/productFunnel';
 
 function makeSessionApi(
   voiceVariant: 'es-AR' | 'es-neutro',
@@ -184,6 +185,30 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
       expect(script).not.toBeVisible();
       fireEvent.click(screen.getByText('Leer la meditación'));
       expect(script).toBeVisible();
+    },
+  );
+
+  it.each(['es-AR', 'es-neutro'] as const)(
+    'lets a person finish by reading without playing or counting audio (%s)',
+    async (variant) => {
+      mockDeviceVoiceAvailable();
+      const observe = vi.fn();
+      vi.spyOn(productFunnel, 'capture').mockReturnValue(observe);
+      const play = vi.spyOn(window.HTMLMediaElement.prototype, 'play');
+      const synthesis = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
+      const sessionApi = makeSessionApi(variant);
+      render(<PlaybackStep sessionApi={sessionApi} />);
+      fireEvent.click(screen.getByText('Leer la meditación'));
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: /terminar mi pausa/i }),
+        ).toBeEnabled(),
+      );
+      fireEvent.click(screen.getByRole('button', { name: /terminar mi pausa/i }));
+      expect(sessionApi.setStep).toHaveBeenCalledWith('feedback');
+      expect(play).not.toHaveBeenCalled();
+      expect(synthesis).not.toHaveBeenCalled();
+      expect(observe).not.toHaveBeenCalledWith('audio_finished');
     },
   );
 

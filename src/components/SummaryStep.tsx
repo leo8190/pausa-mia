@@ -3,6 +3,7 @@ import { getCheckInSummaryValue } from '../lib/checkInSummary';
 import { getSelectedContextSources } from '../lib/contextSources';
 import type { SessionApi } from '../hooks/useSession';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { GenerationFeedback } from './GenerationFeedback';
 
 const SUMMARY_FIELDS = [
   'name',
@@ -31,10 +32,13 @@ export function SummaryStep({ sessionApi }: { sessionApi: SessionApi }) {
           <button
             type="button"
             className="btn btn-primary"
+            disabled={sessionApi.isGenerating}
+            aria-busy={sessionApi.isGenerating}
             onClick={() => sessionApi.tryGenerate()}
           >
-            Generar guion
+            {sessionApi.isGenerating ? 'Preparando tu meditación…' : 'Generar guion'}
           </button>
+          <GenerationFeedback sessionApi={sessionApi} />
           <button
             type="button"
             className="btn btn-secondary"

@@ -4,6 +4,7 @@ import {
 } from '../lib/aiTransmissionPayload';
 import type { SessionApi } from '../hooks/useSession';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { GenerationFeedback } from './GenerationFeedback';
 
 const SECTION_LABELS = {
   operational: 'Tu práctica',
@@ -30,14 +31,18 @@ export function AiConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
           <button
             type="button"
             className="btn btn-primary"
-            disabled={!consent.aiTransmission}
+            disabled={!consent.aiTransmission || sessionApi.isGenerating}
+            aria-busy={sessionApi.isGenerating}
             aria-describedby={
               consent.aiTransmission ? undefined : 'ai-consent-continue-hint'
             }
             onClick={() => sessionApi.confirmAiGenerate()}
           >
-            Crear mi meditación con IA
+            {sessionApi.isGenerating
+              ? 'Preparando tu meditación…'
+              : 'Crear mi meditación con IA'}
           </button>
+          <GenerationFeedback sessionApi={sessionApi} />
           {!consent.aiTransmission && (
             <p id="ai-consent-continue-hint" className="field-hint">
               Necesitamos tu permiso para compartir estos datos.

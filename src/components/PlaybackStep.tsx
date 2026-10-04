@@ -22,6 +22,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   // Ruta remota opcional: nunca automática; requiere consentimiento visible.
   const [useRemoteArgentine, setUseRemoteArgentine] = useState(false);
   const [remoteConsent, setRemoteConsent] = useState(false);
+  const [hasReadScript, setHasReadScript] = useState(false);
   const neuralBrowserSupported = checkNeuralEngineBrowserSupport();
   const remoteWavPlaybackSupported = checkRemoteWavPlaybackSupport();
   const remoteConfigured = isRemoteArgentineTtsConfigured();
@@ -62,6 +63,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     setUseDeviceFallback(false);
     setUseRemoteArgentine(false);
     setRemoteConsent(false);
+    setHasReadScript(false);
     autoStartPlayAttemptedRef.current = false;
   }, [script, checkIn.voiceVariant]);
 
@@ -186,11 +188,14 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
         actions={
           <>
-            {canPlayback && !isReady && (
+            {(hasReadScript || hasError || (canPlayback && !isReady)) && (
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => sessionApi.setStep('feedback')}
+                onClick={() => {
+                  stopNeural();
+                  sessionApi.setStep('feedback');
+                }}
               >
                 Terminar mi pausa
               </button>
@@ -360,7 +365,12 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         )}
 
         <div className="player-stage">
-          <details className="collapsible-details player-script">
+          <details
+            className="collapsible-details player-script"
+            onToggle={(event) => {
+              if (event.currentTarget.open) setHasReadScript(true);
+            }}
+          >
             <summary>Leer la meditación</summary>
             <div
               className="script-preview"
@@ -493,11 +503,17 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
       actions={
         <>
-          {playerState.status !== 'idle' && (
+          {(hasReadScript ||
+            !canSpeak ||
+            playbackError ||
+            playerState.status !== 'idle') && (
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => sessionApi.setStep('feedback')}
+              onClick={() => {
+                stopWebSpeech();
+                sessionApi.setStep('feedback');
+              }}
             >
               Terminar mi pausa
             </button>
@@ -565,7 +581,12 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
       )}
 
       <div className="player-stage">
-        <details className="collapsible-details player-script">
+        <details
+          className="collapsible-details player-script"
+          onToggle={(event) => {
+            if (event.currentTarget.open) setHasReadScript(true);
+          }}
+        >
           <summary>Leer la meditación</summary>
           <div
             className="script-preview"

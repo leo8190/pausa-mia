@@ -21,84 +21,129 @@ import { cancelActiveSpeech } from '../lib/speechController';
 import { productFunnel } from '../lib/productFunnel';
 import type { MeditationStyle } from '../types';
 
+const GENERATION_ERROR =
+  'No pudimos preparar tu meditación. Tus respuestas siguen acá. Podés volver a intentarlo.';
+
 export function useSession() {
   const [session, setSession] = useState(createInitialSession);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState('');
+  const generationRef = useRef<AbortController | null>(null);
   const sessionRef = useRef(session);
   sessionRef.current = session;
 
+  const cancelGeneration = useCallback(() => {
+    generationRef.current?.abort();
+    generationRef.current = null;
+    setIsGenerating(false);
+    setGenerationError('');
+  }, []);
+
   useEffect(() => {
+    let active = true;
     const checkAi = async () => {
       const provider = createAiProvider();
       const available = await provider.isAvailable();
-      setSession((prev) => ({ ...prev, aiAvailable: available }));
+      if (active) setSession((prev) => ({ ...prev, aiAvailable: available }));
     };
     void checkAi();
+    return () => {
+      active = false;
+      generationRef.current?.abort();
+      generationRef.current = null;
+    };
   }, []);
 
-  const setStep = useCallback((step: AppStep) => {
-    if (step === 'checkin') productFunnel.record('questionnaire_started');
-    setSession((prev) => ({ ...prev, step }));
-  }, []);
+  const setStep = useCallback(
+    (step: AppStep) => {
+      cancelGeneration();
+      if (step === 'checkin') productFunnel.record('questionnaire_started');
+      setSession((prev) => ({ ...prev, step }));
+    },
+    [cancelGeneration],
+  );
 
-  const updateConsent = useCallback((consent: Partial<ConsentState>) => {
-    setSession((prev) => {
-      const nextConsent = { ...prev.consent, ...consent };
-      if (consent.savePreferences === true && prev.checkIn.style) {
-        savePreferences({
-          duration: prev.checkIn.duration,
-          voiceVariant: prev.checkIn.voiceVariant,
-          style: prev.checkIn.style as MeditationStyle,
-        });
-      }
-      if (consent.savePreferences === false) {
-        clearPreferences();
-      }
-      return { ...prev, consent: nextConsent };
-    });
-  }, []);
+  const updateConsent = useCallback(
+    (consent: Partial<ConsentState>) => {
+      cancelGeneration();
+      setSession((prev) => {
+        const nextConsent = { ...prev.consent, ...consent };
+        if (consent.savePreferences === true && prev.checkIn.style) {
+          savePreferences({
+            duration: prev.checkIn.duration,
+            voiceVariant: prev.checkIn.voiceVariant,
+            style: prev.checkIn.style as MeditationStyle,
+          });
+        }
+        if (consent.savePreferences === false) {
+          clearPreferences();
+        }
+        return { ...prev, consent: nextConsent };
+      });
+    },
+    [cancelGeneration],
+  );
 
-  const updateCheckIn = useCallback((checkIn: Partial<CheckInData>) => {
-    setSession((prev) => {
-      const nextCheckIn = { ...prev.checkIn, ...checkIn };
-      // Al omitir el estado o dejar «Otro», no conservar texto personal oculto.
-      if (nextCheckIn.perceivedState !== 'otro') {
-        nextCheckIn.perceivedStateOther = '';
-      }
-      if (prev.consent.savePreferences && checkIn.duration !== undefined) {
-        savePreferences({
-          duration: nextCheckIn.duration,
-          voiceVariant: nextCheckIn.voiceVariant,
-          style: nextCheckIn.style as MeditationStyle,
-        });
-      }
-      return { ...prev, checkIn: nextCheckIn };
-    });
-  }, []);
+  const updateCheckIn = useCallback(
+    (checkIn: Partial<CheckInData>) => {
+      cancelGeneration();
+      setSession((prev) => {
+        const nextCheckIn = { ...prev.checkIn, ...checkIn };
+        // Al omitir el estado o dejar «Otro», no conservar texto personal oculto.
+        if (nextCheckIn.perceivedState !== 'otro') {
+          nextCheckIn.perceivedStateOther = '';
+        }
+        if (prev.consent.savePreferences && checkIn.duration !== undefined) {
+          savePreferences({
+            duration: nextCheckIn.duration,
+            voiceVariant: nextCheckIn.voiceVariant,
+            style: nextCheckIn.style as MeditationStyle,
+          });
+        }
+        return { ...prev, checkIn: nextCheckIn };
+      });
+    },
+    [cancelGeneration],
+  );
 
-  const updateContextSources = useCallback((sources: ContextSource[]) => {
-    setSession((prev) => ({ ...prev, contextSources: sources }));
-  }, []);
+  const updateContextSources = useCallback(
+    (sources: ContextSource[]) => {
+      cancelGeneration();
+      setSession((prev) => ({ ...prev, contextSources: sources }));
+    },
+    [cancelGeneration],
+  );
 
-  const toggleExcluded = useCallback((field: string) => {
-    setSession((prev) => {
-      const next = new Set(prev.summaryExcluded);
-      if (next.has(field)) {
-        next.delete(field);
-      } else {
-        next.add(field);
-      }
-      return { ...prev, summaryExcluded: next };
-    });
-  }, []);
+  const toggleExcluded = useCallback(
+    (field: string) => {
+      cancelGeneration();
+      setSession((prev) => {
+        const next = new Set(prev.summaryExcluded);
+        if (next.has(field)) {
+          next.delete(field);
+        } else {
+          next.add(field);
+        }
+        return { ...prev, summaryExcluded: next };
+      });
+    },
+    [cancelGeneration],
+  );
 
-  const setUseAiEngine = useCallback((useAi: boolean) => {
-    setSession((prev) => ({ ...prev, useAiEngine: useAi }));
-  }, []);
+  const setUseAiEngine = useCallback(
+    (useAi: boolean) => {
+      cancelGeneration();
+      setSession((prev) => ({ ...prev, useAiEngine: useAi }));
+    },
+    [cancelGeneration],
+  );
 
   const generateWithProvider = useCallback(
     async (provider: ScriptProvider, afterGenerate: AppStep = 'review') => {
+      if (generationRef.current) return false;
       const observe = productFunnel.capture();
       const prev = sessionRef.current;
+      setGenerationError('');
       const safety = scanCheckInForDanger(prev.checkIn);
       const contextText = prev.contextSources
         .filter((s) => s.selected && s.content.trim())
@@ -116,6 +161,9 @@ export function useSession() {
         return false;
       }
 
+      const request = new AbortController();
+      generationRef.current = request;
+      setIsGenerating(true);
       try {
         const result = await provider.generate({
           checkIn: prev.checkIn,
@@ -123,7 +171,11 @@ export function useSession() {
           sessionProcessing: prev.consent.sessionProcessing,
           aiTransmission: prev.consent.aiTransmission,
           contextSources: prev.contextSources,
+          signal: request.signal,
         });
+        // Ni una respuesta ni un error viejos pueden restaurar una sesión borrada
+        // o reemplazar una preparación nueva, incluso si el proveedor ignora abort.
+        if (generationRef.current !== request || request.signal.aborted) return false;
 
         const freeTextSources = collectSensitiveSourceTexts(
           prev.checkIn,
@@ -136,8 +188,7 @@ export function useSession() {
           excluded: prev.summaryExcluded,
         });
         if (!quality.valid) {
-          observe('script_error');
-          return false;
+          throw new Error('SCRIPT_QUALITY_FAILED');
         }
 
         observe('script_generated');
@@ -150,14 +201,22 @@ export function useSession() {
         }));
         return true;
       } catch {
+        if (generationRef.current !== request || request.signal.aborted) return false;
         observe('script_error');
+        setGenerationError(GENERATION_ERROR);
         return false;
+      } finally {
+        if (generationRef.current === request) {
+          generationRef.current = null;
+          setIsGenerating(false);
+        }
       }
     },
     [],
   );
 
   const tryGenerate = useCallback(() => {
+    if (generationRef.current) return false;
     const prev = sessionRef.current;
     if (!prev.consent.sessionProcessing) return false;
 
@@ -181,6 +240,7 @@ export function useSession() {
    * la sesión en welcome vía createInitialSession / setStep('welcome').
    */
   const startNow = useCallback(() => {
+    cancelGeneration();
     const observe = productFunnel.capture();
     const prev = sessionRef.current;
     if (!prev.consent.sessionProcessing) return false;
@@ -221,6 +281,7 @@ export function useSession() {
       });
       if (!quality.valid) {
         observe('script_error');
+        setGenerationError(GENERATION_ERROR);
         return false;
       }
 
@@ -242,9 +303,10 @@ export function useSession() {
       return true;
     } catch {
       observe('script_error');
+      setGenerationError(GENERATION_ERROR);
       return false;
     }
-  }, []);
+  }, [cancelGeneration]);
 
   const clearAutoStartPlayback = useCallback(() => {
     setSession((prev) => {
@@ -256,6 +318,7 @@ export function useSession() {
   }, []);
 
   const confirmAiGenerate = useCallback(() => {
+    if (generationRef.current) return false;
     const prev = sessionRef.current;
     if (!prev.consent.sessionProcessing || !prev.consent.aiTransmission) {
       return false;
@@ -266,17 +329,23 @@ export function useSession() {
   }, [generateWithProvider]);
 
   const deleteSession = useCallback(() => {
+    cancelGeneration();
     productFunnel.setConsent(false);
     cancelActiveSpeech();
     clearPreferences();
-    setSession({ ...clearSession(), step: 'deleted' });
-  }, []);
+    const empty = { ...clearSession(), step: 'deleted' as const };
+    sessionRef.current = empty;
+    setSession(empty);
+  }, [cancelGeneration]);
 
   const resetToWelcome = useCallback(() => {
+    cancelGeneration();
     cancelActiveSpeech();
     productFunnel.finishRun();
-    setSession(createInitialSession());
-  }, []);
+    const empty = createInitialSession();
+    sessionRef.current = empty;
+    setSession(empty);
+  }, [cancelGeneration]);
 
   const setRating = useCallback((rating: number) => {
     productFunnel.record('feedback_given');
@@ -294,6 +363,8 @@ export function useSession() {
 
   return {
     session,
+    isGenerating,
+    generationError,
     setStep,
     updateConsent,
     updateCheckIn,

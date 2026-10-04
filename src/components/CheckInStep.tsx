@@ -9,6 +9,7 @@ import type {
   VoiceVariant,
 } from '../types';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { GenerationFeedback } from './GenerationFeedback';
 import { getPracticeConflicts, getPracticeSummary } from '../lib/practiceCoherence';
 
 export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
@@ -44,6 +45,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
               Empezar ahora
             </button>
           </form>
+          <GenerationFeedback sessionApi={sessionApi} />
           {!sessionApi.isCheckInComplete && (
             <p id="checkin-incomplete-hint" className="field-hint">
               Completá momento, intención, experiencia y estilo para seguir.

@@ -1,6 +1,9 @@
 import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 
+// jsdom no implementa el desplazamiento; cada prueba puede observar la llamada.
+Object.defineProperty(window, 'scrollTo', { writable: true, value: vi.fn() });
+
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {

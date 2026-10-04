@@ -30,6 +30,11 @@ export interface ScriptGenerationContext {
   sessionProcessing: boolean;
   aiTransmission: boolean;
   contextSources: ContextSource[];
+  signal?: AbortSignal;
+}
+
+function checkCancellation(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('Preparation cancelled', 'AbortError');
 }
 
 export interface ScriptProviderResult {
@@ -54,6 +59,7 @@ export class LocalScriptProvider implements ScriptProvider {
   }
 
   async generate(context: ScriptGenerationContext): Promise<ScriptProviderResult> {
+    checkCancellation(context.signal);
     const script = generateScript(context.checkIn, context.excluded, {
       sessionProcessing: context.sessionProcessing,
       contextSources: context.contextSources,
@@ -84,6 +90,7 @@ export class AiScriptProvider implements ScriptProvider {
   }
 
   async generate(context: ScriptGenerationContext): Promise<ScriptProviderResult> {
+    checkCancellation(context.signal);
     if (!context.sessionProcessing) {
       throw new ConsentRequiredError();
     }
@@ -107,17 +114,22 @@ export class AiScriptProvider implements ScriptProvider {
       throw new AiTransmissionConsentError();
     }
 
+    const request = new AbortController();
+    const cancel = () => request.abort();
+    context.signal?.addEventListener('abort', cancel, { once: true });
+    const timeout = setTimeout(cancel, 30000);
     try {
       const res = await fetch(this.apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: serializeAiTransmissionPayload(payload),
-        signal: AbortSignal.timeout(30000),
+        signal: request.signal,
       });
 
       if (!res.ok) throw new Error(`AI server error: ${res.status}`);
 
       const data = (await res.json()) as { script: GeneratedScript };
+      checkCancellation(context.signal);
       const safety = scanTextForDanger(data.script.fullText);
       if (safety.triggered) {
         throw new Error('AI response triggered safety filter');
@@ -142,9 +154,14 @@ export class AiScriptProvider implements ScriptProvider {
         engine: 'ai',
       };
     } catch {
+      // Retirar permiso o salir cancela; un fallo de red sí conserva el fallback.
+      checkCancellation(context.signal);
       const local = new LocalScriptProvider();
       const result = await local.generate(context);
       return { ...result, fallbackUsed: true };
+    } finally {
+      clearTimeout(timeout);
+      context.signal?.removeEventListener('abort', cancel);
     }
   }
 }
