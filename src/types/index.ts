@@ -17,7 +17,7 @@ export type MeditationStyle =
 
 export type Duration = 3 | 5 | 10;
 
-export type VoiceVariant = 'es-AR' | 'es-neutro';
+export type VoiceVariant = 'es-AR' | 'es-neutro' | 'leonardo';
 
 export type ScriptEngineType = 'local' | 'ai';
 
@@ -179,6 +179,7 @@ export const STYLE_LABELS: Record<MeditationStyle, string> = {
 };
 
 export const VOICE_LABELS: Record<VoiceVariant, string> = {
+  leonardo: 'Voz de Leonardo',
   'es-AR': 'Español argentino',
   'es-neutro': 'Español neutro',
 };

@@ -129,7 +129,10 @@ export async function synthesizeLeonardoVoice(
     const response = await fetch(`${endpoint}/v1/leonardo/tts`, {
       ...init,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Pausa-Voice-Consent': 'session',
+      },
       body: JSON.stringify({
         text: normalized,
         voiceId: LEONARDO_VOICE_ID,

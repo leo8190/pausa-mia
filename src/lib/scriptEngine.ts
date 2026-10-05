@@ -16,7 +16,7 @@ import type {
   PerceivedState,
   ScriptEngineType,
   ScriptSegment,
-  VoiceVariant,
+  VoiceVariant as AppVoiceVariant,
 } from '../types';
 import { INTENTION_LABELS } from '../types';
 import {
@@ -100,6 +100,7 @@ const FOCUS_PER_COMMON_PHRASE = 4;
 /** Estilo usado como práctica por defecto cuando la persona no eligió ninguno. */
 const FALLBACK_STYLE: MeditationStyle = 'respiracion-natural';
 
+type VoiceVariant = Exclude<AppVoiceVariant, 'leonardo'>;
 type VariantPhrase = Record<VoiceVariant, string>;
 
 interface TimedPhrase {
@@ -1685,9 +1686,11 @@ const CLOSING_BY_MOMENT: Record<Moment, ClosingSet> = {
 
 export function buildClosingBlock(
   checkIn: CheckInData,
-  variant: VoiceVariant,
+  requestedVariant: AppVoiceVariant,
   excluded: Set<string> = new Set(),
 ): ScriptSegment[] {
+  const variant: VoiceVariant =
+    requestedVariant === 'leonardo' ? 'es-AR' : requestedVariant;
   const moment: Moment =
     !excluded.has('moment') && checkIn.moment ? checkIn.moment : 'ahora';
   const set = CLOSING_BY_MOMENT[moment];
@@ -1870,7 +1873,8 @@ export function getFocusPhraseTexts(
   checkIn: CheckInData,
   excluded: Set<string> = new Set(),
 ): string[] {
-  const variant = checkIn.voiceVariant;
+  const variant: VoiceVariant =
+    checkIn.voiceVariant === 'leonardo' ? 'es-AR' : checkIn.voiceVariant;
   const { opening, phrases } = buildFocusComposition(checkIn, excluded, variant);
   const applyFilter = !excluded.has('avoidTopics') && checkIn.avoidTopics.trim();
   return [...opening, ...phrases].map((segment) =>
@@ -2028,7 +2032,8 @@ export function generateScript(
   const conflicts = getPracticeConflicts(checkIn, excluded);
   if (conflicts.length) throw new Error(conflicts.join(' '));
 
-  const variant = checkIn.voiceVariant;
+  const variant: VoiceVariant =
+    checkIn.voiceVariant === 'leonardo' ? 'es-AR' : checkIn.voiceVariant;
   const duration = checkIn.duration;
   const contextSources = options.contextSources ?? [];
 

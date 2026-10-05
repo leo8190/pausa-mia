@@ -137,3 +137,52 @@ sólo con autorización explícita y tras revisar la factura estimada de Fly.
 
 El servicio sólo debe recibir el texto del guion. No persistir cuerpos por
 defecto. CORS restringe orígenes. El frontend no envía diario, perfil ni fuentes.
+
+## Voz de Leonardo (HeyGen)
+
+El adaptador separado conserva `/v1/tts` de Piper y agrega:
+
+- `GET /v1/leonardo/capabilities`: identidad fija, velocidad `0.85` y
+  `generationVerified`. Es sólo una lectura local; no genera audio ni consume
+  HeyGen. No informa la clave ni el texto de una sesión.
+- `POST /v1/leonardo/tts`: `{ "text": "…", "voiceId":
+  "db2a543de8bd431899957059671861b4", "deliverySpeed": 0.85 }`, con
+  `X-Pausa-Voice-Consent: session`. Rechaza otra identidad, velocidad, campos
+  adicionales o más de 800 caracteres. Devuelve WAV/MP3 según los bytes reales,
+  con las cabeceras `X-Pausa-Voice-Provider`, `X-Pausa-Voice-Id` y
+  `X-Pausa-Voice-Speed` expuestas al cliente.
+
+Permanece **deshabilitado** por defecto. Sólo se habilita cuando coinciden
+`LEONARDO_TTS_ENABLED=true`, `LEONARDO_GENERATION_VERIFIED=true` y una
+`HEYGEN_API_KEY` cargada exclusivamente en el proceso servidor. El segundo
+indicador registra una verificación deliberada de generación mediante la clave
+propia de ese despliegue; una prueba exitosa mediante el conector MCP no demuestra
+que esa autenticación de la API pública funciona. No hay pruebas de salud que
+sinteticen texto ni reintentos automáticos.
+
+Usar referencias `op://` y `op run --env-file=<archivo-de-referencias> -- npm start`
+para ese proceso. Nunca resolver una clave a disco, en el navegador, en `VITE_*`,
+en comandos, logs o mensajes. La autorización y el acceso a 1Password son un
+requisito previo; este código no los instala ni los acredita.
+
+La API oficial `POST https://api.heygen.com/v3/voices/speech` recibe la voz fija,
+`speed: 0.85`, `language: es`, `locale: es-AR` e `input_type: text`. Se realiza una
+única petición. La descarga posterior admite sólo HTTPS de `resource2.heygen.ai`,
+sin redirecciones ni credenciales y con prueba de identidad en el ID devuelto o
+un segmento exacto del camino. El total tiene límite de 45 segundos y 4 MiB. La
+extensión o etiqueta del proveedor no sustituye la inspección de bytes. No se
+cambia otra vez velocidad ni tono.
+
+Antes de exponer un despliegue público, configurar HTTPS, orígenes explícitos y
+`ARG_REQUIRE_ORIGIN=true`, además de autenticación/controles de acceso del
+servicio y el presupuesto de generación correspondiente. **CORS y el encabezado
+de consentimiento no son autenticación**. El limitador local impone un máximo
+global de 30 solicitudes/minuto (o el límite configurado si es menor), sin
+confiar en encabezados de IP enviados por el cliente. No reemplaza controles de
+acceso, presupuesto o límites compartidos si hay varias instancias. Los errores
+del proveedor se devuelven resumidos, sin su cuerpo ni el guion. No se almacena
+audio ni texto en el servidor y las respuestas indican `no-store`.
+
+Fuentes primarias: [Speech de HeyGen](https://developers.heygen.com/docs/voices/speech).
+Los tests de este adaptador usan HTTP simulado; no acreditan autenticación,
+despliegue público ni reproducción en dispositivo.

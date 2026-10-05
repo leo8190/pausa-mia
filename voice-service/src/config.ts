@@ -1,5 +1,9 @@
 export interface VoiceServiceConfig {
   port: number;
+  /** Opt-in server-only HeyGen integration. Never export these to Vite. */
+  leonardoEnabled: boolean;
+  leonardoGenerationVerified: boolean;
+  heygenApiKey?: string;
   allowedOrigins: string[];
   requireOrigin: boolean;
   backend: 'mock' | 'piper';
@@ -51,6 +55,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): VoiceServiceCo
       : DEFAULT_ARGENTINE_LENGTH_SCALE;
 
   return {
+    leonardoEnabled: parseBoolean(env.LEONARDO_TTS_ENABLED, false),
+    leonardoGenerationVerified: parseBoolean(env.LEONARDO_GENERATION_VERIFIED, false),
+    heygenApiKey: env.HEYGEN_API_KEY,
     port: Number.parseInt(env.PORT ?? '8787', 10) || 8787,
     allowedOrigins: parseOrigins(env.ARG_ALLOWED_ORIGINS),
     requireOrigin: parseBoolean(env.ARG_REQUIRE_ORIGIN, false),
