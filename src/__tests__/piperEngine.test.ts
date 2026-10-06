@@ -4,6 +4,7 @@ import {
   pcmToWav,
   resolveSereneLengthScale,
   SERENE_CADENCE_SCALE,
+  NEUTRAL_CADENCE_SCALE,
   splitIntoChunks,
   splitPhonemeSentences,
   CLEAR_NOISE_SCALE,
@@ -17,6 +18,13 @@ import {
 
 describe('piperEngine', () => {
   describe('serene cadence', () => {
+    it('speeds up neutral speech slightly without changing the Argentine default or sentence pauses', () => {
+      expect(NEUTRAL_CADENCE_SCALE).toBe(1.5);
+      expect(resolveSereneLengthScale(1, NEUTRAL_CADENCE_SCALE)).toBe(1.5);
+      expect(SERENE_CADENCE_SCALE / NEUTRAL_CADENCE_SCALE).toBeCloseTo(1.0667, 3);
+      expect(resolveSereneLengthScale(1)).toBe(1.6);
+      expect(SENTENCE_SILENCE_SECONDS).toBe(0.9);
+    });
     it('multiplies model length_scale by the serene factor within safe bounds', () => {
       expect(SENTENCE_SILENCE_SECONDS).toBe(0.9);
       expect(SERENE_CADENCE_SCALE).toBeCloseTo(1.6, 2);
@@ -283,6 +291,31 @@ describe('piperEngine', () => {
         phonemize,
       });
       expect(phonemize).toHaveBeenCalledWith('Calmá el ritmo.', 'es-419');
+    });
+
+    it('uses the neutral duration factor in inference but preserves phonemes, silence and PCM sample rate', async () => {
+      const run = vi
+        .fn()
+        .mockResolvedValue({ output: { data: new Float32Array([0.1, -0.1]) } });
+      const phonemes = [1, 92, 2, 1, 30, 2];
+      const blob = await synthesizeWithSession('Tu ritmo. Sin hacerlo perfecto.', {
+        ort: makeOrt(),
+        ortSession: { run },
+        modelConfig: makeModelConfig(),
+        phonemize: vi.fn().mockResolvedValue(phonemes),
+        cadenceScale: NEUTRAL_CADENCE_SCALE,
+      });
+      expect(run.mock.calls.map(([feeds]) => feeds.scales.data)).toEqual([
+        [CLEAR_NOISE_SCALE, 1.5, CLEAR_NOISE_WIDTH],
+        [CLEAR_NOISE_SCALE, 1.5, CLEAR_NOISE_WIDTH],
+      ]);
+      expect(run.mock.calls.map(([feeds]) => feeds.input.data)).toEqual([
+        [1, 92, 2],
+        [1, 30, 2],
+      ]);
+      expect(blob.size).toBe(
+        44 + 2 * (4 + Math.round(22050 * SENTENCE_SILENCE_SECONDS)),
+      );
     });
 
     it('synthesizes each phoneme sentence independently, preserving both erres and adding only inter-sentence silence', async () => {

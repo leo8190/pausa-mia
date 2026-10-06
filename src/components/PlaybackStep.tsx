@@ -5,6 +5,7 @@ import type { SessionApi } from '../hooks/useSession';
 import {
   checkNeuralEngineBrowserSupport,
   checkRemoteWavPlaybackSupport,
+  NEURAL_VOICE_RELOAD_MESSAGE,
 } from '../lib/voiceEngine';
 import { isRemoteArgentineTtsConfigured } from '../lib/remoteVoiceService';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
@@ -14,10 +15,11 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { checkIn, autoStartPlayback } = sessionApi.session;
   const clearAutoStartPlayback = sessionApi.clearAutoStartPlayback;
   const wantsArgentineNeural = checkIn.voiceVariant === 'es-AR';
+  const voiceLabel = wantsArgentineNeural ? 'Voz argentina' : 'Voz en español neutro';
 
   // Si la persona confirma explícitamente que quiere usar una voz del
-  // dispositivo (no argentina) tras un fallo de la voz neuronal, o si eligió
-  // español neutro, se usa el motor Web Speech de siempre.
+  // dispositivo tras un fallo, se ofrece Web Speech. Ambas variantes usan
+  // su propio modelo neuronal por defecto, no el timbre básico del sistema.
   const [useDeviceFallback, setUseDeviceFallback] = useState(false);
   // Ruta remota opcional: nunca automática; requiere consentimiento visible.
   const [useRemoteArgentine, setUseRemoteArgentine] = useState(false);
@@ -53,9 +55,9 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     stop: stopNeural,
     restart: restartNeural,
     mountNativeAudioElement,
-  } = useArgentineVoicePlayer(argentineMode);
+  } = useArgentineVoicePlayer(argentineMode, checkIn.voiceVariant);
 
-  const useNeuralEngine = wantsArgentineNeural && !useDeviceFallback;
+  const useNeuralEngine = !useDeviceFallback;
 
   useEffect(() => {
     // Al cambiar de guion o de variante, se descarta cualquier confirmación
@@ -139,6 +141,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     const needsNativePlay = neuralState.status === 'needs-native-play';
     const keepNativeControlsMounted = neuralState.nativeControlsRequired;
     const hasError = neuralState.status === 'error';
+    const needsPageReload = neuralState.error === NEURAL_VOICE_RELOAD_MESSAGE;
     const canPlayback =
       isReady || isPlaying || isPaused || isStoppedAfterPlay || needsNativePlay;
     const progressPct =
@@ -154,6 +157,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     // Resolver la voz localmente. Sólo ofrecer ayuda por internet cuando haga
     // falta, sin presentar los motores como una decisión habitual de la sesión.
     const showRemoteOffer =
+      wantsArgentineNeural &&
       !useRemoteArgentine &&
       remoteConfigured &&
       remoteWavPlaybackSupported &&
@@ -184,7 +188,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     return (
       <StepLayout
         title="Reproducción"
-        lead="Voz argentina. Tomate este momento a tu ritmo."
+        lead={`${voiceLabel}. Tomate este momento a tu ritmo.`}
         cardClassName={`step-card--playback${isPlaying ? ' step-card--active' : ''}`}
         actions={
           <>
@@ -238,7 +242,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
         {!useRemoteArgentine && !neuralBrowserSupported && (
           <div className="fallback-notice" role="alert">
-            La voz argentina no está disponible directamente en este dispositivo.
+            Esta voz no está disponible directamente en este dispositivo.
             {deviceInline && canUseDeviceFallback && (
               <div className="player-controls">{deviceFallbackButton}</div>
             )}
@@ -306,7 +310,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             <div
               className="voice-engine-section"
               role="region"
-              aria-label="Preparar voz argentina"
+              aria-label={`Preparar ${voiceLabel.toLowerCase()}`}
             >
               <p className="field-hint">
                 La primera vez puede tardar un poco y consumir datos. El audio se
@@ -344,15 +348,19 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
         {hasError && (
           <div className="fallback-notice" role="alert">
-            No pudimos preparar o reproducir el audio. Podés volver a intentarlo.
+            {needsPageReload
+              ? NEURAL_VOICE_RELOAD_MESSAGE
+              : 'No pudimos preparar o reproducir el audio. Podés volver a intentarlo.'}
             <div className="player-controls">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => void prepareNeural(script.segments[0]?.text)}
-              >
-                Reintentar
-              </button>
+              {!needsPageReload && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => void prepareNeural(script.segments[0]?.text)}
+                >
+                  Reintentar
+                </button>
+              )}
               {deviceInline && canUseDeviceFallback && deviceFallbackButton}
               {hasNoCompatibleAudioPlayer && (
                 <p className="field-hint">
@@ -532,7 +540,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
         </>
       }
     >
-      {wantsArgentineNeural && useDeviceFallback && (
+      {useDeviceFallback && (
         <div className="fallback-notice" role="status">
           Elegiste otra voz en español. Puede tener un acento diferente.{' '}
           <button
@@ -543,7 +551,9 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               setUseDeviceFallback(false);
             }}
           >
-            Volver a intentar la voz argentina
+            {wantsArgentineNeural
+              ? 'Volver a intentar la voz argentina'
+              : 'Volver a intentar la voz neutra'}
           </button>
         </div>
       )}

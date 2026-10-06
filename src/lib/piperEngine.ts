@@ -22,6 +22,8 @@ import { normalizeTextForTts } from './ttsPronunciation';
  * Valores > 1 alargan el audio en Piper sin bajar artificialmente el tono.
  */
 export const SERENE_CADENCE_SCALE = 1.6;
+/** Neutro: ajuste pequeño tras escucha de Leonardo; argentino conserva 1.6. */
+export const NEUTRAL_CADENCE_SCALE = 1.5;
 // Leave room after a complete thought without stretching consonants further.
 // Inserted only between sentences: no extra wait before the opening word.
 export const SENTENCE_SILENCE_SECONDS = 0.9;
@@ -33,8 +35,11 @@ const MIN_LENGTH_SCALE = 0.5;
 const MAX_LENGTH_SCALE = 3;
 
 /** Aplica la cadencia serena al length_scale del modelo, con límites seguros. */
-export function resolveSereneLengthScale(modelLengthScale: number): number {
-  const scaled = modelLengthScale * SERENE_CADENCE_SCALE;
+export function resolveSereneLengthScale(
+  modelLengthScale: number,
+  cadenceScale = SERENE_CADENCE_SCALE,
+): number {
+  const scaled = modelLengthScale * cadenceScale;
   return Math.min(MAX_LENGTH_SCALE, Math.max(MIN_LENGTH_SCALE, scaled));
 }
 
@@ -319,6 +324,8 @@ export interface OrtLike {
 
 export interface OrtSessionLike {
   run(feeds: Record<string, unknown>): Promise<{ output: { data: Float32Array } }>;
+  /** ONNX Runtime ofrece release; opcional sólo para dobles de pruebas mínimos. */
+  release?: () => Promise<void>;
 }
 
 export async function loadOnnxRuntime(
@@ -346,6 +353,8 @@ export interface PiperSessionDeps {
   ortSession: OrtSessionLike;
   modelConfig: PiperModelConfig;
   phonemize: (text: string, espeakVoice: string) => Promise<number[]>;
+  /** Factor de duración por voz, sin alterar tono ni silencios entre oraciones. */
+  cadenceScale?: number;
 }
 
 /**
@@ -375,7 +384,10 @@ export async function synthesizeWithSession(
         input_lengths: new ort.Tensor('int64', [phonemeIds.length]),
         scales: new ort.Tensor('float32', [
           Math.min(modelConfig.inference.noise_scale, CLEAR_NOISE_SCALE),
-          resolveSereneLengthScale(modelConfig.inference.length_scale),
+          resolveSereneLengthScale(
+            modelConfig.inference.length_scale,
+            deps.cadenceScale,
+          ),
           Math.min(modelConfig.inference.noise_w, CLEAR_NOISE_WIDTH),
         ]),
       };

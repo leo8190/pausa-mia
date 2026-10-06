@@ -95,12 +95,12 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', '');
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     voiceEngine.resetNeuralVoiceVerificationForTests();
-    voiceEngine.resetArgentineVoiceSessionForTests();
+    await voiceEngine.resetArgentineVoiceSessionForTests();
   });
 
   it('offers one preparation action without engine choices or diagnostics even when online help exists', () => {
@@ -158,10 +158,11 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     async (variant) => {
       mockDeviceVoiceAvailable();
       vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
+      vi.spyOn(voiceEngine, 'synthesizeNeutralVoice').mockResolvedValue(audioBlob());
       const { container } = render(
         <PlaybackStep sessionApi={makeSessionApi(variant)} />,
       );
-      if (variant === 'es-AR') await prepareLocalAudio();
+      await prepareLocalAudio();
       expect(
         screen.queryByRole('button', { name: /^reiniciar$/i }),
       ).not.toBeInTheDocument();
@@ -267,20 +268,79 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeInTheDocument();
   });
 
-  it('plays the neutral choice directly without engine diagnostics', () => {
+  it('explains a cleanup failure without silent reload, technical details or a futile retry', async () => {
+    mockDeviceVoiceAvailable();
+    vi.spyOn(voiceEngine, 'synthesizeNeutralVoice').mockRejectedValue(
+      new Error(voiceEngine.NEURAL_VOICE_RELOAD_MESSAGE),
+    );
+    render(<PlaybackStep sessionApi={makeSessionApi('es-neutro')} />);
+    fireEvent.click(screen.getByRole('button', { name: /^preparar audio$/i }));
+    const notice = await screen.findByRole('alert');
+    expect(notice).toHaveTextContent(/recargá la página/i);
+    expect(notice).toHaveTextContent(/se perderán los datos de esta sesión/i);
+    expect(
+      screen.queryByRole('button', { name: /reintentar/i }),
+    ).not.toBeInTheDocument();
+    expect(notice.textContent).not.toMatch(/ONNX|release|WASM/i);
+    expect(
+      screen.getByRole('button', { name: /escuchar con otra voz/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Leer la meditación'));
+    await screen.findByRole('button', { name: /terminar mi pausa/i });
+  });
+
+  it('prepares the neutral model without system speech, online transmission or technical choices', async () => {
+    configureOnlineHelp();
+    const neutral = vi
+      .spyOn(voiceEngine, 'synthesizeNeutralVoice')
+      .mockResolvedValue(audioBlob());
+    const argentine = vi.spyOn(voiceEngine, 'synthesizeArgentineVoice');
+    const remote = vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice');
+    const speak = vi.spyOn(window.speechSynthesis, 'speak');
     const { container } = render(
       <PlaybackStep sessionApi={makeSessionApi('es-neutro')} />,
     );
-    expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /^preparar audio$/i }),
-    ).not.toBeInTheDocument();
+    expect(neutral).not.toHaveBeenCalled();
+    await prepareLocalAudio();
+    fireEvent.click(screen.getByRole('button', { name: /^reproducir$/i }));
+    await screen.findByRole('button', { name: /^pausar$/i });
+    expect(neutral).toHaveBeenCalledTimes(1);
+    expect(argentine).not.toHaveBeenCalled();
+    expect(remote).not.toHaveBeenCalled();
+    expect(speak).not.toHaveBeenCalled();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(container.textContent).toContain('Voz en español neutro');
     expect(container.textContent).not.toMatch(
       /motores de voz|información técnica|Web Speech/,
     );
   });
 
+  it('never offers the Argentine remote endpoint as a neutral voice on failure', async () => {
+    configureOnlineHelp();
+    mockDeviceVoiceAvailable();
+    const remote = vi.spyOn(remoteVoice, 'synthesizeRemoteArgentineVoice');
+    const speak = vi.spyOn(window.speechSynthesis, 'speak');
+    vi.spyOn(voiceEngine, 'synthesizeNeutralVoice').mockRejectedValue(
+      new Error('Failed'),
+    );
+    render(<PlaybackStep sessionApi={makeSessionApi('es-neutro')} />);
+    fireEvent.click(screen.getByRole('button', { name: /^preparar audio$/i }));
+    await screen.findByRole('alert');
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /por internet/i }),
+    ).not.toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+    expect(remote).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /escuchar con otra voz/i }));
+    expect(screen.getByText(/elegiste otra voz/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /volver a intentar la voz neutra/i }),
+    ).toBeInTheDocument();
+  });
+
   it('shows a clear notice when the device voice fails without skipping the phrase', () => {
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
     mockDeviceVoiceAvailable();
     let utterance!: SpeechSynthesisUtterance;
     const speak = vi
@@ -289,6 +349,7 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
         utterance = next;
       });
     render(<PlaybackStep sessionApi={makeSessionApi('es-neutro')} />);
+    fireEvent.click(screen.getByRole('button', { name: /escuchar con otra voz/i }));
     fireEvent.click(screen.getByRole('button', { name: /^reproducir$/i }));
     act(() => {
       utterance.onerror?.call(utterance, {} as SpeechSynthesisErrorEvent);
@@ -445,13 +506,21 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('offers reading when neutral audio is unavailable', () => {
+  it('offers reading when neither the neutral model nor device audio is available', async () => {
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
     vi.spyOn(voiceEngine, 'checkWebSpeechEngineSupport').mockReturnValue(false);
     const sessionApi = makeSessionApi('es-neutro');
     render(<PlaybackStep sessionApi={sessionApi} />);
-    expect(screen.getByRole('button', { name: /^reproducir$/i })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: /leer el guion/i }));
-    expect(sessionApi.setStep).toHaveBeenCalledWith('review');
+    expect(
+      screen.queryByRole('button', { name: /^reproducir$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/por ahora no podemos reproducir audio acá/i),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Leer la meditación'));
+    await screen.findByRole('button', { name: /terminar mi pausa/i });
+    fireEvent.click(screen.getByRole('button', { name: /terminar mi pausa/i }));
+    expect(sessionApi.setStep).toHaveBeenCalledWith('feedback');
   });
 
   it('keeps mobile audio controls and a simple prompt when autoplay is blocked', async () => {

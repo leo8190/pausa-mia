@@ -267,7 +267,7 @@ describe('voiceEngine', () => {
         });
       });
 
-      resetArgentineVoiceSessionForTests();
+      await resetArgentineVoiceSessionForTests();
       const blob = await synthesizeArgentineVoice('Hola');
       expect(blob).toBeInstanceOf(Blob);
       expect(hasVerifiedNeuralVoiceInSession()).toBe(true);
@@ -278,7 +278,7 @@ describe('voiceEngine', () => {
       expect(neural?.reason).toMatch(/verificada en esta sesión/i);
 
       delete globalScope.createPiperPhonemize;
-      resetArgentineVoiceSessionForTests();
+      await resetArgentineVoiceSessionForTests();
       vi.doUnmock('onnxruntime-web/wasm');
     });
   });
