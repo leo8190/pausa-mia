@@ -5,7 +5,48 @@ contexto opcionales en una meditación guiada reproducible como audio.
 
 Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
+## Versión web — 06/10/2026
+
+Esta entrega reúne la voz neutra neuronal latinoamericana, el pequeño ajuste de
+velocidad aprobado durante las pruebas y una sola sesión de voz residente al
+alternar. Conserva la opción argentina, las pausas, el modo invitado y los permisos.
+Los apartados fechados anteriores son evidencia histórica: «no publicado» describe
+el estado de esa fase, no una certificación del despliegue actual.
+
+La voz clonada de Leonardo y los servidores nuevos no quedan habilitados por esta
+entrega estática. Su integración necesita acceso seguro y verificaciones propias.
+Tampoco constituye publicación en tiendas ni validación legal/comercial completa.
+
 ## Objetivo de esta fase
+
+### Alternativa neuronal para español neutro — prueba local 04/10/2026
+
+- La opción neutra ya no depende por defecto de la voz básica del teléfono.
+  Usa un modelo latinoamericano propio (`es_MX-ald-medium`) con las pausas serenas
+  existentes. La voz argentina no cambia; el neutro nunca usa su servicio remoto.
+- Preparación explícita y caché del modelo (aprox. 63 MB), sin enviar el guion.
+  Audio y texto preparados sólo en memoria; cancelación al cambiar de voz o borrar.
+  Si falla, otra voz del dispositivo se ofrece sólo tras una elección explícita.
+- Modelo/licencia y muestra real generada documentados en
+  [NEUTRAL_VOICE_2026-10-04.md](docs/NEUTRAL_VOICE_2026-10-04.md).
+  Leonardo valoró positivamente el timbre; el 05/10 se ajustó sólo el factor de
+  duración neutro 1,6 → 1,5 para hablar un poco más rápido, sin acortar silencios.
+  No publicado ni acreditado en iPhone físico; la nueva cadencia se entrega como
+  muestra. No se contrató un proveedor pago ni cambió la voz argentina.
+
+### Memoria del audio — preparación local 05/10/2026
+
+- Una sola sesión neuronal residente. Al cambiar voz, se espera el final del
+  trabajo anterior y se libera antes de cargar la nueva. Los archivos descargados
+  permanecen en caché; no se cambia sonido, cadencia ni consentimiento.
+- Las solicitudes del mismo modelo comparten carga y se sintetizan en orden.
+  Cancelaciones no producen audio tardío; errores de carga o síntesis no bloquean la cola.
+  Si falla la liberación, no se acumulan modelos ni se reintenta automáticamente;
+  se explica cómo recuperar la página y se conserva la lectura del guion.
+- 476/476 pruebas, lint/formato/build correctos y revisión independiente. Ahorro
+  real de RAM/latencia en Android/iPhone todavía no medido. Sin publicación,
+  voz clonada nueva, servicio, credenciales ni gastos; alcance y continuidad en
+  [NEUTRAL_VOICE_2026-10-04.md](docs/NEUTRAL_VOICE_2026-10-04.md).
 
 ### Embudo de uso: primera fase local — 26/09/2026
 
