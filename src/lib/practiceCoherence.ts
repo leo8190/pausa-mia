@@ -22,7 +22,7 @@ export function mentionsAvoidedTopic(text: string, value: string): boolean {
   });
 }
 
-/** Intention is the aim; style is the method. None of the twenty pairs is invalid. */
+/** Intention is the aim; style is the method. None of the style×intention pairs is invalid. */
 export function getPracticeSummary(checkIn: CheckInData): string {
   if (!checkIn.style || !checkIn.intention) return '';
   const summary = `${INTENTION_LABELS[checkIn.intention]} con ${STYLE_LABELS[checkIn.style].toLowerCase()}.`;

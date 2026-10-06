@@ -83,6 +83,7 @@ const EXPANSION_HEADROOM_MINUTES = 1.2;
 
 /** Indicaciones de estilo o intención exigidas dentro de la práctica central. */
 const MIN_FOCUS_SEGMENTS_BY_DURATION: Record<Duration, number> = {
+  1: 1,
   3: 3,
   5: 4,
   10: 8,
@@ -407,6 +408,12 @@ const INTENTION_RECOGNITION: Record<Intention, VariantPhrase> = {
   'volver-al-cuerpo': {
     'es-AR': 'Venís a volver al cuerpo, que estuvo acá todo el tiempo.',
     'es-neutro': 'Vienes a volver al cuerpo, que estuvo aquí todo el tiempo.',
+  },
+  'con-el-futuro': {
+    'es-AR':
+      'La cabeza puede irse al después. Acá no hay que resolver el futuro: alcanza con notar que estás ahora.',
+    'es-neutro':
+      'La cabeza puede irse al después. Aquí no hay que resolver el futuro: basta con notar que estás ahora.',
   },
 };
 
@@ -1255,6 +1262,78 @@ const INTENTION_FOCUS: Record<Intention, TimedPhrase[]> = {
       pauseAfterMs: 10000,
     },
   ],
+  'con-el-futuro': [
+    {
+      text: {
+        'es-AR':
+          'Si la mente se adelanta, podés volver al peso del cuerpo un instante, sin pelear con el pensamiento.',
+        'es-neutro':
+          'Si la mente se adelanta, puedes volver al peso del cuerpo un instante, sin pelear con el pensamiento.',
+      },
+      pauseAfterMs: 9000,
+    },
+    {
+      text: {
+        'es-AR':
+          'El futuro no pide una respuesta ahora. Este minuto puede ser solo presencia.',
+        'es-neutro':
+          'El futuro no pide una respuesta ahora. Este minuto puede ser solo presencia.',
+      },
+      pauseAfterMs: 9500,
+    },
+    {
+      text: {
+        'es-AR':
+          'Notá la diferencia entre imaginar lo que viene y estar acá, con lo que ya está.',
+        'es-neutro':
+          'Nota la diferencia entre imaginar lo que viene y estar aquí, con lo que ya está.',
+      },
+      pauseAfterMs: 9000,
+    },
+    {
+      text: {
+        'es-AR':
+          'Cuando aparezca un escenario, nombralo en silencio y dejalo pasar, como una nube.',
+        'es-neutro':
+          'Cuando aparezca un escenario, nómbralo en silencio y déjalo pasar, como una nube.',
+      },
+      pauseAfterMs: 9500,
+    },
+    {
+      text: {
+        'es-AR':
+          'No hace falta tranquilizar el mañana. Alcanza con acompañar este momento.',
+        'es-neutro':
+          'No hace falta tranquilizar el mañana. Basta con acompañar este momento.',
+      },
+      pauseAfterMs: 10000,
+    },
+    {
+      text: {
+        'es-AR':
+          'La incertidumbre puede estar, y vos también podés estar, sin tener que cerrarla.',
+        'es-neutro':
+          'La incertidumbre puede estar, y tú también puedes estar, sin tener que cerrarla.',
+      },
+      pauseAfterMs: 9500,
+    },
+    {
+      text: {
+        'es-AR':
+          'Volvé a la respiración tal como es. No es una solución: es un lugar donde posarte.',
+        'es-neutro':
+          'Vuelve a la respiración tal como es. No es una solución: es un lugar donde posarte.',
+      },
+      pauseAfterMs: 9500,
+    },
+    {
+      text: {
+        'es-AR': 'Lo que aún no llegó puede esperar. Este rato es solo para estar.',
+        'es-neutro': 'Lo que aún no llegó puede esperar. Este rato es solo para estar.',
+      },
+      pauseAfterMs: 10000,
+    },
+  ],
   'volver-al-cuerpo': [
     {
       text: {
@@ -2059,6 +2138,107 @@ export function generateScript(
           }))
           .filter((seg) => seg.text.trim())
       : segments;
+
+  // Pausa de 1 minuto: núcleo mínimo (apertura + autonomía + foco + cierre).
+  // Evita reconocimiento/distracción/expansión para calibrar ~60 s.
+  if (duration === 1) {
+    const quickDetails: DetailSegmentMap = {};
+    const opening =
+      variant === 'es-AR'
+        ? 'Un minuto para vos. Nada más hace falta ahora.'
+        : 'Un minuto para ti. Nada más hace falta ahora.';
+    const arrivalSeg: ScriptSegment = { text: opening, pauseAfterMs: 2500 };
+    const quickCoreSegs: ScriptSegment[] = [arrivalSeg];
+
+    if (!excluded.has('moment') && checkIn.moment) {
+      const momentSeg: ScriptSegment = {
+        text: pick(MOMENT_ARRIVAL[checkIn.moment], hashString(String(duration)))[
+          variant
+        ],
+        pauseAfterMs: 3000,
+      };
+      quickCoreSegs.push(momentSeg);
+      addDetailSegment(quickDetails, 'moment', momentSeg);
+    }
+
+    quickCoreSegs.push(...buildAutonomyBlock(variant));
+
+    const styleSeg = focus.opening[0];
+    if (styleSeg) {
+      quickCoreSegs.push(styleSeg);
+      addDetailSegment(quickDetails, 'style', styleSeg);
+    }
+
+    const intentionPhrase = focus.phrases.find((seg) =>
+      (focus.detailSegments.intention ?? []).some(
+        (d) => normalizeText(d.text) === normalizeText(seg.text),
+      ),
+    );
+    const practiceSeg =
+      intentionPhrase ??
+      focus.phrases[0] ??
+      (focus.opening[1] ? focus.opening[1] : styleSeg);
+    if (practiceSeg) {
+      quickCoreSegs.push(practiceSeg);
+      if (!excluded.has('intention') && checkIn.intention) {
+        addDetailSegment(quickDetails, 'intention', practiceSeg);
+      }
+    }
+
+    const quickCore = filterBlock(quickCoreSegs.filter(Boolean) as ScriptSegment[]);
+    const quickClosing = filterBlock(buildClosingBlock(checkIn, variant, excluded));
+    const uniqueQuickCore = dropDuplicateSegments(quickCore);
+    const uniqueQuickClosing = dropDuplicateSegments([
+      ...uniqueQuickCore,
+      ...quickClosing,
+    ]).slice(uniqueQuickCore.length);
+    const allSegments = composeToTarget(
+      uniqueQuickCore,
+      [],
+      uniqueQuickClosing,
+      duration,
+    );
+    const uniqueDetails = collectUsedDetails(
+      allSegments,
+      mergeDetailSegments(focus.detailSegments, quickDetails),
+    );
+    const intentionLabelQuick =
+      !excluded.has('intention') && checkIn.intention
+        ? INTENTION_LABELS[checkIn.intention]
+        : 'Pausa consciente';
+    const titleQuick = `Pausa de 1 minuto — ${intentionLabelQuick}`;
+    const fullTextQuick = allSegments.map((s) => s.text).join('\n\n');
+    const estimatedMinutesQuick = estimateMinutesFromSegments(allSegments);
+    const forbiddenFreeTextQuick = collectLocalForbiddenFreeTextSources(
+      checkIn,
+      excluded,
+      contextSources,
+    );
+    const freeTextLeakQuick = detectSensitiveOverlapInScript(
+      fullTextQuick,
+      uniqueDetails,
+      forbiddenFreeTextQuick,
+    );
+    if (freeTextLeakQuick.hasOverlap) {
+      throw new LocalFreeTextLeakError();
+    }
+    if (
+      estimatedMinutesQuick < duration - DURATION_TOLERANCE_MINUTES &&
+      isDevelopmentEnvironment()
+    ) {
+      throw new ScriptDurationError(estimatedMinutesQuick, duration);
+    }
+    return {
+      title: titleQuick,
+      intentionLabel: intentionLabelQuick,
+      targetDuration: duration,
+      estimatedMinutes: estimatedMinutesQuick,
+      segments: allSegments,
+      fullText: fullTextQuick,
+      usedDetails: uniqueDetails,
+      engine: options.engine ?? 'local',
+    };
+  }
 
   const centralPhrases = focus.phrases.slice(0, minFocus);
   const reminderAt = Math.ceil(centralPhrases.length / 2);

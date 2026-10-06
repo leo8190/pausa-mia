@@ -8,14 +8,15 @@ export type Intention =
   | 'concentrarse'
   | 'descansar'
   | 'aceptar-emocion'
-  | 'volver-al-cuerpo';
+  | 'volver-al-cuerpo'
+  | 'con-el-futuro';
 
 export type Experience = 'primera-vez' | 'basica' | 'habitual';
 
 export type MeditationStyle =
   'respiracion-natural' | 'recorrido-corporal' | 'atencion-abierta' | 'autocompasion';
 
-export type Duration = 3 | 5 | 10;
+export type Duration = 1 | 3 | 5 | 10;
 
 export type VoiceVariant = 'es-AR' | 'es-neutro' | 'leonardo';
 
@@ -163,6 +164,7 @@ export const INTENTION_LABELS: Record<Intention, string> = {
   descansar: 'Descansar',
   'aceptar-emocion': 'Aceptar una emoción',
   'volver-al-cuerpo': 'Volver al cuerpo',
+  'con-el-futuro': 'Cuando el futuro te da vueltas',
 };
 
 export const EXPERIENCE_LABELS: Record<Experience, string> = {

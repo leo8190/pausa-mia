@@ -206,7 +206,7 @@ describe('estado personal opcional', () => {
     for (const style of Object.keys(STYLE_LABELS) as MeditationStyle[]) {
       for (const intention of Object.keys(INTENTION_LABELS) as Intention[]) {
         for (const voiceVariant of ['es-AR', 'es-neutro'] as const) {
-          for (const duration of [3, 5, 10] as const) {
+          for (const duration of [1, 3, 5, 10] as const) {
             const checkIn = {
               ...minimalCheckIn(),
               style,
