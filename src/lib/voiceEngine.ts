@@ -1,6 +1,7 @@
 // Adaptador de motores de voz.
 //
-// Hay tres motores posibles:
+// La ruta neuronal tiene un modelo distinto para argentino y neutro latinoamericano.
+// Hay tres tipos de motor:
 // 1. `web-speech`: la Web Speech API del navegador. Funciona en la mayoría de
 //    navegadores/dispositivos modernos, pero la lista de voces (y si existe
 //    una voz es-AR real) depende totalmente del sistema operativo instalado.
@@ -33,6 +34,8 @@ import {
   loadPiperPhonemizeFactory,
   phonemizeChunk,
   synthesizeWithSession,
+  NEUTRAL_CADENCE_SCALE,
+  SERENE_CADENCE_SCALE,
   type OrtLike,
   type OrtSessionLike,
   type PiperModelConfig,
@@ -41,10 +44,12 @@ import {
 } from './piperEngine';
 import { isRemoteArgentineTtsConfigured } from './remoteVoiceService';
 import { normalizeTextForTts } from './ttsPronunciation';
+import type { VoiceVariant } from '../types';
 
 export type { Progress };
 
-export type VoiceEngineId = 'web-speech' | 'neural-piper-es-ar' | 'remote-wav-es-ar';
+export type VoiceEngineId =
+  'web-speech' | 'neural-piper-es-ar' | 'neural-piper-es-neutral' | 'remote-wav-es-ar';
 
 export interface VoiceEngineStatus {
   id: VoiceEngineId;
@@ -125,7 +130,7 @@ export function checkRemoteWavPlaybackSupport(): boolean {
  * Identificador de voz Piper (mismo formato que `PATH_MAP` de
  * `@mintplex-labs/piper-tts-web`/`@diffusionstudio/vits-web`) y ruta relativa
  * dentro del repositorio `piper-voices`. Se documentan explícitamente para
- * que agregar otra voz en el futuro sea un cambio de una línea.
+ * Los modelos se seleccionan por variante, sin intercambiar sus acentos.
  */
 export const PIPER_ES_AR_VOICE_ID = 'es_AR-daniela-high';
 export const PIPER_ES_AR_VOICE_PATH = 'es/es_AR/daniela/high/es_AR-daniela-high.onnx';
@@ -140,6 +145,16 @@ export const PIPER_ES_AR_VOICE_PATH = 'es/es_AR/daniela/high/es_AR-daniela-high.
  */
 export const DEFAULT_ES_AR_VOICE_URL = `https://huggingface.co/rhasspy/piper-voices/resolve/main/${PIPER_ES_AR_VOICE_PATH}`;
 export const DEFAULT_ES_AR_VOICE_CONFIG_URL = `${DEFAULT_ES_AR_VOICE_URL}.json`;
+
+/** Voz latinoamericana propia: no depende del timbre instalado en el teléfono. */
+export const PIPER_NEUTRAL_VOICE_ID = 'es_MX-ald-medium';
+export const PIPER_NEUTRAL_VOICE_REVISION = 'c10ece1aade47bb51c153c893d14e5bf8e5b7117';
+export const DEFAULT_NEUTRAL_VOICE_URL = `https://huggingface.co/rhasspy/piper-voices/resolve/${PIPER_NEUTRAL_VOICE_REVISION}/es/es_MX/ald/medium/${PIPER_NEUTRAL_VOICE_ID}.onnx`;
+export const DEFAULT_NEUTRAL_VOICE_CONFIG_URL = `${DEFAULT_NEUTRAL_VOICE_URL}.json`;
+export const NEUTRAL_VOICE_APPROX_SIZE_MB = 63;
+/** MODEL_CARD: dataset Ald Mexican Spanish bajo Unlicense; base davefx CC0. */
+export const NEUTRAL_VOICE_LICENSE =
+  'Unlicense (dataset Ald Mexican Spanish); base davefx CC0';
 
 /** Tamaño real del `.onnx` (114.199.011 bytes, verificado con `HEAD` el 2026-08-19). */
 export const ES_AR_VOICE_APPROX_SIZE_MB = 114;
@@ -184,11 +199,13 @@ function createTimeoutAbortSignal(timeoutMs: number): TimeoutAbortHandle {
   };
 }
 
-export function getNeuralVoiceModelUrl(): string {
+export function getNeuralVoiceModelUrl(variant: VoiceVariant = 'es-AR'): string {
+  if (variant === 'es-neutro') return DEFAULT_NEUTRAL_VOICE_URL;
   return readEnvUrl('VITE_PIPER_ES_AR_VOICE_URL') ?? DEFAULT_ES_AR_VOICE_URL;
 }
 
-export function getNeuralVoiceConfigUrl(): string {
+export function getNeuralVoiceConfigUrl(variant: VoiceVariant = 'es-AR'): string {
+  if (variant === 'es-neutro') return DEFAULT_NEUTRAL_VOICE_CONFIG_URL;
   return (
     readEnvUrl('VITE_PIPER_ES_AR_VOICE_CONFIG_URL') ?? DEFAULT_ES_AR_VOICE_CONFIG_URL
   );
@@ -273,15 +290,14 @@ export interface NeuralVoicePrepareResult {
 export async function prepareNeuralVoice(
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
+  variant: VoiceVariant = 'es-AR',
 ): Promise<NeuralVoicePrepareResult> {
   if (!checkNeuralEngineBrowserSupport()) {
-    throw new Error(
-      'Este navegador no soporta WebAssembly, Cache Storage, TextDecoder o reproducción WAV (HTMLAudioElement), necesarios para la voz argentina neuronal local.',
-    );
+    throw new Error('Este navegador no permite preparar esta voz en el dispositivo.');
   }
 
-  const configUrl = getNeuralVoiceConfigUrl();
-  const modelUrl = getNeuralVoiceModelUrl();
+  const configUrl = getNeuralVoiceConfigUrl(variant);
+  const modelUrl = getNeuralVoiceModelUrl(variant);
 
   const configBuffer = await loadAndCacheNeuralVoiceModel(configUrl, undefined, signal);
   const modelConfig = JSON.parse(
@@ -293,11 +309,30 @@ export async function prepareNeuralVoice(
   return { modelBuffer, modelConfig };
 }
 
-let cachedSession: {
+type NeuralSession = {
+  variant: VoiceVariant;
   ort: OrtLike;
   session: OrtSessionLike;
   modelConfig: PiperModelConfig;
-} | null = null;
+};
+// Una sola sesión residente evita conservar ambos modelos grandes en el teléfono.
+// La caché de archivos por URL se mantiene: cambiar voz no vuelve a descargarla.
+let cachedSession: NeuralSession | null = null;
+// Serializar el texto entero, no sólo run(): puede haber varias oraciones.
+let synthesisTail: Promise<void> = Promise.resolve();
+let sessionReleaseFailed = false;
+export const NEURAL_VOICE_RELOAD_MESSAGE =
+  'Necesitamos reiniciar el audio. Para volver a preparar esta voz, recargá la página. Se perderán los datos de esta sesión.';
+
+function withExclusiveSession<T>(operation: () => Promise<T>): Promise<T> {
+  const request = synthesisTail.then(operation);
+  // Un error no impide que las siguientes solicitudes entren a la cola.
+  synthesisTail = request.then(
+    () => undefined,
+    () => undefined,
+  );
+  return request;
+}
 
 /**
  * Verdadero sólo después de que `synthesizeArgentineVoice` produjo
@@ -305,19 +340,21 @@ let cachedSession: {
  * para que `getVoiceEngineStatuses` nunca afirme "disponible" a partir de un
  * `HEAD` exitoso u otra señal indirecta.
  */
-let verifiedInSession = false;
+const verifiedVoices = new Set<VoiceVariant>();
 
-function markNeuralVoiceVerified(): void {
-  verifiedInSession = true;
+function markNeuralVoiceVerified(variant: VoiceVariant): void {
+  verifiedVoices.add(variant);
 }
 
-export function hasVerifiedNeuralVoiceInSession(): boolean {
-  return verifiedInSession;
+export function hasVerifiedNeuralVoiceInSession(
+  variant: VoiceVariant = 'es-AR',
+): boolean {
+  return verifiedVoices.has(variant);
 }
 
 /** Sólo para pruebas: limpia la verificación de voz neuronal de la sesión. */
 export function resetNeuralVoiceVerificationForTests(): void {
-  verifiedInSession = false;
+  verifiedVoices.clear();
 }
 
 /**
@@ -333,29 +370,87 @@ export async function synthesizeArgentineVoice(
   onProgress?: ProgressCallback,
   signal?: AbortSignal,
 ): Promise<Blob> {
-  if (!cachedSession) {
-    const { modelBuffer, modelConfig } = await prepareNeuralVoice(onProgress, signal);
-    const ort = await loadOnnxRuntime();
-    const session = await ort.InferenceSession.create(modelBuffer, {
-      executionProviders: ['wasm'],
-    });
-    cachedSession = { ort, session, modelConfig };
-  }
-
-  const { ort, session, modelConfig } = cachedSession;
-  const blob = await synthesizeWithSession(normalizeTextForTts(text), {
-    ort,
-    ortSession: session,
-    modelConfig,
-    phonemize: (chunk, espeakVoice) => phonemizeChunk(chunk, espeakVoice),
-  });
-  markNeuralVoiceVerified();
-  return blob;
+  return synthesizeNeuralVoice('es-AR', text, onProgress, signal);
 }
 
-/** Sólo para pruebas: limpia la sesión cacheada de inferencia neuronal. */
-export function resetArgentineVoiceSessionForTests(): void {
+/** Neutro latinoamericano, local: nunca usa el endpoint argentino ni Web Speech. */
+export async function synthesizeNeutralVoice(
+  text: string,
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  return synthesizeNeuralVoice('es-neutro', text, onProgress, signal);
+}
+
+async function synthesizeNeuralVoice(
+  variant: VoiceVariant,
+  text: string,
+  onProgress?: ProgressCallback,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const throwIfAborted = () => {
+    if (signal?.aborted) throw new DOMException('Canceled', 'AbortError');
+  };
+  throwIfAborted();
+  return withExclusiveSession(async () => {
+    throwIfAborted();
+    if (sessionReleaseFailed) throw new Error(NEURAL_VOICE_RELOAD_MESSAGE);
+    if (cachedSession && cachedSession.variant !== variant) {
+      try {
+        // La cola garantiza que ya terminó TODA inferencia de la voz anterior.
+        if (!cachedSession.session.release)
+          throw new Error(NEURAL_VOICE_RELOAD_MESSAGE);
+        await cachedSession.session.release();
+        cachedSession = null;
+      } catch {
+        // No cargar otro modelo si su memoria anterior podría seguir viva.
+        sessionReleaseFailed = true;
+        throw new Error(NEURAL_VOICE_RELOAD_MESSAGE);
+      }
+    }
+    throwIfAborted();
+    if (!cachedSession) {
+      const { modelBuffer, modelConfig } = await prepareNeuralVoice(
+        onProgress,
+        signal,
+        variant,
+      );
+      throwIfAborted();
+      const ort = await loadOnnxRuntime();
+      throwIfAborted();
+      const session = await ort.InferenceSession.create(modelBuffer, {
+        executionProviders: ['wasm'],
+      });
+      cachedSession = { variant, ort, session, modelConfig };
+    }
+
+    throwIfAborted();
+    const { ort, session, modelConfig } = cachedSession;
+    const blob = await synthesizeWithSession(normalizeTextForTts(text), {
+      ort,
+      ortSession: session,
+      modelConfig,
+      cadenceScale:
+        variant === 'es-neutro' ? NEUTRAL_CADENCE_SCALE : SERENE_CADENCE_SCALE,
+      phonemize: (chunk, espeakVoice) => phonemizeChunk(chunk, espeakVoice),
+    });
+    throwIfAborted();
+    markNeuralVoiceVerified(variant);
+    return blob;
+  });
+}
+
+/** Sólo para pruebas: esperar trabajos y liberar la sesión antes de limpiar. */
+export async function resetArgentineVoiceSessionForTests(): Promise<void> {
+  await synthesisTail;
+  try {
+    await cachedSession?.session.release?.();
+  } catch {
+    // Permite limpiar los dobles que simulan un fallo de liberación.
+  }
   cachedSession = null;
+  sessionReleaseFailed = false;
+  synthesisTail = Promise.resolve();
 }
 
 export async function getVoiceEngineStatuses(): Promise<VoiceEngineStatus[]> {
@@ -381,7 +476,7 @@ export async function getVoiceEngineStatuses(): Promise<VoiceEngineStatus[]> {
   if (!neuralBrowserSupported) {
     neuralReason =
       'No compatible: tu navegador no soporta WebAssembly, Cache Storage, TextDecoder o reproducción WAV (HTMLAudioElement), requeridos para Piper local. Probá con un navegador moderno (Chrome, Edge, Safari o Firefox actualizados).';
-  } else if (verifiedInSession) {
+  } else if (hasVerifiedNeuralVoiceInSession()) {
     neuralReason =
       'Verificada en esta sesión: la síntesis produjo audio real con el modelo es_AR-daniela-high.';
   } else {
@@ -395,8 +490,24 @@ export async function getVoiceEngineStatuses(): Promise<VoiceEngineStatus[]> {
       'Voz argentina real generada por un modelo neuronal ejecutado en el navegador (WebAssembly/ONNX Runtime Web), con carga diferida y caché. No es una grabación pregrabada ni una voz es-MX/es-ES presentada como argentina.',
     supported: neuralBrowserSupported,
     configured: true,
-    available: neuralBrowserSupported && verifiedInSession,
+    available: neuralBrowserSupported && hasVerifiedNeuralVoiceInSession(),
     reason: neuralReason,
+  };
+
+  const neutralVerified = hasVerifiedNeuralVoiceInSession('es-neutro');
+  const neutralStatus: VoiceEngineStatus = {
+    id: 'neural-piper-es-neutral',
+    name: 'Voz neuronal latinoamericana (Piper, es_MX-ald-medium)',
+    description:
+      'Modelo de español de México para la opción neutra, preparado en el dispositivo. No depende de las voces instaladas ni envía el guion al servicio argentino.',
+    supported: neuralBrowserSupported,
+    configured: true,
+    available: neuralBrowserSupported && neutralVerified,
+    reason: !neuralBrowserSupported
+      ? 'Este navegador no permite preparar esta voz en el dispositivo.'
+      : neutralVerified
+        ? 'Verificada en esta sesión: la síntesis produjo audio real con es_MX-ald-medium.'
+        : `Configurada, aún no verificada: descarga inicial aproximada de ${NEUTRAL_VOICE_APPROX_SIZE_MB} MB sólo al preparar el audio.`,
   };
 
   let remoteReason: string;
@@ -424,7 +535,7 @@ export async function getVoiceEngineStatuses(): Promise<VoiceEngineStatus[]> {
     reason: remoteReason,
   };
 
-  return [webSpeechStatus, neuralStatus, remoteStatus];
+  return [webSpeechStatus, neuralStatus, neutralStatus, remoteStatus];
 }
 
 export { loadPiperPhonemizeFactory };
