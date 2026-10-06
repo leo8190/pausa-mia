@@ -17,9 +17,13 @@
 // `src` y se llama `play()` sobre la misma instancia. Crear un Audio nuevo por
 // segmento rompe la cadena de gesto del navegador (Safari/iOS pide otro toque).
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ScriptSegment } from '../types';
+import type { ScriptSegment, VoiceVariant } from '../types';
 import { createAudioObservation, productFunnel } from '../lib/productFunnel';
-import { synthesizeArgentineVoice, type Progress } from '../lib/voiceEngine';
+import {
+  synthesizeArgentineVoice,
+  synthesizeNeutralVoice,
+  type Progress,
+} from '../lib/voiceEngine';
 import {
   assertRemoteSessionTextLimits,
   isRemoteArgentineTtsConfigured,
@@ -121,12 +125,20 @@ const initialState = (mode: ArgentineVoiceMode): ArgentineVoicePlayerState => ({
   nativeControlsRequired: false,
 });
 
-export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
+/** Reproductor WAV compartido; el modo remoto sólo existe para español argentino. */
+export function useArgentineVoicePlayer(
+  requestedMode: ArgentineVoiceMode = 'local',
+  voiceVariant: VoiceVariant = 'es-AR',
+) {
+  const mode = voiceVariant === 'es-neutro' ? 'local' : requestedMode;
+  const synthesizeLocalVoice =
+    voiceVariant === 'es-neutro' ? synthesizeNeutralVoice : synthesizeArgentineVoice;
   const [state, setState] = useState<ArgentineVoicePlayerState>(() =>
     initialState(mode),
   );
 
   const modeRef = useRef(mode);
+  const voiceVariantRef = useRef(voiceVariant);
   const segmentsRef = useRef<ScriptSegment[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
@@ -242,12 +254,13 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     teardownAudio();
   }, [abortInFlight, clearPauseTimer, teardownAudio]);
 
-  // Al cambiar de local ↔ remoto se descarta audio y estado previos.
+  // Al cambiar de voz o de local ↔ remoto, descartar audio y síntesis anteriores.
   useEffect(() => {
-    if (modeRef.current === mode) return;
+    if (modeRef.current === mode && voiceVariantRef.current === voiceVariant) return;
     observationRef.current?.invalidate();
     preparedOpeningRef.current = null;
     modeRef.current = mode;
+    voiceVariantRef.current = voiceVariant;
     playbackIdRef.current += 1;
     stoppedRef.current = true;
     pausedRef.current = false;
@@ -257,7 +270,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
     abortInFlight();
     teardownAudio();
     setState(initialState(mode));
-  }, [mode, abortInFlight, clearPauseTimer, teardownAudio]);
+  }, [mode, voiceVariant, abortInFlight, clearPauseTimer, teardownAudio]);
 
   /**
    * Local: prepara el comienzo real para reutilizarlo al reproducir. Sin texto,
@@ -270,6 +283,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       observationRef.current?.invalidate();
       preparedOpeningRef.current = null;
       const requestMode = mode;
+      const requestVariant = voiceVariant;
       playbackIdRef.current += 1;
       stoppedRef.current = false;
       pausedRef.current = false;
@@ -281,7 +295,9 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       const controller = new AbortController();
       abortRef.current = controller;
       const isStale = () =>
-        controller.signal.aborted || modeRef.current !== requestMode;
+        controller.signal.aborted ||
+        modeRef.current !== requestMode ||
+        voiceVariantRef.current !== requestVariant;
 
       setState({
         status: 'preparing',
@@ -316,8 +332,11 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         }
 
         const openingText = firstSegmentText?.trim() ? firstSegmentText : null;
-        const blob = await synthesizeArgentineVoice(
-          openingText ?? 'Hola. Esta es la voz argentina.',
+        const blob = await synthesizeLocalVoice(
+          openingText ??
+            (voiceVariant === 'es-AR'
+              ? 'Hola. Esta es la voz argentina.'
+              : 'Hola. Esta es una pausa en español.'),
           (progress) => {
             if (isStale()) return;
             setState((prev) => ({ ...prev, progress }));
@@ -355,7 +374,14 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         }
       }
     },
-    [abortInFlight, clearPauseTimer, mode, teardownAudio],
+    [
+      abortInFlight,
+      clearPauseTimer,
+      mode,
+      voiceVariant,
+      synthesizeLocalVoice,
+      teardownAudio,
+    ],
   );
 
   const synthesizeSegment = useCallback(
@@ -372,19 +398,24 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
             signal: controller.signal,
           });
         }
-        return await synthesizeArgentineVoice(text, undefined, controller.signal);
+        return await synthesizeLocalVoice(text, undefined, controller.signal);
       } finally {
         if (abortRef.current === controller) {
           abortRef.current = null;
         }
       }
     },
-    [abortInFlight, mode],
+    [abortInFlight, mode, synthesizeLocalVoice],
   );
 
   const scheduleNextSegment = useCallback(
     (index: number) => {
-      if (stoppedRef.current || modeRef.current !== mode) return;
+      if (
+        stoppedRef.current ||
+        modeRef.current !== mode ||
+        voiceVariantRef.current !== voiceVariant
+      )
+        return;
       clearPauseTimer();
       const playbackId = playbackIdRef.current;
       betweenSegmentsRef.current = true;
@@ -404,7 +435,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
         void playSegmentRef.current(index + 1);
       }, remainingPauseMsRef.current);
     },
-    [clearPauseTimer, mode],
+    [clearPauseTimer, mode, voiceVariant],
   );
 
   const playSegment = useCallback(
@@ -414,7 +445,8 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       const isCurrent = () =>
         playbackIdRef.current === playbackId &&
         !stoppedRef.current &&
-        modeRef.current === mode;
+        modeRef.current === mode &&
+        voiceVariantRef.current === voiceVariant;
       const segments = segmentsRef.current;
       if (index >= segments.length) {
         observationRef.current?.complete();
@@ -485,7 +517,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
             error:
               mode === 'remote'
                 ? 'No se pudo reproducir el audio WAV del servicio remoto.'
-                : 'No se pudo reproducir el audio generado por la voz argentina.',
+                : 'No se pudo reproducir el audio de tu meditación.',
           }));
         };
         audio.onplay = () => {
@@ -561,6 +593,7 @@ export function useArgentineVoicePlayer(mode: ArgentineVoiceMode = 'local') {
       clearAudioHandlers,
       loadBlobIntoSessionAudio,
       mode,
+      voiceVariant,
       scheduleNextSegment,
       synthesizeSegment,
       teardownAudio,
