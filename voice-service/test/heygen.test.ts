@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { describe, it } from 'node:test';
+import { issueAccessToken } from '../src/access.ts';
 import { loadConfig } from '../src/config.ts';
 import { createVoiceServer } from '../src/server.ts';
 import { buildSilentWav } from '../src/wav.ts';
@@ -22,6 +23,8 @@ const TEST_CONFIG = {
   LEONARDO_TTS_ENABLED: 'true',
   LEONARDO_GENERATION_VERIFIED: 'true',
   HEYGEN_API_KEY: 'offline-test-placeholder',
+  LEONARDO_ACCESS_SECRET: 'offline-test-access-secret-0123456789abcdef',
+  LEONARDO_DAILY_CHAR_BUDGET: '5000',
   ARG_TTS_BACKEND: 'mock',
   ARG_ALLOWED_ORIGINS: 'https://localhost',
   ARG_REQUIRE_ORIGIN: 'true',
@@ -35,6 +38,7 @@ const REQUEST_HEADERS = {
   Origin: 'https://localhost',
   'Content-Type': 'application/json',
   'X-Pausa-Voice-Consent': 'session',
+  Authorization: `Bearer ${issueAccessToken('offline-subject-1', TEST_CONFIG.LEONARDO_ACCESS_SECRET)}`,
 };
 function fakeProvider(
   result: unknown = { data: { audio_url: CDN_URL } },
@@ -68,12 +72,14 @@ async function withServer(
 }
 
 describe('Leonardo configuration', () => {
-  it('stays disabled unless opted in, own key configured and generation manually verified', () => {
+  it('stays disabled unless opted in, own key, access secret, daily budget and manual verification are configured', () => {
     assert.equal(leonardoGenerationVerified(loadConfig({})), false);
     for (const field of [
       'LEONARDO_TTS_ENABLED',
       'LEONARDO_GENERATION_VERIFIED',
       'HEYGEN_API_KEY',
+      'LEONARDO_ACCESS_SECRET',
+      'LEONARDO_DAILY_CHAR_BUDGET',
     ]) {
       const env = { ...TEST_CONFIG, [field]: '' };
       assert.equal(leonardoGenerationVerified(loadConfig(env)), false);

@@ -22,7 +22,7 @@ export function applyCors(
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader(
       'Access-Control-Allow-Headers',
-      'Content-Type, Accept, X-Pausa-Voice-Consent',
+      'Content-Type, Accept, Authorization, X-Pausa-Voice-Consent',
     );
     res.setHeader(
       'Access-Control-Expose-Headers',

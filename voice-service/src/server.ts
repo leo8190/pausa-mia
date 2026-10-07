@@ -5,6 +5,8 @@ import {
   type ServerResponse,
 } from 'node:http';
 import type { VoiceServiceConfig } from './config.js';
+import { bearerToken, verifyAccessToken } from './access.js';
+import { DailyCharBudget } from './budget.js';
 import { applyCors } from './cors.js';
 import { jsonError, validateText } from './limits.js';
 import { synthesizeWav, TtsError } from './piper.js';
@@ -61,6 +63,10 @@ export function createVoiceServer(
   const leonardoRateLimiter = new InMemoryTtsRateLimiter(
     Math.min(config.ttsRateLimitPerMinute, 30),
   );
+  const leonardoBudget = new DailyCharBudget(
+    config.leonardoDailyCharBudget,
+    config.leonardoBudgetFile,
+  );
   return createServer((req, res) => {
     void handleRequest(
       req,
@@ -68,6 +74,7 @@ export function createVoiceServer(
       config,
       ttsRateLimiter,
       leonardoRateLimiter,
+      leonardoBudget,
       dependencies,
     );
   });
@@ -79,6 +86,7 @@ async function handleRequest(
   config: VoiceServiceConfig,
   ttsRateLimiter: InMemoryTtsRateLimiter,
   leonardoRateLimiter: InMemoryTtsRateLimiter,
+  leonardoBudget: DailyCharBudget,
   dependencies: { heygenFetch?: HeygenFetch },
 ): Promise<void> {
   try {
@@ -128,9 +136,23 @@ async function handleRequest(
         );
         return;
       }
-      const clientLimit = leonardoRateLimiter.check(
-        `client:${req.socket.remoteAddress ?? 'unknown'}`,
+      const subject = verifyAccessToken(
+        bearerToken(req.headers.authorization),
+        config.leonardoAccessSecret,
       );
+      if (!subject) {
+        res.setHeader('WWW-Authenticate', 'Bearer');
+        sendJson(
+          res,
+          401,
+          jsonError('auth_required', 'Ingresá a tu cuenta para usar esta voz.'),
+        );
+        return;
+      }
+      const subjectLimit = leonardoRateLimiter.check(`subject:${subject}`);
+      const clientLimit = subjectLimit.ok
+        ? leonardoRateLimiter.check(`client:${req.socket.remoteAddress ?? 'unknown'}`)
+        : subjectLimit;
       const globalLimit = clientLimit.ok
         ? leonardoRateLimiter.check('global')
         : clientLimit;
@@ -183,6 +205,19 @@ async function handleRequest(
       const validated = validateText(fields.text, Math.min(config.maxTextChars, 800));
       if (!validated.ok) {
         sendJson(res, 400, validated.body);
+        return;
+      }
+      const budget = leonardoBudget.reserve(validated.text.length);
+      if (!budget.ok) {
+        res.setHeader('Retry-After', String(budget.retryAfterSeconds));
+        sendJson(
+          res,
+          429,
+          jsonError(
+            'budget_exhausted',
+            'La voz de Leonardo alcanzó su límite de hoy. Probá con otra voz o volvé mañana.',
+          ),
+        );
         return;
       }
       const controller = new AbortController();

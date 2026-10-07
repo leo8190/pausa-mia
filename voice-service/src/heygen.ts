@@ -1,3 +1,4 @@
+import { MIN_ACCESS_SECRET_LENGTH } from './access.js';
 import type { VoiceServiceConfig } from './config.js';
 import { TtsError } from './piper.js';
 
@@ -20,7 +21,9 @@ export function leonardoGenerationVerified(config: VoiceServiceConfig): boolean 
   return (
     config.leonardoEnabled &&
     config.leonardoGenerationVerified &&
-    Boolean(config.heygenApiKey?.trim())
+    Boolean(config.heygenApiKey?.trim()) &&
+    (config.leonardoAccessSecret?.length ?? 0) >= MIN_ACCESS_SECRET_LENGTH &&
+    config.leonardoDailyCharBudget > 0
   );
 }
 

@@ -4,6 +4,12 @@ export interface VoiceServiceConfig {
   leonardoEnabled: boolean;
   leonardoGenerationVerified: boolean;
   heygenApiKey?: string;
+  /** HMAC secret shared with the account API that issues short-lived access tokens. */
+  leonardoAccessSecret?: string;
+  /** Global paid-character ceiling per UTC day; 0 keeps generation disabled. */
+  leonardoDailyCharBudget: number;
+  /** Optional persistent counter path (e.g. on a volume) so restarts do not reset it. */
+  leonardoBudgetFile?: string;
   allowedOrigins: string[];
   requireOrigin: boolean;
   backend: 'mock' | 'piper';
@@ -35,6 +41,11 @@ function parseBoolean(raw: string | undefined, fallback: boolean): boolean {
   return fallback;
 }
 
+function parseNonNegativeInt(raw: string | undefined): number {
+  const value = Number.parseInt(raw ?? '0', 10);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
 /** Cadencia serena por defecto (mismo factor que Piper local en el cliente). */
 export const DEFAULT_ARGENTINE_LENGTH_SCALE = 1.6;
 
@@ -58,6 +69,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): VoiceServiceCo
     leonardoEnabled: parseBoolean(env.LEONARDO_TTS_ENABLED, false),
     leonardoGenerationVerified: parseBoolean(env.LEONARDO_GENERATION_VERIFIED, false),
     heygenApiKey: env.HEYGEN_API_KEY,
+    leonardoAccessSecret: env.LEONARDO_ACCESS_SECRET,
+    leonardoDailyCharBudget: parseNonNegativeInt(env.LEONARDO_DAILY_CHAR_BUDGET),
+    leonardoBudgetFile: env.LEONARDO_BUDGET_FILE?.trim() || undefined,
     port: Number.parseInt(env.PORT ?? '8787', 10) || 8787,
     allowedOrigins: parseOrigins(env.ARG_ALLOWED_ORIGINS),
     requireOrigin: parseBoolean(env.ARG_REQUIRE_ORIGIN, false),
