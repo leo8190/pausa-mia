@@ -1,3 +1,5 @@
+import { buildAccountApiUrl } from './accountApiUrl';
+
 /** The approved clone is fixed; caller text cannot select another speaker. */
 export const LEONARDO_VOICE_ID = 'db2a543de8bd431899957059671861b4';
 export const LEONARDO_DELIVERY_SPEED = 0.85 as const;
@@ -126,10 +128,33 @@ export async function synthesizeLeonardoVoice(
         'No pudimos confirmar la voz de Leonardo.',
       );
     }
+    // Paid synthesis needs a short-lived token tied to a signed-in account.
+    // Only the account API receives the session cookie; the voice service never does.
+    const access = await fetch(buildAccountApiUrl('/api/account/voice-token'), {
+      signal: controller.signal,
+      method: 'POST',
+      credentials: 'include',
+      redirect: 'error',
+    });
+    checkAbort(controller.signal);
+    if (access.status === 401)
+      throw new LeonardoVoiceError(
+        'auth_required',
+        'Ingresá a tu cuenta para usar la voz de Leonardo.',
+      );
+    const accessBody = access.ok ? await access.json().catch(() => null) : null;
+    const token = typeof accessBody?.token === 'string' ? accessBody.token : '';
+    if (!/^v1\.\d+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token))
+      throw new LeonardoVoiceError(
+        'provider_unverified',
+        'La voz de Leonardo todavía no está habilitada.',
+      );
+    checkAbort(controller.signal);
     const response = await fetch(`${endpoint}/v1/leonardo/tts`, {
       ...init,
       method: 'POST',
       headers: {
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         'X-Pausa-Voice-Consent': 'session',
       },

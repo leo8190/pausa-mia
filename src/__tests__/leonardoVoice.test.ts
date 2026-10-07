@@ -21,6 +21,15 @@ function capabilities(overrides: Record<string, unknown> = {}) {
   });
 }
 
+const ACCESS_TOKEN = 'v1.1999999999.opaqueSubject_123.c2lnbmF0dXJl';
+
+function accessToken(status = 200) {
+  return new Response(
+    status === 200 ? JSON.stringify({ token: ACCESS_TOKEN, expiresAt: 'x' }) : null,
+    { status, headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
 function recognizedAudioBytes(contentType: string) {
   const bytes = new Uint8Array(contentType === 'audio/wav' ? 46 : 12);
   if (contentType === 'audio/wav') {
@@ -165,6 +174,7 @@ describe('Leonardo voice consent and provider contract', () => {
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(capabilities())
+        .mockResolvedValueOnce(accessToken())
         .mockResolvedValueOnce(audioResponse({ 'Content-Type': contentType }));
       vi.stubGlobal('fetch', fetchMock);
 
@@ -177,8 +187,13 @@ describe('Leonardo voice consent and provider contract', () => {
       expect(result.deliverySpeed).toBe(0.85);
       expect(result.audio.size).toBe(recognizedAudioBytes(contentType).length);
       expect(result.audio.type).toBe(contentType);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      const [url, options] = fetchMock.mock.calls[1]!;
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const [tokenUrl, tokenOptions] = fetchMock.mock.calls[1]!;
+      expect(tokenUrl).toMatch(/\/api\/account\/voice-token$/);
+      expect(tokenOptions).toEqual(
+        expect.objectContaining({ method: 'POST', credentials: 'include' }),
+      );
+      const [url, options] = fetchMock.mock.calls[2]!;
       expect(url).toBe(`${endpoint}/v1/leonardo/tts`);
       expect(options).toEqual(
         expect.objectContaining({
@@ -188,6 +203,7 @@ describe('Leonardo voice consent and provider contract', () => {
           signal: expect.any(AbortSignal),
         }),
       );
+      expect(options.headers.Authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
       expect(JSON.parse(options.body)).toEqual({
         text: 'Respirá con calma.',
         voiceId: approvedIdentity.voiceId,
@@ -206,12 +222,13 @@ describe('Leonardo voice consent and provider contract', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(capabilities())
+      .mockResolvedValueOnce(accessToken())
       .mockResolvedValueOnce(audioResponse(headers));
     vi.stubGlobal('fetch', fetchMock);
     await expect(
       synthesizeLeonardoVoice('Respirá con calma.', { consent: true }),
     ).rejects.toMatchObject({ code: 'identity_mismatch' });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it.each([
@@ -222,6 +239,7 @@ describe('Leonardo voice consent and provider contract', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(capabilities())
+      .mockResolvedValueOnce(accessToken())
       .mockResolvedValueOnce(audioResponse({ 'Content-Type': type }, bytes));
     vi.stubGlobal('fetch', fetchMock);
     await expect(
@@ -233,11 +251,37 @@ describe('Leonardo voice consent and provider contract', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(capabilities())
+      .mockResolvedValueOnce(accessToken())
       .mockResolvedValueOnce(new Response(null, { status: 503 }));
     vi.stubGlobal('fetch', fetchMock);
     await expect(
       synthesizeLeonardoVoice('Respirá con calma.', { consent: true }),
     ).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('asks guests to sign in and never sends the script without an account token', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(capabilities())
+      .mockResolvedValueOnce(accessToken(401));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      synthesizeLeonardoVoice('Respirá con calma.', { consent: true }),
+    ).rejects.toMatchObject({ code: 'auth_required' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain('Respirá');
+  });
+
+  it('does not synthesize when the account API cannot issue a voice token', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(capabilities())
+      .mockResolvedValueOnce(accessToken(503));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      synthesizeLeonardoVoice('Respirá con calma.', { consent: true }),
+    ).rejects.toMatchObject({ code: 'provider_unverified' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -250,6 +294,7 @@ describe('Leonardo voice consent and provider contract', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(capabilities())
+      .mockResolvedValueOnce(accessToken())
       .mockImplementationOnce((_url: string, options: RequestInit) => {
         requestedSynthesis?.();
         return new Promise<Response>((_resolve, reject) => {
@@ -269,7 +314,7 @@ describe('Leonardo voice consent and provider contract', () => {
     await synthesisRequested;
     controller.abort();
     await rejection;
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('bounds an unresponsive provider with one 45 second request window', async () => {
