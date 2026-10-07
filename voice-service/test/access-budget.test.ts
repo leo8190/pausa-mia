@@ -69,7 +69,11 @@ describe('Leonardo daily character budget', () => {
 
   it('is disabled at zero and persists across restarts', () => {
     assert.equal(new DailyCharBudget(0, undefined, () => NOW).reserve(1).ok, false);
-    const file = join(mkdtempSync(join(tmpdir(), 'pausa-budget-')), 'nested', 'budget.json');
+    const file = join(
+      mkdtempSync(join(tmpdir(), 'pausa-budget-')),
+      'nested',
+      'budget.json',
+    );
     assert.equal(new DailyCharBudget(100, file, () => NOW).reserve(70).ok, true);
     assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), {
       day: '2026-10-07',
@@ -98,7 +102,8 @@ describe('Leonardo endpoint auth and spend control (offline fake HTTP only)', ()
     const fetcher: HeygenFetch = async (input) => {
       const url = String(input);
       calls.push(url);
-      if (url === HEYGEN_SPEECH_URL) return Response.json({ data: { audio_url: CDN_URL } });
+      if (url === HEYGEN_SPEECH_URL)
+        return Response.json({ data: { audio_url: CDN_URL } });
       return new Response(buildSilentWav({ durationMs: 200 }), {
         headers: { 'Content-Type': 'audio/wav' },
       });
