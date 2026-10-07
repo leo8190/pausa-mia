@@ -34,10 +34,10 @@ async function withStore(engine, callback) {
   );
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
-  const request = (path, method, body, origin = ORIGIN) =>
+  const request = (path, method, body, origin = ORIGIN, headers = {}) =>
     fetch(`${url}${path}`, {
       method,
-      headers: { Origin: origin, 'Content-Type': 'application/json' },
+      headers: { Origin: origin, 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
     });
   try {
@@ -50,6 +50,32 @@ async function withStore(engine, callback) {
 }
 
 describe.each(['json', 'sqlite'])('consented funnel in %s store', (engine) => {
+  it.each([{ DNT: '1' }, { 'Sec-GPC': '1' }])(
+    'does not collect with opt-out %j but permits revocation',
+    async (headers) => {
+      await withStore(engine, async ({ store, request }) => {
+        const entry = { runId: ID, event: 'entry', source: 'shared' };
+        expect(
+          (await request('/api/funnel/event', 'POST', entry, ORIGIN, headers)).status,
+        ).toBe(204);
+        expect(store.getFunnelReport()).toEqual([]);
+        await request('/api/funnel/event', 'POST', entry);
+        expect(store.getFunnelReport()).toHaveLength(1);
+        expect(
+          (
+            await request(
+              '/api/funnel/revoke',
+              'DELETE',
+              { runId: ID },
+              ORIGIN,
+              headers,
+            )
+          ).status,
+        ).toBe(204);
+        expect(store.getFunnelReport()).toEqual([]);
+      });
+    },
+  );
   it('requires permission-shaped entry, deduplicates and keeps legacy counters separate', async () => {
     await withStore(engine, async ({ store, request, url }) => {
       const before = await request('/api/funnel/event', 'POST', {
@@ -208,10 +234,9 @@ it('adds funnel tables to an older SQLite database without changing old visitor 
     old.exec(`CREATE TABLE unique_visitors (
       visitor_hash TEXT PRIMARY KEY, first_seen_at TEXT NOT NULL
     );`);
-    old.prepare('INSERT INTO unique_visitors VALUES (?, ?)').run(
-      'prior-visitor-hash',
-      '2026-09-20T00:00:00.000Z',
-    );
+    old
+      .prepare('INSERT INTO unique_visitors VALUES (?, ?)')
+      .run('prior-visitor-hash', '2026-09-20T00:00:00.000Z');
     old.close();
 
     const store = await createAccountStore({
@@ -229,9 +254,9 @@ it('adds funnel tables to an older SQLite database without changing old visitor 
         }),
       ).toBe('stored');
       expect(store.countUniqueVisitors()).toBe(1);
-      expect(store.getFunnelReport().map(({ event, count }) => [event, count])).toEqual([
-        ['entry', 1],
-      ]);
+      expect(store.getFunnelReport().map(({ event, count }) => [event, count])).toEqual(
+        [['entry', 1]],
+      );
     } finally {
       store.close();
     }

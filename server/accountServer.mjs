@@ -179,6 +179,13 @@ export function createAppHandler(options = {}) {
         res.end();
         return;
       }
+      if (
+        req.method === 'POST' &&
+        (req.headers.dnt === '1' || req.headers['sec-gpc'] === '1')
+      ) {
+        sendNoContent(res);
+        return;
+      }
       try {
         const body = await readJsonBody(req);
         if (req.method === 'POST') {

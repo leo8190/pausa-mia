@@ -1,6 +1,7 @@
 /** Closed vocabulary: never attach answers, scripts, audio or error messages. */
 import { getAccountApiBaseUrl } from './accountApiUrl';
 import { createFunnelTransport, type FunnelSink } from './funnelTransport';
+import { isUsageTrackingExcluded } from './usagePrivacy';
 
 export const FUNNEL_EVENTS = [
   'entry',
@@ -113,7 +114,9 @@ export const isFunnelPreviewEnabled = () =>
 export const isFunnelProductionEnabled = () =>
   import.meta.env.PROD && getAccountApiBaseUrl().length > 0;
 export const productFunnel = createProductFunnel(
-  () => isFunnelPreviewEnabled() || isFunnelProductionEnabled(),
+  () =>
+    !isUsageTrackingExcluded() &&
+    (isFunnelPreviewEnabled() || isFunnelProductionEnabled()),
   () => new Date(),
   isFunnelProductionEnabled() ? createFunnelTransport() : undefined,
 );

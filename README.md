@@ -406,6 +406,13 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
 
 ### Métricas voluntarias del recorrido
 
+Fase local nueva del06/10: informe privado por cohortes/días ART, conversiones y
+cobertura explícita, sin crear una base vacía cuando no hay datos accesibles.
+DNT/GPC bloquean el embudo sin ocultar borrado/reintentos. Código preparado,
+**no desplegado ni recibiendo eventos reales**; el servicio de API está pendiente
+de restauración. Alcance, pruebas y pendientes:
+[USAGE_METRICS_PHASE1_2026-10-06.md](docs/USAGE_METRICS_PHASE1_2026-10-06.md).
+
 El cliente nuevo no envía visitas automáticas. Sólo tras un permiso separado y
 opcional envía nombres cerrados de pasos del recorrido a `/api/funnel/event`:
 entrada consentida, inicio de cuestionario, guion generado, audio iniciado,

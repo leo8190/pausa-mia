@@ -1,5 +1,6 @@
 import { buildAccountApiUrl } from './accountApiUrl';
 import type { FunnelEvent } from './productFunnel';
+import { isUsageTrackingExcluded } from './usagePrivacy';
 
 export type FunnelSink = {
   begin(): void;
@@ -61,6 +62,7 @@ export function createFunnelTransport(
   }
   return {
     begin() {
+      if (isUsageTrackingExcluded()) return;
       current = {
         id: newRunId(),
         controller: new AbortController(),
@@ -85,7 +87,7 @@ export function createFunnelTransport(
       // Entry must arrive before the other events. Every request has a closed body.
       run.queue = run.queue
         .then(async () => {
-          if (signal.aborted) return;
+          if (signal.aborted || isUsageTrackingExcluded()) return;
           await fetchImpl(buildAccountApiUrl('/api/funnel/event', env), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
