@@ -33,6 +33,122 @@ function event(id, name, at = START) {
 }
 
 describe('private ART funnel aggregation', () => {
+  it('reports optional client timing with nearest-rank percentiles, not server latency or all attempts', () => {
+    const runs = Array.from({ length: 20 }, (_, i) => run(`timed-${i}`));
+    const events = runs.flatMap((item, i) => [
+      event(item.runHash, 'entry'),
+      { ...event(item.runHash, 'script_generated'), elapsedMs: (i + 1) * 100 },
+    ]);
+    events.push({ ...event('timed-0', 'script_error'), elapsedMs: 0 });
+    const report = buildFunnelAnalytics({ runs, events }, AT);
+    expect(report.scriptGenerationTimings).toEqual([
+      {
+        event: 'script_generated',
+        count: 20,
+        minMs: 100,
+        meanMs: 1050,
+        p50Ms: 1000,
+        p95Ms: 1900,
+        maxMs: 2000,
+      },
+      {
+        event: 'script_error',
+        count: 1,
+        minMs: 0,
+        meanMs: 0,
+        p50Ms: 0,
+        p95Ms: 0,
+        maxMs: 0,
+      },
+    ]);
+    expect(report.coverage.scriptGenerationTimingMeaning).toBe(
+      'client_generation_and_validation_ms',
+    );
+    expect(report.coverage.scriptGenerationTimingPopulation).toBe(
+      'optional_first_result_per_event_per_run_not_all_attempts',
+    );
+    expect(report.coverage.notInstrumented).not.toContain('script_generation_latency');
+    expect(JSON.stringify(report)).not.toContain('timed-');
+  });
+  it('keeps missing timing null, rejects invalid samples and excludes QA/revoked/stale events', () => {
+    const report = buildFunnelAnalytics(
+      {
+        runs: [
+          run('missing'),
+          run('invalid'),
+          run('qa', { qa: true }),
+          run('revoked', { revokedAt: AT }),
+          run('stale', { createdAt: '2026-08-01T00:00:00Z' }),
+        ],
+        events: [
+          event('missing', 'entry'),
+          event('missing', 'script_generated'),
+          event('invalid', 'entry'),
+          { ...event('invalid', 'script_generated'), elapsedMs: 300_001 },
+          event('qa', 'entry'),
+          { ...event('qa', 'script_generated'), elapsedMs: 900 },
+          event('revoked', 'entry'),
+          { ...event('revoked', 'script_generated'), elapsedMs: 800 },
+          event('stale', 'entry'),
+          { ...event('stale', 'script_generated'), elapsedMs: 700 },
+        ],
+      },
+      AT,
+    );
+    expect(
+      report.scriptGenerationTimings.every(
+        (row) =>
+          row.count === 0 &&
+          row.minMs === null &&
+          row.meanMs === null &&
+          row.p50Ms === null &&
+          row.p95Ms === null &&
+          row.maxMs === null,
+      ),
+    ).toBe(true);
+    expect(report.coverage.scriptGenerationTimingMissingMeaning).toBe(
+      'not_observed_not_zero',
+    );
+  });
+  it('deduplicates timing by first receipt and never fills an old missing value from a retry', () => {
+    const report = buildFunnelAnalytics(
+      {
+        runs: [run('first'), run('missing')],
+        events: [
+          event('first', 'entry'),
+          {
+            ...event('first', 'script_generated', '2026-10-04T03:01:00Z'),
+            elapsedMs: 9999,
+          },
+          {
+            ...event('first', 'script_generated', '2026-10-04T03:00:00Z'),
+            elapsedMs: 100,
+          },
+          {
+            ...event('first', 'script_generated', '2026-10-04T03:00:00Z'),
+            elapsedMs: 200,
+          },
+          event('missing', 'entry'),
+          event('missing', 'script_generated', '2026-10-04T03:00:00Z'),
+          {
+            ...event('missing', 'script_generated', '2026-10-04T03:01:00Z'),
+            elapsedMs: 9999,
+          },
+        ],
+      },
+      AT,
+    );
+    expect(report.scriptGenerationTimings[0]).toEqual({
+      event: 'script_generated',
+      count: 1,
+      minMs: 100,
+      meanMs: 100,
+      p50Ms: 100,
+      p95Ms: 100,
+      maxMs: 100,
+    });
+    expect(report.exclusions.duplicateEvents).toBe(3);
+  });
   it.each(['closing_reached', 'feedback_given'])(
     'treats late %s consent as partial, not abandonment or playback completion',
     (name) => {
@@ -181,6 +297,55 @@ describe('private ART funnel aggregation', () => {
     expect(report.cohorts).toEqual([]);
     expect(report.coverage.allTrafficCovered).toBe(false);
   });
+});
+
+it('reads timing from an older SQLite schema as absent without adding a column or changing bytes', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pausa-report-legacy-timing-'));
+  const path = join(dir, 'app.db');
+  try {
+    const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite');
+    const db = new DatabaseSync(path);
+    db.exec(`
+      CREATE TABLE funnel_runs (run_hash TEXT PRIMARY KEY, source TEXT, qa INTEGER, created_at TEXT, expires_at TEXT, revoked_at TEXT);
+      CREATE TABLE funnel_events (run_hash TEXT, event_name TEXT, day_utc TEXT, created_at TEXT, PRIMARY KEY(run_hash,event_name));
+    `);
+    db.prepare('INSERT INTO funnel_runs VALUES (?, ?, 0, ?, ?, NULL)').run(
+      'legacy',
+      'shared',
+      START,
+      '2026-10-05T02:59:00.000Z',
+    );
+    for (const name of ['entry', 'script_generated']) {
+      db.prepare('INSERT INTO funnel_events VALUES (?, ?, ?, ?)').run(
+        'legacy',
+        name,
+        START.slice(0, 10),
+        START,
+      );
+    }
+    db.close();
+    const before = readFileSync(path);
+    const snapshot = readFunnelReportSnapshot({ ACCOUNT_DB_PATH: path });
+    expect(snapshot.events.every((row) => row.elapsedMs === null)).toBe(true);
+    const report = buildFunnelAnalytics(snapshot, AT);
+    expect(report.cohorts[0].runs).toBe(1);
+    expect(report.scriptGenerationTimings[0].count).toBe(0);
+    expect(report.scriptGenerationTimings[0].meanMs).toBeNull();
+    expect(readFileSync(path)).toEqual(before);
+    const readOnly = new DatabaseSync(path, { readOnly: true });
+    try {
+      expect(
+        readOnly
+          .prepare('PRAGMA table_info(funnel_events)')
+          .all()
+          .some((column) => column.name === 'elapsed_ms'),
+      ).toBe(false);
+    } finally {
+      readOnly.close();
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 describe.each(['sqlite', 'json'])(

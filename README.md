@@ -413,6 +413,11 @@ DNT/GPC bloquean el embudo sin ocultar borrado/reintentos. Código preparado,
 de restauración. Alcance, pruebas y pendientes:
 [USAGE_METRICS_PHASE1_2026-10-06.md](docs/USAGE_METRICS_PHASE1_2026-10-06.md).
 
+Segunda fase local: tiempo opcional de generación/validación del guion, medido
+en el cliente y persistido con el resultado consentido, sin contenido personal.
+[USAGE_METRICS_PHASE2_2026-10-06.md](docs/USAGE_METRICS_PHASE2_2026-10-06.md).
+Tampoco está desplegada; eventos antiguos sin tiempo no equivalen a0ms.
+
 El cliente nuevo no envía visitas automáticas. Sólo tras un permiso separado y
 opcional envía nombres cerrados de pasos del recorrido a `/api/funnel/event`:
 entrada consentida, inicio de cuestionario, guion generado, audio iniciado,

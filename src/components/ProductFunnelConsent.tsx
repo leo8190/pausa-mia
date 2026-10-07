@@ -34,10 +34,10 @@ export function ProductFunnelConsent({ deleted = false }: { deleted?: boolean })
           )}
           <p className="field-hint" id="consent-anonymous-usage-hint">
             Mostramos en estadísticas los últimos 30 días: qué pasos completaste y desde
-            qué tipo de enlace llegaste, usando un código temporal. Nunca enviamos tus
-            respuestas, diario, guion, audio ni datos de cuenta. Podés retirar el
-            permiso y pedir borrar los recorridos de esta pestaña. La meditación
-            funciona igual si no aceptás.
+            qué tipo de enlace llegaste y cuánto tardó en prepararse el guion, usando un
+            código temporal. Nunca enviamos tus respuestas, diario, guion, audio ni
+            datos de cuenta. Podés retirar el permiso y pedir borrar los recorridos de
+            esta pestaña. La meditación funciona igual si no aceptás.
           </p>
           {excluded && (
             <button

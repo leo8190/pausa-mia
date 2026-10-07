@@ -50,10 +50,14 @@ export function readFunnelReportSnapshot(env = process.env) {
         ...run,
         qa: run.qa === 0 ? false : run.qa === 1 ? true : null,
       }));
+    const hasElapsedMs = db
+      .prepare('PRAGMA table_info(funnel_events)')
+      .all()
+      .some((column) => column.name === 'elapsed_ms');
     const events = db
       .prepare(
         `SELECT run_hash AS runHash, event_name AS event,
-      created_at AS createdAt FROM funnel_events`,
+      created_at AS createdAt, ${hasElapsedMs ? 'elapsed_ms' : 'NULL'} AS elapsedMs FROM funnel_events`,
       )
       .all();
     db.exec('COMMIT');

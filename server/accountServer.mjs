@@ -210,6 +210,7 @@ export function createAppHandler(options = {}) {
             event: input.event,
             source: input.source,
             qa: input.qa,
+            elapsedMs: input.elapsedMs,
           });
           if (result === 'gone') {
             sendError(res, 410, 'FUNNEL_RUN_GONE');

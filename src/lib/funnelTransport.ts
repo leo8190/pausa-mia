@@ -1,10 +1,11 @@
 import { buildAccountApiUrl } from './accountApiUrl';
 import type { FunnelEvent } from './productFunnel';
 import { isUsageTrackingExcluded } from './usagePrivacy';
+import { validateFunnelMeasurement, type FunnelMeasurement } from './funnelMeasurement';
 
 export type FunnelSink = {
   begin(): void;
-  record(event: FunnelEvent): void;
+  record(event: FunnelEvent, measurement?: FunnelMeasurement): void;
   finish(): void;
   revoke(): Promise<boolean>;
   retryRevoke(): Promise<boolean>;
@@ -24,6 +25,10 @@ export function createFunnelTransport(
   newRunId: () => string = () => crypto.randomUUID(),
   search: () => string = () => window.location.search,
 ): FunnelSink {
+  // Enable the new wire field only after the matching backend is deployed.
+  // Older collectors reject extra fields; keep their existing event contract.
+  const timingEnabled =
+    env.DEV === true || env.VITE_PRODUCT_FUNNEL_TIMING_ENABLED === 'true';
   let current: {
     id: string;
     controller: AbortController;
@@ -69,9 +74,14 @@ export function createFunnelTransport(
         queue: Promise.resolve(),
       };
     },
-    record(event) {
+    record(event, measurement) {
       const run = current;
       if (!run) return;
+      const safeMeasurement =
+        measurement === undefined
+          ? undefined
+          : validateFunnelMeasurement(event, measurement);
+      if (measurement !== undefined && !safeMeasurement) return;
       const signal = run.controller.signal;
       const body =
         event === 'entry'
@@ -83,7 +93,7 @@ export function createFunnelTransport(
                 ? { qa: true }
                 : {}),
             }
-          : { runId: run.id, event };
+          : { runId: run.id, event, ...(timingEnabled ? (safeMeasurement ?? {}) : {}) };
       // Entry must arrive before the other events. Every request has a closed body.
       run.queue = run.queue
         .then(async () => {

@@ -77,7 +77,14 @@ export function createJsonStore(path) {
   return {
     kind: 'json',
     close() {},
-    recordFunnelEvent({ runHash, event, source, qa = false, at = nowIso() }) {
+    recordFunnelEvent({
+      runHash,
+      event,
+      source,
+      qa = false,
+      elapsedMs = null,
+      at = nowIso(),
+    }) {
       purgeFunnel(at);
       let run = state.funnelRuns.find((item) => item.runHash === runHash);
       if (!run && event === 'entry') {
@@ -106,6 +113,7 @@ export function createJsonStore(path) {
         event,
         dayUtc: at.slice(0, 10),
         createdAt: at,
+        elapsedMs,
       });
       persist();
       return 'stored';

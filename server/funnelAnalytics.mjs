@@ -1,4 +1,10 @@
-import { FUNNEL_EVENTS, FUNNEL_SOURCES, FUNNEL_RETENTION_DAYS } from './funnel.mjs';
+import {
+  FUNNEL_EVENTS,
+  FUNNEL_SOURCES,
+  FUNNEL_RETENTION_DAYS,
+  FUNNEL_TIMED_EVENTS,
+  isValidFunnelElapsedMs,
+} from './funnel.mjs';
 
 const DAY_MS = 86_400_000;
 const STAGES = [
@@ -29,6 +35,22 @@ function emptyCohort(dayArt, source) {
     partialCoverageRuns: 0,
     expiredWithRecordedError: 0,
     expiredDropOffs: STAGES.slice(0, -1).map((event) => ({ after: event, runs: 0 })),
+  };
+}
+
+function timingSummary(event, values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const count = sorted.length;
+  const percentile = (fraction) =>
+    count === 0 ? null : sorted[Math.ceil(count * fraction) - 1];
+  return {
+    event,
+    count,
+    minMs: count === 0 ? null : sorted[0],
+    meanMs: count === 0 ? null : sorted.reduce((sum, value) => sum + value, 0) / count,
+    p50Ms: percentile(0.5),
+    p95Ms: percentile(0.95),
+    maxMs: count === 0 ? null : sorted[count - 1],
   };
 }
 
@@ -74,7 +96,13 @@ export function buildFunnelAnalytics(snapshot, at = new Date().toISOString()) {
       excluded.revokedRuns += 1;
       continue;
     }
-    selected.set(run.runHash, { ...run, start, expiry, events: new Map() });
+    selected.set(run.runHash, {
+      ...run,
+      start,
+      expiry,
+      events: new Map(),
+      timings: new Map(),
+    });
   }
   for (const row of snapshot.events) {
     const run = selected.get(row.runHash);
@@ -92,12 +120,16 @@ export function buildFunnelAnalytics(snapshot, at = new Date().toISOString()) {
     }
     if (run.events.has(row.event)) {
       excluded.duplicateEvents += 1;
-      run.events.set(row.event, Math.min(received, run.events.get(row.event)));
-    } else run.events.set(row.event, received);
+      // Keep the timing of the first received result, never a later retry's value.
+      if (received >= run.events.get(row.event)) continue;
+    }
+    run.events.set(row.event, received);
+    run.timings.set(row.event, row.elapsedMs);
   }
   const cohorts = new Map();
   const daily = new Map();
   const counts = new Map();
+  const timingSamples = new Map(FUNNEL_TIMED_EVENTS.map((event) => [event, []]));
   let firstReceived = null;
   let lastReceived = null;
   for (const run of selected.values()) {
@@ -135,6 +167,10 @@ export function buildFunnelAnalytics(snapshot, at = new Date().toISOString()) {
       } else if (prefix > 0) cohort.expiredDropOffs[prefix - 1].runs += 1;
     }
     for (const [event, received] of run.events) {
+      const elapsedMs = run.timings.get(event);
+      if (timingSamples.has(event) && isValidFunnelElapsedMs(elapsedMs)) {
+        timingSamples.get(event).push(elapsedMs);
+      }
       firstReceived =
         firstReceived === null ? received : Math.min(firstReceived, received);
       lastReceived =
@@ -195,6 +231,11 @@ export function buildFunnelAnalytics(snapshot, at = new Date().toISOString()) {
       allTrafficCovered: false,
       serviceUptimeCoverage: 'not_measured',
       timestampMeaning: 'server_receipt_not_client_latency',
+      scriptGenerationTimingMeaning: 'client_generation_and_validation_ms',
+      scriptGenerationTimingPopulation:
+        'optional_first_result_per_event_per_run_not_all_attempts',
+      scriptGenerationTimingMissingMeaning: 'not_observed_not_zero',
+      scriptGenerationTimingPercentiles: 'nearest_rank',
       cohortMeaning: 'ART_day_of_run_entry_and_allowlisted_source',
       partialCoverageMeaning:
         'later_stages_without_ordered_earlier_evidence_excluded_from_dropoff',
@@ -205,7 +246,6 @@ export function buildFunnelAnalytics(snapshot, at = new Date().toISOString()) {
       notInstrumented: [
         'new_or_returning_visitors',
         'questionnaire_completed',
-        'script_generation_latency',
         'audio_prepared',
         'audio_preparation_latency',
         'audio_pauses',
@@ -219,6 +259,9 @@ export function buildFunnelAnalytics(snapshot, at = new Date().toISOString()) {
     exclusions: excluded,
     counts: rows(counts, 'dayUtc'), // Existing report consumers retain their UTC counts.
     dailyEventsArt: rows(daily, 'dayArt'),
+    scriptGenerationTimings: FUNNEL_TIMED_EVENTS.map((event) =>
+      timingSummary(event, timingSamples.get(event)),
+    ),
     cohorts: cohortRows,
   };
 }

@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createAppHandler } from '../accountServer.mjs';
 import { createAccountStore } from '../store/createStore.mjs';
-import { hashFunnelRunId } from '../funnel.mjs';
+import { hashFunnelRunId, validateFunnelEvent } from '../funnel.mjs';
+import { readFunnelReportSnapshot } from '../funnelReportSnapshot.mjs';
 
 const ORIGIN = 'https://leo8190.github.io';
 const ID = '11111111-1111-4111-8111-111111111111';
@@ -41,7 +42,7 @@ async function withStore(engine, callback) {
       body: JSON.stringify(body),
     });
   try {
-    await callback({ store, open, request, url });
+    await callback({ store, open, request, url, storePath });
   } finally {
     await new Promise((resolve) => server.close(resolve));
     store.close();
@@ -50,6 +51,116 @@ async function withStore(engine, callback) {
 }
 
 describe.each(['json', 'sqlite'])('consented funnel in %s store', (engine) => {
+  it('accepts optional bounded client timing and preserves the first result across duplicates/reopen', async () => {
+    await withStore(engine, async ({ request, storePath, open }) => {
+      await request('/api/funnel/event', 'POST', {
+        runId: ID,
+        event: 'entry',
+        source: 'shared',
+      });
+      for (const [event, elapsedMs] of [
+        ['script_generated', 0],
+        ['script_error', 300_000],
+      ]) {
+        expect(
+          (await request('/api/funnel/event', 'POST', { runId: ID, event, elapsedMs }))
+            .status,
+        ).toBe(204);
+        expect(
+          (
+            await request('/api/funnel/event', 'POST', {
+              runId: ID,
+              event,
+              elapsedMs: 999,
+            })
+          ).status,
+        ).toBe(204);
+      }
+      const reopened = await open();
+      try {
+        const env = {
+          ACCOUNT_STORE_ENGINE: engine,
+          ACCOUNT_DB_PATH: storePath,
+          ACCOUNT_STORE_JSON_PATH: storePath,
+        };
+        const rows = readFunnelReportSnapshot(env).events;
+        expect(rows.find((row) => row.event === 'script_generated').elapsedMs).toBe(0);
+        expect(rows.find((row) => row.event === 'script_error').elapsedMs).toBe(
+          300_000,
+        );
+        expect(rows.filter((row) => row.event === 'script_generated')).toHaveLength(1);
+        expect(rows.find((row) => row.event === 'entry').elapsedMs).toBeNull();
+      } finally {
+        reopened.close();
+      }
+    });
+  });
+  it('rejects timing on other events, invalid values and extra fields without persistence', async () => {
+    await withStore(engine, async ({ request, store, storePath }) => {
+      await request('/api/funnel/event', 'POST', {
+        runId: ID,
+        event: 'entry',
+        source: 'shared',
+      });
+      for (const elapsedMs of [null, -1, 300_001, 1.5, '10', {}, [10]]) {
+        expect(
+          (
+            await request('/api/funnel/event', 'POST', {
+              runId: ID,
+              event: 'script_generated',
+              elapsedMs,
+            })
+          ).status,
+        ).toBe(400);
+      }
+      for (const event of ['audio_started', 'audio_error', 'feedback_given']) {
+        expect(
+          (
+            await request('/api/funnel/event', 'POST', {
+              runId: ID,
+              event,
+              elapsedMs: 10,
+            })
+          ).status,
+        ).toBe(400);
+      }
+      expect(
+        (
+          await request('/api/funnel/event', 'POST', {
+            runId: ID,
+            event: 'entry',
+            source: 'shared',
+            elapsedMs: 10,
+          })
+        ).status,
+      ).toBe(400);
+      expect(
+        (
+          await request('/api/funnel/event', 'POST', {
+            runId: ID,
+            event: 'script_error',
+            elapsedMs: 10,
+            error: 'PRIVATE',
+          })
+        ).status,
+      ).toBe(400);
+      expect(store.getFunnelReport().map((row) => row.event)).toEqual(['entry']);
+      expect(
+        (
+          await request('/api/funnel/event', 'POST', {
+            runId: ID,
+            event: 'script_error',
+          })
+        ).status,
+      ).toBe(204);
+      const rows = readFunnelReportSnapshot({
+        ACCOUNT_STORE_ENGINE: engine,
+        ACCOUNT_DB_PATH: storePath,
+        ACCOUNT_STORE_JSON_PATH: storePath,
+      }).events;
+      expect(rows.find((row) => row.event === 'script_error').elapsedMs).toBeNull();
+    });
+  });
   it.each([{ DNT: '1' }, { 'Sec-GPC': '1' }])(
     'does not collect with opt-out %j but permits revocation',
     async (headers) => {
@@ -223,6 +334,50 @@ describe.each(['json', 'sqlite'])('consented funnel in %s store', (engine) => {
       expect(store.getFunnelReport('2026-10-02T00:00:00.000Z')).toEqual([]);
     });
   });
+});
+
+it('does not accept nonfinite timing or a present undefined timing field', () => {
+  for (const elapsedMs of [NaN, Infinity, undefined]) {
+    expect(
+      validateFunnelEvent({ runId: ID, event: 'script_error', elapsedMs }),
+    ).toBeNull();
+  }
+});
+
+it('adds nullable timing to a prior SQLite funnel once, preserving historical events', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'pausa-funnel-timing-upgrade-'));
+  const path = join(dir, 'old.db');
+  try {
+    const { DatabaseSync } = require('node:sqlite');
+    const old = new DatabaseSync(path);
+    old.exec(`
+      CREATE TABLE funnel_runs (run_hash TEXT PRIMARY KEY, source TEXT NOT NULL, qa INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT);
+      CREATE TABLE funnel_events (run_hash TEXT NOT NULL, event_name TEXT NOT NULL, day_utc TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (run_hash,event_name));
+    `);
+    const at = new Date().toISOString();
+    const expiresAt = new Date(Date.parse(at) + 86_400_000).toISOString();
+    old
+      .prepare('INSERT INTO funnel_runs VALUES (?, ?, 0, ?, ?, NULL)')
+      .run('legacy', 'shared', at, expiresAt);
+    for (const event of ['entry', 'script_generated']) {
+      old
+        .prepare('INSERT INTO funnel_events VALUES (?, ?, ?, ?)')
+        .run('legacy', event, at.slice(0, 10), at);
+    }
+    old.close();
+    for (let i = 0; i < 2; i += 1) {
+      const store = await createAccountStore({
+        forceEngine: 'sqlite',
+        sqlitePath: path,
+      });
+      store.close();
+    }
+    const rows = readFunnelReportSnapshot({ ACCOUNT_DB_PATH: path }).events;
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.elapsedMs === null)).toBe(true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 it('adds funnel tables to an older SQLite database without changing old visitor rows', async () => {

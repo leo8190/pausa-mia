@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS funnel_events (
   event_name TEXT NOT NULL,
   day_utc TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  elapsed_ms INTEGER CHECK (elapsed_ms IS NULL OR (elapsed_ms >= 0 AND elapsed_ms <= 300000)),
   PRIMARY KEY (run_hash, event_name),
   FOREIGN KEY (run_hash) REFERENCES funnel_runs(run_hash) ON DELETE CASCADE
 );

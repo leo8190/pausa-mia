@@ -31,6 +31,24 @@ export async function createSqliteStore(dbPath) {
   const db = new DatabaseSync(dbPath);
   db.exec(readFileSync(schemaPath, 'utf-8'));
   db.exec('PRAGMA foreign_keys = ON;');
+  // Startup-only additive migration. Historical events retain missing timing as NULL.
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const hasElapsedMs = db
+      .prepare('PRAGMA table_info(funnel_events)')
+      .all()
+      .some((column) => column.name === 'elapsed_ms');
+    if (!hasElapsedMs) {
+      db.exec(
+        'ALTER TABLE funnel_events ADD COLUMN elapsed_ms INTEGER CHECK (elapsed_ms IS NULL OR (elapsed_ms >= 0 AND elapsed_ms <= 300000))',
+      );
+    }
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    db.close();
+    throw error;
+  }
 
   function mapUser(row) {
     if (!row) return null;
@@ -60,7 +78,14 @@ export async function createSqliteStore(dbPath) {
     close() {
       db.close();
     },
-    recordFunnelEvent({ runHash, event, source, qa = false, at = nowIso() }) {
+    recordFunnelEvent({
+      runHash,
+      event,
+      source,
+      qa = false,
+      elapsedMs = null,
+      at = nowIso(),
+    }) {
       purgeFunnel(at);
       if (event === 'entry') {
         const expiresAt = new Date(
@@ -79,9 +104,9 @@ export async function createSqliteStore(dbPath) {
       const written = db
         .prepare(
           `INSERT OR IGNORE INTO funnel_events
-           (run_hash, event_name, day_utc, created_at) VALUES (?, ?, ?, ?)`,
+           (run_hash, event_name, day_utc, created_at, elapsed_ms) VALUES (?, ?, ?, ?, ?)`,
         )
-        .run(runHash, event, at.slice(0, 10), at);
+        .run(runHash, event, at.slice(0, 10), at, elapsedMs);
       return written.changes === 1 ? 'stored' : 'duplicate';
     },
     revokeFunnelRun(runHash, at = nowIso()) {

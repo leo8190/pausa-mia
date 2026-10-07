@@ -2,6 +2,7 @@
 import { getAccountApiBaseUrl } from './accountApiUrl';
 import { createFunnelTransport, type FunnelSink } from './funnelTransport';
 import { isUsageTrackingExcluded } from './usagePrivacy';
+import { validateFunnelMeasurement, type FunnelMeasurement } from './funnelMeasurement';
 
 export const FUNNEL_EVENTS = [
   'entry',
@@ -15,7 +16,11 @@ export const FUNNEL_EVENTS = [
   'audio_error',
 ] as const;
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
-export type FunnelObservation = Readonly<{ event: FunnelEvent; dayUtc: string }>;
+export type FunnelObservation = Readonly<{
+  event: FunnelEvent;
+  dayUtc: string;
+  elapsedMs?: number;
+}>;
 
 export function createProductFunnel(
   enabled: () => boolean,
@@ -34,12 +39,26 @@ export function createProductFunnel(
     revision += 1;
     listeners.forEach((listener) => listener());
   }
-  function record(event: FunnelEvent, expectedEpoch = epoch) {
+  function record(
+    event: FunnelEvent,
+    measurement?: FunnelMeasurement,
+    expectedEpoch = epoch,
+  ) {
     if (!isConsented() || expectedEpoch !== epoch || !FUNNEL_EVENTS.includes(event))
       return;
+    const safeMeasurement =
+      measurement === undefined
+        ? undefined
+        : validateFunnelMeasurement(event, measurement);
+    if (measurement !== undefined && !safeMeasurement) return;
     if (!observations.has(event)) {
-      observations.set(event, { event, dayUtc: now().toISOString().slice(0, 10) });
-      sink?.record(event);
+      observations.set(event, {
+        event,
+        dayUtc: now().toISOString().slice(0, 10),
+        ...(safeMeasurement ?? {}),
+      });
+      if (safeMeasurement) sink?.record(event, safeMeasurement);
+      else sink?.record(event);
       notify();
     }
   }
@@ -84,8 +103,8 @@ export function createProductFunnel(
   function capture() {
     const operationEpoch = epoch;
     const permitted = isConsented();
-    return (event: FunnelEvent) => {
-      if (permitted) record(event, operationEpoch);
+    return (event: FunnelEvent, measurement?: FunnelMeasurement) => {
+      if (permitted) record(event, measurement, operationEpoch);
     };
   }
   return {
