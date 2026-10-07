@@ -3,6 +3,7 @@ import { TtsError } from './piper.js';
 
 export const LEONARDO_VOICE_ID = 'db2a543de8bd431899957059671861b4';
 export const LEONARDO_DELIVERY_SPEED = 0.85;
+export const LEONARDO_SPEECH_ENGINE = 'orca';
 export const HEYGEN_SPEECH_URL = 'https://api.heygen.com/v3/voices/speech';
 export const MAX_LEONARDO_AUDIO_BYTES = 4 * 1024 * 1024;
 const MAX_PROVIDER_JSON_BYTES = 16 * 1024;
@@ -147,6 +148,7 @@ export async function synthesizeLeonardoAudio(
       body: JSON.stringify({
         text: text.trim(),
         voice_id: LEONARDO_VOICE_ID,
+        engine: LEONARDO_SPEECH_ENGINE,
         speed: LEONARDO_DELIVERY_SPEED,
         language: 'es',
         locale: 'es-AR',
@@ -172,6 +174,8 @@ export async function synthesizeLeonardoAudio(
       body?.data && typeof body.data === 'object'
         ? (body.data as Record<string, unknown>)
         : body;
+    if (data?.engine !== undefined && data.engine !== LEONARDO_SPEECH_ENGINE)
+      throw new HeygenError('provider_engine_mismatch');
     const url = audioUrl(data?.audio_url, data?.voice_id);
     const audio = await request(url, {
       method: 'GET',

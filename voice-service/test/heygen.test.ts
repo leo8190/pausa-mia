@@ -83,7 +83,7 @@ describe('Leonardo configuration', () => {
 });
 
 describe('HeyGen adapter (offline fake HTTP only)', () => {
-  it('requests only the approved clone at0.85 es-AR and never sends its API key to the CDN', async () => {
+  it('requests the approved clone with Orca at0.85 es-AR and never sends its API key to the CDN', async () => {
     const { calls, fetcher } = fakeProvider();
     const result = await synthesizeLeonardoAudio(SAMPLE_TEXT, loadConfig(TEST_CONFIG), {
       fetch: fetcher,
@@ -95,6 +95,7 @@ describe('HeyGen adapter (offline fake HTTP only)', () => {
     assert.deepEqual(JSON.parse(String(calls[0].init?.body)), {
       text: SAMPLE_TEXT,
       voice_id: LEONARDO_VOICE_ID,
+      engine: 'orca',
       speed: 0.85,
       language: 'es',
       locale: 'es-AR',
@@ -110,6 +111,31 @@ describe('HeyGen adapter (offline fake HTTP only)', () => {
       assert.equal(call.init?.redirect, 'error');
       assert.equal(call.init?.credentials, 'omit');
     }
+  });
+
+  it('rejects a substituted speech engine before downloading audio, without a retry', async () => {
+    for (const engine of ['starfish', 'elevenlabs', null]) {
+      const { calls, fetcher } = fakeProvider({
+        data: { audio_url: CDN_URL, voice_id: LEONARDO_VOICE_ID, engine },
+      });
+      await assert.rejects(
+        synthesizeLeonardoAudio(SAMPLE_TEXT, loadConfig(TEST_CONFIG), {
+          fetch: fetcher,
+        }),
+        (error: unknown) =>
+          error instanceof HeygenError && error.code === 'provider_engine_mismatch',
+      );
+      assert.equal(calls.length, 1);
+    }
+    const { fetcher } = fakeProvider({ data: { audio_url: CDN_URL, engine: 'orca' } });
+    assert.equal(
+      (
+        await synthesizeLeonardoAudio(SAMPLE_TEXT, loadConfig(TEST_CONFIG), {
+          fetch: fetcher,
+        })
+      ).contentType,
+      'audio/wav',
+    );
   });
 
   it('also accepts a flat provider response but never substitutes another voice', async () => {
