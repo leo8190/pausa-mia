@@ -94,7 +94,11 @@ export function createLoginSecretHash(secret) {
 }
 
 export function verifyLoginSecret(secret, hash, salt) {
-  if (typeof secret !== 'string' || typeof hash !== 'string' || typeof salt !== 'string') {
+  if (
+    typeof secret !== 'string' ||
+    typeof hash !== 'string' ||
+    typeof salt !== 'string'
+  ) {
     return false;
   }
 
