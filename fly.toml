@@ -8,6 +8,9 @@ primary_region = "gru"
   NODE_ENV = "production"
   AI_SERVER_PORT = "3001"
   ACCOUNT_DB_PATH = "/data/app.db"
+  ACCOUNT_STORE_ENGINE = "sqlite"
+  ACCOUNT_REQUIRE_EXISTING_DB = "true"
+  ACCOUNT_STORE_JSON_PATH = "/data/app-store.json"
   ACCOUNT_ALLOWED_ORIGINS = "https://leo8190.github.io"
 
 [http_service]
