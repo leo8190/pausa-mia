@@ -144,7 +144,7 @@ export function buildSessionCookie(token, isSecure = false) {
     `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`,
     'Path=/',
     'HttpOnly',
-    'SameSite=Lax',
+    `SameSite=${isSecure ? 'None' : 'Lax'}`,
     `Max-Age=${SESSION_TTL_SECONDS}`,
   ];
   if (isSecure) {
@@ -158,7 +158,7 @@ export function buildSessionCookieClear(isSecure = false) {
     `${SESSION_COOKIE_NAME}=`,
     'Path=/',
     'HttpOnly',
-    'SameSite=Lax',
+    `SameSite=${isSecure ? 'None' : 'Lax'}`,
     'Max-Age=0',
   ];
   if (isSecure) {
