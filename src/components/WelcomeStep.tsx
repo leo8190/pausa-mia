@@ -9,6 +9,7 @@ import {
 import { loadGuestProgress } from '../lib/guestProgressStorage';
 import { AccountPanel } from './AccountPanel';
 import { BetaComments } from './BetaComments';
+import { WhoMakesThis } from './WhoMakesThis';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 
 export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
@@ -177,6 +178,8 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
           ))}
         </div>
       </section>
+
+      <WhoMakesThis />
 
       <AccountPanel
         locale={

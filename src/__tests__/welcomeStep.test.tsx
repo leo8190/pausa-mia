@@ -296,3 +296,44 @@ describe('WelcomeStep línea navegador y Agregar a inicio', () => {
     expect(primaryButtons).toHaveLength(1);
   });
 });
+
+
+describe('WelcomeStep franja Quién hace esto', () => {
+  beforeEach(() => {
+    clearGuestProgress();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      }),
+    );
+  });
+
+  afterEach(() => {
+    clearGuestProgress();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('muestra Quién hace esto visible sin competir con el CTA primario', () => {
+    const { container } = render(<WelcomeStep sessionApi={mockSessionApi()} />);
+
+    expect(
+      screen.getByRole('heading', { name: /^quién hace esto$/i }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('link', { name: /escribir al equipo/i }),
+    ).toBeVisible();
+
+    const primaryButtons = container.querySelectorAll('button.btn-primary');
+    expect(primaryButtons).toHaveLength(1);
+    expect(primaryButtons[0]).toHaveTextContent(/^Empezar gratis sin cuenta$/);
+
+    const strip = container.querySelector('.who-makes-this');
+    expect(strip).toBeTruthy();
+    expect((strip!.textContent ?? '').toLowerCase()).not.toMatch(
+      /empleo|carreras?|hiring|jobs?/,
+    );
+  });
+});
