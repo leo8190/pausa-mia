@@ -1,49 +1,18 @@
 import type { SessionApi } from '../hooks/useSession';
-import type { Duration, Intention } from '../types';
+import {
+  COLLECTIONS,
+  RAPIDA_1_MIN,
+  collectionCheckInFields,
+  type CollectionPreset,
+} from '../lib/collections';
 import { AccountPanel } from './AccountPanel';
 import { BetaComments } from './BetaComments';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 
-type QuickPack = {
-  id: string;
-  title: string;
-  hint: string;
-  duration: Duration;
-  intention: Intention;
-};
-
-const QUICK_PACKS: QuickPack[] = [
-  {
-    id: 'rapida-1',
-    title: 'Pausa rápida · 1 min',
-    hint: 'Un respiro ahora, sin cuenta.',
-    duration: 1,
-    intention: 'calmar-ritmo',
-  },
-  {
-    id: 'futuro',
-    title: 'Cuando el futuro te da vueltas',
-    hint: 'Espacio local, en español, sin suscripción.',
-    duration: 3,
-    intention: 'con-el-futuro',
-  },
-  {
-    id: 'laboral',
-    title: 'Pausa laboral · 3 min',
-    hint: 'Entre tareas, en el navegador.',
-    duration: 3,
-    intention: 'calmar-ritmo',
-  },
-];
-
 export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
-  const startTowardConsent = (pack?: QuickPack) => {
-    if (pack) {
-      sessionApi.updateCheckIn({
-        duration: pack.duration,
-        intention: pack.intention,
-        moment: pack.id === 'laboral' ? 'pausa-laboral' : 'ahora',
-      });
+  const startTowardConsent = (preset?: CollectionPreset) => {
+    if (preset) {
+      sessionApi.updateCheckIn(collectionCheckInFields(preset));
     }
     sessionApi.setStep('consent');
   };
@@ -77,7 +46,7 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
           <button
             type="button"
             className="btn btn-secondary"
-            onClick={() => startTowardConsent(QUICK_PACKS[0])}
+            onClick={() => startTowardConsent(RAPIDA_1_MIN)}
           >
             Pausa rápida · 1 min
           </button>
@@ -151,22 +120,22 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
 
       <section className="welcome-packs" aria-labelledby="welcome-packs-title">
         <h3 id="welcome-packs-title" className="welcome-packs-title">
-          Pausas cortas sugeridas
+          Colecciones
         </h3>
         <p className="field-hint welcome-packs-lead">
-          Elegí una y seguís al permiso de sesión. No prometemos quitar la ansiedad:
-          ofrecemos un espacio para estar.
+          Elegí una y se completan duración, práctica y experiencia. No prometemos
+          quitar la ansiedad: ofrecemos un espacio para estar.
         </p>
         <div className="welcome-packs-grid">
-          {QUICK_PACKS.map((pack) => (
+          {COLLECTIONS.map((preset) => (
             <button
-              key={pack.id}
+              key={preset.id}
               type="button"
               className="welcome-pack"
-              onClick={() => startTowardConsent(pack)}
+              onClick={() => startTowardConsent(preset)}
             >
-              <span className="welcome-pack-title">{pack.title}</span>
-              <span className="welcome-pack-hint">{pack.hint}</span>
+              <span className="welcome-pack-title">{preset.title}</span>
+              <span className="welcome-pack-hint">{preset.hint}</span>
             </button>
           ))}
         </div>
