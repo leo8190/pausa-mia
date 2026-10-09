@@ -4,6 +4,14 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { useLeonardoVoicePlayer } from '../hooks/useLeonardoVoicePlayer';
 import { cancelActiveSpeech } from '../lib/speechController';
 const mocks = vi.hoisted(() => ({
+  VoiceError: class extends Error {
+    constructor(
+      public readonly code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
   synthesize: vi.fn(),
   addListener: vi.fn(),
   playAudio: vi.fn(),
@@ -19,6 +27,7 @@ vi.mock('../lib/nativeVoice', () => ({
 vi.mock('../lib/leonardoVoice', () => ({
   LEONARDO_VOICE_ID: 'db2a543de8bd431899957059671861b4',
   LEONARDO_DELIVERY_SPEED: 0.85,
+  LeonardoVoiceError: mocks.VoiceError,
   synthesizeLeonardoVoice: mocks.synthesize,
 }));
 const items = [{ text: 'Una pausa tranquila.', pauseAfterMs: 1200 }];
@@ -113,6 +122,19 @@ describe('approved Leonardo voice playback', () => {
     act(() => hook.result.current.play(items, true));
     await waitFor(() => expect(hook.result.current.state.status).toBe('error'));
     expect(mocks.synthesize).toHaveBeenCalledTimes(1);
+    expect(mocks.playAudio).not.toHaveBeenCalled();
+  });
+  it('tells guests to sign in instead of showing a generic failure', async () => {
+    mocks.synthesize.mockRejectedValue(
+      new mocks.VoiceError(
+        'auth_required',
+        'Para escuchar la voz de Leonardo, ingresá a tu cuenta.',
+      ),
+    );
+    const hook = await ready();
+    act(() => hook.result.current.play(items, true));
+    await waitFor(() => expect(hook.result.current.state.status).toBe('error'));
+    expect(hook.result.current.state.error).toContain('ingresá a tu cuenta');
     expect(mocks.playAudio).not.toHaveBeenCalled();
   });
   it('rejects invalid segments before any billed generation', async () => {

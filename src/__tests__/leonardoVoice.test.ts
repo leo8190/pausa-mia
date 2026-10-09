@@ -273,6 +273,19 @@ describe('Leonardo voice consent and provider contract', () => {
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain('Respirá');
   });
 
+  it('explains the daily limit without retrying', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(capabilities())
+      .mockResolvedValueOnce(accessToken())
+      .mockResolvedValueOnce(new Response(null, { status: 429 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      synthesizeLeonardoVoice('Respirá con calma.', { consent: true }),
+    ).rejects.toMatchObject({ code: 'limit_reached' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it('does not synthesize when the account API cannot issue a voice token', async () => {
     const fetchMock = vi
       .fn()

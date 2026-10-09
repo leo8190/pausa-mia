@@ -8,6 +8,7 @@ import {
 import {
   LEONARDO_DELIVERY_SPEED,
   LEONARDO_VOICE_ID,
+  LeonardoVoiceError,
   synthesizeLeonardoVoice,
 } from '../lib/leonardoVoice';
 import { registerSpeechCancel } from '../lib/speechController';
@@ -289,17 +290,21 @@ export function useLeonardoVoicePlayer() {
           if (request.current !== id) return;
           setState((p) => ({ ...p, status: 'ready' }));
           await startPrepared(id);
-        } catch {
+        } catch (err) {
           if (request.current !== id) return;
           request.current = null;
           cache.current = [];
           observation.current?.failed();
           release();
+          const actionable =
+            err instanceof LeonardoVoiceError &&
+            (err.code === 'auth_required' || err.code === 'limit_reached');
           setState((p) => ({
             ...p,
             status: 'error',
-            error:
-              'No pudimos preparar la voz de Leonardo. Podés volver a intentar o leer el guion.',
+            error: actionable
+              ? err.message
+              : 'No pudimos preparar la voz de Leonardo. Podés volver a intentar o leer el guion.',
           }));
         }
       })();

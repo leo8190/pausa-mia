@@ -140,7 +140,7 @@ export async function synthesizeLeonardoVoice(
     if (access.status === 401)
       throw new LeonardoVoiceError(
         'auth_required',
-        'Ingresá a tu cuenta para usar la voz de Leonardo.',
+        'Para escuchar la voz de Leonardo, ingresá a tu cuenta. También podés elegir otra voz en «Editar mi pausa».',
       );
     const accessBody = access.ok ? await access.json().catch(() => null) : null;
     const token = typeof accessBody?.token === 'string' ? accessBody.token : '';
@@ -165,6 +165,11 @@ export async function synthesizeLeonardoVoice(
       }),
     });
     checkAbort(controller.signal);
+    if (response.status === 429)
+      throw new LeonardoVoiceError(
+        'limit_reached',
+        'La voz de Leonardo llegó a su límite por ahora. Probá más tarde o elegí otra voz.',
+      );
     if (!response.ok)
       throw new LeonardoVoiceError(
         'provider_error',
