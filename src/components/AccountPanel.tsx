@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useAccount } from '../hooks/useAccount';
 import { buildAccountApiUrl } from '../lib/accountApiUrl';
+import { hasGuestProgress } from '../lib/guestProgressStorage';
+import { hasStoredPreferences } from '../lib/preferencesStorage';
 
 type SupportedProvider = 'google_calendar' | 'google_drive';
 type ProviderState = 'connected' | 'disconnected' | 'revoked' | 'error';
@@ -76,7 +78,20 @@ async function requestConnector(path: string, init: RequestInit = {}) {
   return payload;
 }
 
-export function AccountPanel({ locale }: { locale: string }) {
+const REGISTER_PREFS_CONFIRM =
+  'Al crear la cuenta vamos a conservar solo preferencias seguras (duración, voz y estilo). No se copia el diario ni textos personales. ¿Continuar?';
+
+export function AccountPanel({
+  locale,
+  defaultOpen = false,
+  expandAuth = false,
+  onAccountReady,
+}: {
+  locale: string;
+  defaultOpen?: boolean;
+  expandAuth?: boolean;
+  onAccountReady?: () => void;
+}) {
   const account = useAccount();
   const [mode, setMode] = useState<'register' | 'login'>('register');
   const [displayName, setDisplayName] = useState('');
@@ -107,8 +122,13 @@ export function AccountPanel({ locale }: { locale: string }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true);
     setMessage(null);
+    if (mode === 'register' && (hasGuestProgress() || hasStoredPreferences())) {
+      if (!window.confirm(REGISTER_PREFS_CONFIRM)) {
+        return;
+      }
+    }
+    setBusy(true);
     const ok =
       mode === 'register'
         ? await account.register(displayName.trim(), loginSecret, locale)
@@ -121,6 +141,7 @@ export function AccountPanel({ locale }: { locale: string }) {
           ? 'Cuenta creada. Guardá tu identificador para volver a entrar.'
           : 'Sesión iniciada.',
       );
+      onAccountReady?.();
     }
   }
 
@@ -281,7 +302,7 @@ export function AccountPanel({ locale }: { locale: string }) {
   }
 
   return (
-    <details className="account-panel">
+    <details className="account-panel" {...(defaultOpen ? { open: true } : {})}>
       <summary>
         <span>
           <strong>{account.user ? 'Tu cuenta' : 'Cuenta (opcional)'}</strong>
@@ -451,7 +472,10 @@ export function AccountPanel({ locale }: { locale: string }) {
               </p>
             )}
             {account.backendAvailable && (
-              <details className="account-auth-details">
+              <details
+                className="account-auth-details"
+                {...(expandAuth ? { open: true } : {})}
+              >
                 <summary>Ya tengo cuenta / crear una</summary>
                 <div
                   className="account-mode-toggle"
@@ -479,6 +503,12 @@ export function AccountPanel({ locale }: { locale: string }) {
                     Ya tengo una
                   </button>
                 </div>
+                {mode === 'login' && (
+                  <p className="account-login-warning" role="status">
+                    Al entrar a una cuenta existente, el progreso de invitado de
+                    este dispositivo puede no transferirse.
+                  </p>
+                )}
                 <form
                   className="account-form"
                   onSubmit={(event) => void handleSubmit(event)}
