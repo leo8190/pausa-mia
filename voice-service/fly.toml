@@ -1,0 +1,37 @@
+# Servicio de voz de Pausa Mía: Piper es-AR + voz aprobada de Leonardo (HeyGen).
+# Secretos sólo vía `fly secrets import` desde op: HEYGEN_API_KEY, LEONARDO_ACCESS_SECRET.
+app = "pausa-mia-voz-ar"
+primary_region = "gru"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8787"
+  ARG_TTS_BACKEND = "piper"
+  ARG_ALLOWED_ORIGINS = "https://leo8190.github.io"
+  ARG_REQUIRE_ORIGIN = "true"
+  ARG_MAX_TEXT_CHARS = "800"
+  ARG_TTS_RATE_LIMIT_PER_MINUTE = "30"
+  LEONARDO_TTS_ENABLED = "true"
+  LEONARDO_GENERATION_VERIFIED = "false"
+  LEONARDO_DAILY_CHAR_BUDGET = "3000"
+  LEONARDO_BUDGET_FILE = "/data/leonardo-budget.json"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[mounts]]
+  source = "pausa_mia_voz_data"
+  destination = "/data"
+  initial_size = "1gb"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+  cpus = 1
