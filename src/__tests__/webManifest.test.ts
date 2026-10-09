@@ -55,6 +55,7 @@ type WebManifest = {
   theme_color?: string;
   background_color?: string;
   description?: string;
+  categories?: string[];
   icons?: Array<{ src?: string; type?: string; sizes?: string; purpose?: string }>;
 };
 
@@ -75,6 +76,8 @@ describe('PWA install shell (manifest, no service worker)', () => {
     expect(manifest.theme_color).toBe('#2f5c4f');
     expect(manifest.background_color).toBe('#e7eeea');
     expect(manifest.description?.length).toBeGreaterThan(20);
+    expect(manifest.description?.toLowerCase()).toContain('gratis sin cuenta');
+    expect(manifest.categories).toEqual(['health', 'lifestyle']);
     expect(manifest.icons?.length).toBeGreaterThan(0);
     expect(manifest.icons?.every((icon) => icon.src === '/pausa-mia/icon.svg')).toBe(
       true,
@@ -134,6 +137,7 @@ describe('SEO social metadata and skip-to-content a11y', () => {
     expect(html).toContain(`property="og:title" content="${EXPECTED_TITLE}"`);
     expect(html).toContain('property="og:description"');
     expect(html).toContain(EXPECTED_DESC_SNIPPET);
+    expect(html.toLowerCase()).toContain('gratis sin cuenta');
     expect(html).toContain(`property="og:url" content="${SITE_URL}"`);
     expect(html).toContain(`property="og:image"`);
     expect(html).toContain(IMAGE_URL);
@@ -186,6 +190,7 @@ describe('JSON-LD WebApplication and discovery files', () => {
     expect(data.applicationCategory).toMatch(/HealthApplication|LifestyleApplication/);
     expect(data.operatingSystem).toBe('Web Browser');
     expect(String(data.description)).toMatch(/meditación guiada/i);
+    expect(String(data.description).toLowerCase()).toContain('gratis sin cuenta');
     expect(String(data.description).toLowerCase()).not.toMatch(
       /headspace|calm|insight timer|terapia clínica|\d+\s*(millones|usuarios)/i,
     );
@@ -193,6 +198,7 @@ describe('JSON-LD WebApplication and discovery files', () => {
     const offers = data.offers as Record<string, unknown>;
     expect(offers['@type']).toBe('Offer');
     expect(String(offers.price)).toBe('0');
+    expect(offers.isAccessibleForFree).toBe(true);
   });
 
   it('ships robots.txt allowing crawl and pointing to the sitemap', () => {
