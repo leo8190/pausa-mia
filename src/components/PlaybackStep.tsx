@@ -1,3 +1,4 @@
+import { LeonardoPlayback } from './LeonardoPlayback';
 import { useEffect, useRef, useState } from 'react';
 import { useSpeechPlayer } from '../hooks/useSpeechPlayer';
 import { useArgentineVoicePlayer } from '../hooks/useArgentineVoicePlayer';
@@ -14,6 +15,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const script = sessionApi.session.script;
   const { checkIn, autoStartPlayback } = sessionApi.session;
   const clearAutoStartPlayback = sessionApi.clearAutoStartPlayback;
+  const wantsLeonardo = checkIn.voiceVariant === 'leonardo';
   const wantsArgentineNeural = checkIn.voiceVariant === 'es-AR';
   const voiceLabel = wantsArgentineNeural ? 'Voz argentina' : 'Voz en español neutro';
 
@@ -82,7 +84,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
    * Remoto sigue opt-in (consentimiento); no se activa solo.
    */
   useEffect(() => {
-    if (!script || !autoStartPlayback) return;
+    if (wantsLeonardo || !script || !autoStartPlayback) return;
     if (autoStartPlayAttemptedRef.current) return;
 
     if (useNeuralEngine) {
@@ -117,6 +119,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
     playWebSpeech(script.segments);
   }, [
     script,
+    wantsLeonardo,
     autoStartPlayback,
     useNeuralEngine,
     neuralBrowserSupported,
@@ -131,6 +134,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
   ]);
 
   if (!script) return null;
+  if (wantsLeonardo) return <LeonardoPlayback sessionApi={sessionApi} />;
 
   if (useNeuralEngine) {
     const isPreparing = neuralState.status === 'preparing';

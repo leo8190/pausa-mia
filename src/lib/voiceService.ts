@@ -16,7 +16,7 @@ export const ARGENTINE_WEB_SPEECH_PITCH = 1;
 const ARGENTINE_LOCALES = ['es-AR', 'es_AR'];
 
 export function getRequestedLocale(variant: VoiceVariant): string {
-  return variant === 'es-AR' ? 'es-AR' : 'es-MX';
+  return variant === 'es-AR' || variant === 'leonardo' ? 'es-AR' : 'es-MX';
 }
 
 export function getNeutralFallbackOrder(): string[] {
@@ -85,6 +85,14 @@ export function selectVoice(
 ): VoiceSelection {
   const requestedLocale = getRequestedLocale(variant);
 
+  if (variant === 'leonardo')
+    return {
+      voice: null,
+      requestedLocale,
+      actualLocale: 'none',
+      fallbackMessage: null,
+      isArgentine: false,
+    };
   if (voices.length === 0) {
     return {
       voice: null,

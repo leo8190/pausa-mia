@@ -48,7 +48,13 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
         </>
       }
     >
-      <AccountPanel locale={sessionApi.session.checkIn.voiceVariant} />
+      <AccountPanel
+        locale={
+          sessionApi.session.checkIn.voiceVariant === 'leonardo'
+            ? 'es-AR'
+            : sessionApi.session.checkIn.voiceVariant
+        }
+      />
     </StepLayout>
   );
 }

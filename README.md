@@ -406,6 +406,18 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
 
 ### Métricas voluntarias del recorrido
 
+Fase local nueva del06/10: informe privado por cohortes/días ART, conversiones y
+cobertura explícita, sin crear una base vacía cuando no hay datos accesibles.
+DNT/GPC bloquean el embudo sin ocultar borrado/reintentos. Código preparado,
+**no desplegado ni recibiendo eventos reales**; el servicio de API está pendiente
+de restauración. Alcance, pruebas y pendientes:
+[USAGE_METRICS_PHASE1_2026-10-06.md](docs/USAGE_METRICS_PHASE1_2026-10-06.md).
+
+Segunda fase local: tiempo opcional de generación/validación del guion, medido
+en el cliente y persistido con el resultado consentido, sin contenido personal.
+[USAGE_METRICS_PHASE2_2026-10-06.md](docs/USAGE_METRICS_PHASE2_2026-10-06.md).
+Tampoco está desplegada; eventos antiguos sin tiempo no equivalen a0ms.
+
 El cliente nuevo no envía visitas automáticas. Sólo tras un permiso separado y
 opcional envía nombres cerrados de pasos del recorrido a `/api/funnel/event`:
 entrada consentida, inicio de cuestionario, guion generado, audio iniciado,
@@ -826,3 +838,16 @@ claves, el servidor IA ni OAuth sin configurar primero credenciales y revisión 
 seguridad. La voz remota del sitio publicado usa
 `https://pausa-mia-voz-ar.fly.dev` (autostop/costo en Fly) y exige consentimiento; en
 local el endpoint sigue vacío salvo `.env`.
+
+## Servidor nuevo — 8 de octubre de 2026
+
+API publicada en https://pausa-mia-api.fly.dev. Inicialización vacía expresamente
+autorizada; las cuentas anteriores no fueron recuperadas. Una máquina512MB y
+un volumen cifrado1GB en gru; arranque posterior exigeSQLite existente y válido.
+Registro/sesión entrePages yFly, token de voz autenticado y métricas de tiempo
+verificados realmente;44pruebas dirigidas,lint,formato y compilaciones correctas.
+Secrets sólo deCodex por el cargador/op y stdin aFly; la raíz se normaliza para
+SESSION_PEPPER como PMv1_ + base64url, nunca se coloca en frontend/repo/argumentos.
+Hay una copia externa AES-256-GCM cuya recuperación y alteración se comprobaron
+en memoria; las instrucciones canónicas privadas conservan referencias yQA.
+La voz deLeonardo y el flagfrontend de tiempos aún no están activados.

@@ -19,6 +19,7 @@ import {
 import { savePreferences, clearPreferences } from '../lib/preferencesStorage';
 import { cancelActiveSpeech } from '../lib/speechController';
 import { productFunnel } from '../lib/productFunnel';
+import { measureScriptGeneration } from '../lib/funnelMeasurement';
 import type { MeditationStyle } from '../types';
 
 const GENERATION_ERROR =
@@ -164,6 +165,7 @@ export function useSession() {
       const request = new AbortController();
       generationRef.current = request;
       setIsGenerating(true);
+      const generationStarted = performance.now();
       try {
         const result = await provider.generate({
           checkIn: prev.checkIn,
@@ -191,7 +193,7 @@ export function useSession() {
           throw new Error('SCRIPT_QUALITY_FAILED');
         }
 
-        observe('script_generated');
+        observe('script_generated', measureScriptGeneration(generationStarted));
         setSession((s) => ({
           ...s,
           script: result.script,
@@ -202,7 +204,7 @@ export function useSession() {
         return true;
       } catch {
         if (generationRef.current !== request || request.signal.aborted) return false;
-        observe('script_error');
+        observe('script_error', measureScriptGeneration(generationStarted));
         setGenerationError(GENERATION_ERROR);
         return false;
       } finally {
@@ -263,6 +265,7 @@ export function useSession() {
       return false;
     }
 
+    const generationStarted = performance.now();
     try {
       const script = generateScript(nextCheckIn, prev.summaryExcluded, {
         sessionProcessing: prev.consent.sessionProcessing,
@@ -280,12 +283,12 @@ export function useSession() {
         excluded: prev.summaryExcluded,
       });
       if (!quality.valid) {
-        observe('script_error');
+        observe('script_error', measureScriptGeneration(generationStarted));
         setGenerationError(GENERATION_ERROR);
         return false;
       }
 
-      observe('script_generated');
+      observe('script_generated', measureScriptGeneration(generationStarted));
       // El clic de Empezar ahora es el gesto: reproducción intenta play una vez.
       const playbackSession = {
         ...prev,
@@ -302,7 +305,7 @@ export function useSession() {
       setSession(playbackSession);
       return true;
     } catch {
-      observe('script_error');
+      observe('script_error', measureScriptGeneration(generationStarted));
       setGenerationError(GENERATION_ERROR);
       return false;
     }

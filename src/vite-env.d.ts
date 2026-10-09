@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  /** Base URL of the voice service that serves Leonardo's approved voice. */
+  readonly VITE_LEONARDO_TTS_ENDPOINT?: string;
   /**
    * URL opcional al modelo `.onnx` de la voz argentina neuronal
    * (`es_AR-daniela-high`, Piper/ONNX). Sin esta variable se usa la URL

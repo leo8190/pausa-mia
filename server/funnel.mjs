@@ -22,6 +22,12 @@ export const FUNNEL_SOURCES = Object.freeze([
 ]);
 export const FUNNEL_RUN_HOURS = 24;
 export const FUNNEL_RETENTION_DAYS = 30;
+export const FUNNEL_TIMED_EVENTS = Object.freeze(['script_generated', 'script_error']);
+export const FUNNEL_ELAPSED_MAX_MS = 300_000;
+
+export function isValidFunnelElapsedMs(value) {
+  return Number.isInteger(value) && value >= 0 && value <= FUNNEL_ELAPSED_MAX_MS;
+}
 
 export function isFunnelEventPath(pathname) {
   return pathname === '/api/funnel/event';
@@ -54,14 +60,23 @@ export function validateFunnelEvent(body) {
       keys.join(',') !== 'event,qa,runId,source'
     )
       return null;
-  } else if (keys.join(',') !== 'event,runId') {
-    return null;
+  } else {
+    const hasElapsedMs = Object.hasOwn(body, 'elapsedMs');
+    if (
+      hasElapsedMs &&
+      (!FUNNEL_TIMED_EVENTS.includes(body.event) ||
+        !isValidFunnelElapsedMs(body.elapsedMs))
+    )
+      return null;
+    if (keys.join(',') !== (hasElapsedMs ? 'elapsedMs,event,runId' : 'event,runId'))
+      return null;
   }
   return {
     runId: body.runId,
     event: body.event,
     source: isEntry ? body.source : null,
     qa: isEntry && body.qa === true,
+    elapsedMs: body.elapsedMs ?? null,
   };
 }
 

@@ -1,3 +1,4 @@
+import { getLeonardoTtsEndpoint } from './leonardoVoice';
 import type { CheckInData, ConsentState, SessionState } from '../types';
 import { createManualDiarySources } from './contextSources';
 import { loadPreferences } from './preferencesStorage';
@@ -15,7 +16,7 @@ export function createBlankCheckIn(): CheckInData {
     style: '',
     avoidTopics: '',
     duration: 5,
-    voiceVariant: 'es-neutro',
+    voiceVariant: getLeonardoTtsEndpoint() ? 'leonardo' : 'es-neutro',
   };
 }
 

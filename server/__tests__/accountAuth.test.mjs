@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  buildSessionCookie,
+  buildSessionCookieClear,
   createLoginSecretHash,
   parseCookieHeader,
   verifyLoginSecret,
@@ -30,5 +32,18 @@ describe('account auth secret hashing', () => {
     const parsed = parseCookieHeader('meditacion_session=abc%ZZ; theme=dark');
     expect(parsed.meditacion_session).toBe('abc%ZZ');
     expect(parsed.theme).toBe('dark');
+  });
+
+  it('permite la sesión cross-site sólo bajo HTTPS y conserva Lax en local', () => {
+    const productionCookie = buildSessionCookie('token-seguro', true);
+    const productionClear = buildSessionCookieClear(true);
+    expect(productionCookie).toMatch(/SameSite=None/i);
+    expect(productionCookie).toMatch(/; Secure/i);
+    expect(productionClear).toMatch(/SameSite=None/i);
+    expect(productionClear).toMatch(/; Secure/i);
+
+    const localCookie = buildSessionCookie('token-local');
+    expect(localCookie).toMatch(/SameSite=Lax/i);
+    expect(localCookie).not.toMatch(/; Secure/i);
   });
 });

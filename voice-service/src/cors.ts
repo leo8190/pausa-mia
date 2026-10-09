@@ -12,14 +12,22 @@ export function applyCors(
     // preflight deben seguir funcionando sin Origin para los health checks y
     // herramientas de infraestructura.
     const isTtsRequest =
-      req.method === 'POST' && (req.url ?? '').split('?', 1)[0] === '/v1/tts';
+      req.method === 'POST' &&
+      ['/v1/tts', '/v1/leonardo/tts'].includes((req.url ?? '').split('?', 1)[0]);
     return !config.requireOrigin || !isTtsRequest;
   }
   if (config.allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Accept, Authorization, X-Pausa-Voice-Consent',
+    );
+    res.setHeader(
+      'Access-Control-Expose-Headers',
+      'X-Pausa-Voice-Provider, X-Pausa-Voice-Id, X-Pausa-Voice-Speed, Retry-After',
+    );
     res.setHeader('Access-Control-Max-Age', '600');
     return true;
   }

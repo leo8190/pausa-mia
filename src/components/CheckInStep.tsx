@@ -1,3 +1,4 @@
+import { getLeonardoTtsEndpoint } from '../lib/leonardoVoice';
 import type { SessionApi } from '../hooks/useSession';
 import type {
   Duration,
@@ -304,6 +305,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
         <div className="radio-group">
           {(
             [
+              ['leonardo', 'Voz de Leonardo'],
               ['es-AR', 'Español argentino'],
               ['es-neutro', 'Español neutro'],
             ] as [VoiceVariant, string][]
@@ -313,6 +315,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
                 type="radio"
                 id={`voice-${value}`}
                 name="voiceVariant"
+                disabled={value === 'leonardo' && !getLeonardoTtsEndpoint()}
                 value={value}
                 checked={checkIn.voiceVariant === value}
                 onChange={() => sessionApi.updateCheckIn({ voiceVariant: value })}
@@ -323,7 +326,19 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
         </div>
         <p className="field-hint">
           Te guiaremos despacio, con pausas para acompañarte.
+          {!getLeonardoTtsEndpoint() &&
+            ' La voz de Leonardo todavía necesita conectar su servicio.'}
         </p>
+        <details className="collapsible-details">
+          <summary>Escuchar una muestra de la voz de Leonardo</summary>
+          <p>Texto de muestra, con su voz generada por IA. No envía tus respuestas.</p>
+          <audio
+            controls
+            preload="none"
+            src={`${import.meta.env.BASE_URL}leonardo-preview.mp3`}
+            aria-label="Muestra de la voz de Leonardo"
+          />
+        </details>
       </fieldset>
     </StepLayout>
   );

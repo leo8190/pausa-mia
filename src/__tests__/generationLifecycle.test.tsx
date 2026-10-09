@@ -105,8 +105,11 @@ describe('preparación cancelable y visible', () => {
     expect(result.current.session).toEqual(afterCancel);
     expect(result.current.session.script).toBeNull();
     expect(result.current.generationError).toBe('');
-    expect(observe).not.toHaveBeenCalledWith('script_generated');
-    expect(observe).not.toHaveBeenCalledWith('script_error');
+    expect(
+      observe.mock.calls.some(
+        ([event]) => event === 'script_generated' || event === 'script_error',
+      ),
+    ).toBe(false);
   });
 
   it('cannot cancel or overwrite a newer request when an old request rejects', async () => {

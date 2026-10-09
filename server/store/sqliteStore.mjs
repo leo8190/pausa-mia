@@ -22,15 +22,66 @@ function parseJsonArray(value) {
   }
 }
 
-export async function createSqliteStore(dbPath) {
+export async function createSqliteStore(dbPath, options = {}) {
   // Load at runtime through Node's resolver so Vitest/Vite do not rewrite this import.
   const sqlite = require(`node:${'sqlite'}`);
   const { DatabaseSync } = sqlite;
+  if (options.requireExisting) {
+    // Check metadata read-only before running migrations: a valid SQLite file
+    // from another application must not become a new empty Pausa Mía database.
+    const original = new DatabaseSync(dbPath, { readOnly: true });
+    try {
+      const required = {
+        users: ['id', 'locale', 'status', 'login_secret_hash', 'login_secret_salt'],
+        sessions: ['id', 'user_id', 'expires_at', 'revoked_at', 'token_hash'],
+        linked_accounts: ['id', 'user_id', 'provider', 'token_ciphertext', 'token_kid'],
+        consents: ['id', 'user_id', 'provider', 'scopes_json', 'revoked_at'],
+        context_items: ['id', 'user_id', 'source_type', 'content', 'origin'],
+      };
+      const tables = new Set(
+        original
+          .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+          .all()
+          .map((row) => row.name),
+      );
+      for (const [table, fields] of Object.entries(required)) {
+        if (!tables.has(table)) throw new Error('ACCOUNT_DB_UNEXPECTED_SCHEMA');
+        const columns = new Set(
+          original
+            .prepare(`PRAGMA table_info(${table})`)
+            .all()
+            .map((row) => row.name),
+        );
+        if (!fields.every((field) => columns.has(field)))
+          throw new Error('ACCOUNT_DB_UNEXPECTED_SCHEMA');
+      }
+    } finally {
+      original.close();
+    }
+  }
   mkdirSync(dirname(dbPath), { recursive: true });
 
   const db = new DatabaseSync(dbPath);
   db.exec(readFileSync(schemaPath, 'utf-8'));
   db.exec('PRAGMA foreign_keys = ON;');
+  // Startup-only additive migration. Historical events retain missing timing as NULL.
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const hasElapsedMs = db
+      .prepare('PRAGMA table_info(funnel_events)')
+      .all()
+      .some((column) => column.name === 'elapsed_ms');
+    if (!hasElapsedMs) {
+      db.exec(
+        'ALTER TABLE funnel_events ADD COLUMN elapsed_ms INTEGER CHECK (elapsed_ms IS NULL OR (elapsed_ms >= 0 AND elapsed_ms <= 300000))',
+      );
+    }
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    db.close();
+    throw error;
+  }
 
   function mapUser(row) {
     if (!row) return null;
@@ -60,7 +111,14 @@ export async function createSqliteStore(dbPath) {
     close() {
       db.close();
     },
-    recordFunnelEvent({ runHash, event, source, qa = false, at = nowIso() }) {
+    recordFunnelEvent({
+      runHash,
+      event,
+      source,
+      qa = false,
+      elapsedMs = null,
+      at = nowIso(),
+    }) {
       purgeFunnel(at);
       if (event === 'entry') {
         const expiresAt = new Date(
@@ -79,9 +137,9 @@ export async function createSqliteStore(dbPath) {
       const written = db
         .prepare(
           `INSERT OR IGNORE INTO funnel_events
-           (run_hash, event_name, day_utc, created_at) VALUES (?, ?, ?, ?)`,
+           (run_hash, event_name, day_utc, created_at, elapsed_ms) VALUES (?, ?, ?, ?, ?)`,
         )
-        .run(runHash, event, at.slice(0, 10), at);
+        .run(runHash, event, at.slice(0, 10), at, elapsedMs);
       return written.changes === 1 ? 'stored' : 'duplicate';
     },
     revokeFunnelRun(runHash, at = nowIso()) {

@@ -23,6 +23,7 @@ import {
   SUPPORTED_CONNECTOR_PROVIDERS,
 } from './connectors.mjs';
 import { createGoogleOAuthService } from './googleOAuth.mjs';
+import { isVoiceAccessConfigured, issueVoiceAccessToken } from './voiceAccess.mjs';
 import { revokeGoogleAccountsBeforeDeletion } from './accountDeletion.mjs';
 import {
   hashVisitorId,
@@ -144,6 +145,8 @@ export function createAppHandler(options = {}) {
     options.sessionPepper ??
     process.env.SESSION_PEPPER ??
     randomBytes(16).toString('hex');
+  const voiceAccessSecret =
+    options.voiceAccessSecret ?? process.env.LEONARDO_ACCESS_SECRET;
 
   if (!store) {
     throw new Error('STORE_REQUIRED');
@@ -179,6 +182,13 @@ export function createAppHandler(options = {}) {
         res.end();
         return;
       }
+      if (
+        req.method === 'POST' &&
+        (req.headers.dnt === '1' || req.headers['sec-gpc'] === '1')
+      ) {
+        sendNoContent(res);
+        return;
+      }
       try {
         const body = await readJsonBody(req);
         if (req.method === 'POST') {
@@ -203,6 +213,7 @@ export function createAppHandler(options = {}) {
             event: input.event,
             source: input.source,
             qa: input.qa,
+            elapsedMs: input.elapsedMs,
           });
           if (result === 'gone') {
             sendError(res, 410, 'FUNNEL_RUN_GONE');
@@ -443,6 +454,21 @@ export function createAppHandler(options = {}) {
         }
         sendError(res, 500, 'INTERNAL_ERROR');
       }
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/account/voice-token') {
+      const auth = await requireAuthContext(req, store, sessionPepper);
+      if (!auth.ok) {
+        sendError(res, 401, 'AUTH_REQUIRED');
+        return;
+      }
+      if (!isVoiceAccessConfigured(voiceAccessSecret)) {
+        sendError(res, 503, 'VOICE_ACCESS_NOT_CONFIGURED');
+        return;
+      }
+      res.setHeader('Cache-Control', 'no-store');
+      sendJson(res, 200, issueVoiceAccessToken(auth.user.id, voiceAccessSecret));
       return;
     }
 
