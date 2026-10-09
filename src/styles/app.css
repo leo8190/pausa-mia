@@ -393,6 +393,20 @@
   max-width: 28ch;
 }
 
+.welcome-habit {
+  position: relative;
+  z-index: 1;
+  margin: 0.75rem 0 0;
+  padding: 0.45rem 0.7rem;
+  max-width: 32ch;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--color-primary-darker);
+  background: rgba(47, 92, 79, 0.08);
+  border: 1px solid rgba(47, 92, 79, 0.14);
+  border-radius: var(--radius-sm);
+}
+
 .welcome-signals {
   list-style: none;
   padding: 0;

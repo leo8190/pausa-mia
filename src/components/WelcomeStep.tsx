@@ -5,11 +5,20 @@ import {
   collectionCheckInFields,
   type CollectionPreset,
 } from '../lib/collections';
+import { loadGuestProgress } from '../lib/guestProgressStorage';
 import { AccountPanel } from './AccountPanel';
 import { BetaComments } from './BetaComments';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 
 export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
+  const guestCount = loadGuestProgress()?.meditationCount ?? 0;
+  const guestHabitLabel =
+    guestCount === 1
+      ? 'Llevás 1 pausa en este dispositivo.'
+      : guestCount > 1
+        ? `Llevás ${guestCount} pausas en este dispositivo.`
+        : null;
+
   const startTowardConsent = (preset?: CollectionPreset) => {
     if (preset) {
       sessionApi.updateCheckIn(collectionCheckInFields(preset));
@@ -32,6 +41,11 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
           <p className="welcome-hero-benefit">
             Un momento para vos. Local, en español, asíncrono — empezás sin cuenta.
           </p>
+          {guestHabitLabel && (
+            <p className="welcome-habit" role="status">
+              {guestHabitLabel}
+            </p>
+          )}
         </div>
       }
       actions={

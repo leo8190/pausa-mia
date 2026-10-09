@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { WelcomeStep } from '../components/WelcomeStep';
 import { COLLECTIONS, RAPIDA_1_MIN } from '../lib/collections';
+import {
+  clearGuestProgress,
+  saveGuestProgress,
+} from '../lib/guestProgressStorage';
 import { createInitialSession } from '../lib/session';
 import type { SessionApi } from '../hooks/useSession';
 
@@ -17,6 +21,7 @@ function mockSessionApi(overrides: Partial<SessionApi> = {}): SessionApi {
 
 describe('WelcomeStep CTA y planes free-core', () => {
   beforeEach(() => {
+    clearGuestProgress();
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -27,6 +32,7 @@ describe('WelcomeStep CTA y planes free-core', () => {
   });
 
   afterEach(() => {
+    clearGuestProgress();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -116,5 +122,90 @@ describe('WelcomeStep CTA y planes free-core', () => {
       moment: RAPIDA_1_MIN.moment,
     });
     expect(setStep).toHaveBeenCalledWith('consent');
+  });
+});
+
+describe('WelcomeStep hábito invitado', () => {
+  beforeEach(() => {
+    clearGuestProgress();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      }),
+    );
+  });
+
+  afterEach(() => {
+    clearGuestProgress();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('no muestra la señal de hábito sin progreso o con count 0', () => {
+    const first = render(<WelcomeStep sessionApi={mockSessionApi()} />);
+    expect(first.container.querySelector('.welcome-habit')).toBeNull();
+    expect(
+      screen.queryByText(/llevás \d+ pausas? en este dispositivo/i),
+    ).toBeNull();
+    first.unmount();
+
+    saveGuestProgress({
+      duration: 5,
+      voiceVariant: 'es-neutro',
+      intention: '',
+      style: '',
+      moment: '',
+      experience: '',
+      step: 'welcome',
+      meditationCompleted: false,
+      meditationCount: 0,
+    });
+    const { container } = render(<WelcomeStep sessionApi={mockSessionApi()} />);
+    expect(container.querySelector('.welcome-habit')).toBeNull();
+    expect(
+      screen.queryByText(/llevás \d+ pausas? en este dispositivo/i),
+    ).toBeNull();
+  });
+
+  it('muestra singular con 1 pausa en este dispositivo', () => {
+    saveGuestProgress({
+      duration: 5,
+      voiceVariant: 'es-AR',
+      intention: '',
+      style: '',
+      moment: '',
+      experience: '',
+      step: 'welcome',
+      meditationCompleted: true,
+      meditationCount: 1,
+    });
+    const { container } = render(<WelcomeStep sessionApi={mockSessionApi()} />);
+    const habit = container.querySelector('.welcome-habit');
+    expect(habit).toBeTruthy();
+    expect(habit).toBeVisible();
+    expect(habit).toHaveAttribute('role', 'status');
+    expect(habit).toHaveTextContent('Llevás 1 pausa en este dispositivo.');
+  });
+
+  it('muestra plural con N pausas en este dispositivo', () => {
+    saveGuestProgress({
+      duration: 3,
+      voiceVariant: 'es-neutro',
+      intention: '',
+      style: '',
+      moment: '',
+      experience: '',
+      step: 'feedback',
+      meditationCompleted: true,
+      meditationCount: 3,
+    });
+    const { container } = render(<WelcomeStep sessionApi={mockSessionApi()} />);
+    const habit = container.querySelector('.welcome-habit');
+    expect(habit).toBeTruthy();
+    expect(habit).toBeVisible();
+    expect(habit).toHaveAttribute('role', 'status');
+    expect(habit).toHaveTextContent('Llevás 3 pausas en este dispositivo.');
   });
 });
