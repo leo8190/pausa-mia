@@ -499,6 +499,32 @@
   }
 }
 
+.welcome-plans {
+  margin-top: var(--space-xs);
+}
+
+.welcome-plans-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.welcome-plans-body p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.welcome-plans-body strong {
+  color: var(--color-text);
+  font-weight: 650;
+}
+
+.welcome-plans-support {
+  font-size: 0.88rem;
+}
+
 .welcome-legal {
   display: flex;
   flex-direction: column;

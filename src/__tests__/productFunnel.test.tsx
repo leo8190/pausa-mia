@@ -124,7 +124,7 @@ describe('bounded, consented, local-only product funnel', () => {
     render(<App />);
     await act(async () => {});
     fireEvent.click(screen.getByRole('checkbox', { name: /permito registrar/i }));
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     fireEvent.click(
       screen.getByRole('checkbox', { name: /permito usar mis respuestas/i }),
     );

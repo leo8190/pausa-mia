@@ -41,7 +41,7 @@ function minimalCheckIn(): CheckInData {
 async function openCheckIn() {
   render(<App />);
   await waitFor(() => expect(fetch).toHaveBeenCalled());
-  fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+  fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
   fireEvent.click(
     screen.getByRole('checkbox', { name: /permito usar mis respuestas/i }),
   );

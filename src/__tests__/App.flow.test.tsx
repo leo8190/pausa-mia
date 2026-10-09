@@ -49,13 +49,13 @@ describe('App flow', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
     expect(screen.queryByText(/paso \d+ de \d+/i)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     expect(screen.getByText(/tu privacidad/i)).toBeInTheDocument();
   });
 
   it('requires session processing consent before continuing', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     const continueBtn = screen.getByRole('button', { name: /^continuar$/i });
     expect(continueBtn).toBeDisabled();
     acceptSessionConsent();
@@ -64,7 +64,7 @@ describe('App flow', () => {
 
   it('navigates through check-in to context step', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
@@ -80,7 +80,7 @@ describe('App flow', () => {
 
   it('short first-visit path skips context, summary and review to reach playback', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
@@ -137,7 +137,7 @@ describe('App flow', () => {
     );
 
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
     fillMinimalCheckIn();
@@ -162,7 +162,7 @@ describe('App flow', () => {
 
   it('Empezar ahora form submit never remounts welcome', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
     fillMinimalCheckIn();
@@ -184,7 +184,7 @@ describe('App flow', () => {
 
   it('shows safety step on danger text via empezar ahora', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
@@ -210,7 +210,7 @@ describe('App flow', () => {
 
   it('shows safety step on danger text in check-in', async () => {
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 
@@ -239,7 +239,7 @@ describe('App flow', () => {
     vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', 'https://tts.example.com');
 
     await renderApp();
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     acceptSessionConsent();
     fireEvent.click(screen.getByRole('button', { name: /^continuar$/i }));
 

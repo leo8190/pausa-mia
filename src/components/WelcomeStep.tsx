@@ -72,7 +72,7 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
             className="btn btn-primary"
             onClick={() => startTowardConsent()}
           >
-            Comenzar
+            Empezar gratis · sin tarjeta
           </button>
           <button
             type="button"
@@ -86,6 +86,26 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
       }
       afterActions={
         <>
+          <details className="collapsible-details welcome-plans">
+            <summary>Cómo funciona (sin muro de pago)</summary>
+            <div className="welcome-plans-body">
+              <p>
+                <strong>Núcleo gratis.</strong> Podés meditar como invitado: sin
+                tarjeta, sin suscripción obligatoria y sin crear cuenta para
+                empezar.
+              </p>
+              <p>
+                La cuenta es opcional — cuando exista, te va a servir para
+                guardar preferencias o retomar después, no como requisito para
+                pausar.
+              </p>
+              <p className="welcome-plans-support">
+                Más adelante, un apoyo opcional para quien quiera sostener el
+                proyecto. Por ahora no hay planes de pago ni precios: el foco es
+                el espacio libre.
+              </p>
+            </div>
+          </details>
           <div className="welcome-legal">
             <p>
               Para mayores de 18 años. Es una práctica de bienestar; no reemplaza
