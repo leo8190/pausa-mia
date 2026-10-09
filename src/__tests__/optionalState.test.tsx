@@ -27,6 +27,7 @@ import {
   type Intention,
   type MeditationStyle,
 } from '../types';
+import { clearGuestProgress } from '../lib/guestProgressStorage';
 
 function minimalCheckIn(): CheckInData {
   return {
@@ -54,6 +55,7 @@ async function openCheckIn() {
 
 describe('estado personal opcional', () => {
   beforeEach(() => {
+    clearGuestProgress();
     localStorage.clear();
     vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', '');
     vi.stubGlobal(

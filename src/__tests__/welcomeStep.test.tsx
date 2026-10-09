@@ -62,6 +62,8 @@ describe('WelcomeStep CTA y planes free-core', () => {
     expect(plansText).toMatch(/sin tarjeta/i);
     expect(plansText).toMatch(/sin suscripción obligatoria/i);
     expect(plansText).toMatch(/cuenta es opcional/i);
+    expect(plansText).toMatch(/progreso seguro/i);
+    expect(plansText).toMatch(/este dispositivo/i);
     expect(plansText).toMatch(/apoyo opcional/i);
     expect(plansText).not.toMatch(/\$\s*\d|ARS|\d+\s*\/\s*mes|\d+\s*pesos/i);
     expect(within(plansBody as HTMLElement).queryByText(/\$/)).toBeNull();

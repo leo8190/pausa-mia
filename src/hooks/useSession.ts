@@ -17,6 +17,11 @@ import {
   type ScriptProvider,
 } from '../lib/scriptProvider';
 import { savePreferences, clearPreferences } from '../lib/preferencesStorage';
+import {
+  clearGuestProgress,
+  loadGuestProgress,
+  saveGuestProgress,
+} from '../lib/guestProgressStorage';
 import { cancelActiveSpeech } from '../lib/speechController';
 import { productFunnel } from '../lib/productFunnel';
 import { anonymousCounter } from '../lib/anonymousCounter';
@@ -25,6 +30,32 @@ import type { MeditationStyle } from '../types';
 
 const GENERATION_ERROR =
   'No pudimos preparar tu meditación. Tus respuestas siguen acá. Podés volver a intentarlo.';
+
+
+function persistGuestProgressFromSession(
+  session: ReturnType<typeof createInitialSession>,
+): void {
+  const prev = loadGuestProgress();
+  let meditationCount = prev?.meditationCount ?? 0;
+  let meditationCompleted = prev?.meditationCompleted ?? false;
+  if (session.step === 'feedback') {
+    meditationCompleted = true;
+    if (prev?.step !== 'feedback') {
+      meditationCount += 1;
+    }
+  }
+  saveGuestProgress({
+    duration: session.checkIn.duration,
+    voiceVariant: session.checkIn.voiceVariant,
+    intention: session.checkIn.intention,
+    style: session.checkIn.style,
+    moment: session.checkIn.moment,
+    experience: session.checkIn.experience,
+    step: session.step,
+    meditationCompleted,
+    meditationCount,
+  });
+}
 
 export function useSession() {
   const [session, setSession] = useState(createInitialSession);
@@ -60,7 +91,12 @@ export function useSession() {
     (step: AppStep) => {
       cancelGeneration();
       if (step === 'checkin') productFunnel.record('questionnaire_started');
-      setSession((prev) => ({ ...prev, step }));
+      setSession((prev) => {
+        const next = { ...prev, step };
+        sessionRef.current = next;
+        persistGuestProgressFromSession(next);
+        return next;
+      });
     },
     [cancelGeneration],
   );
@@ -102,7 +138,10 @@ export function useSession() {
             style: nextCheckIn.style as MeditationStyle,
           });
         }
-        return { ...prev, checkIn: nextCheckIn };
+        const next = { ...prev, checkIn: nextCheckIn };
+        sessionRef.current = next;
+        persistGuestProgressFromSession(next);
+        return next;
       });
     },
     [cancelGeneration],
@@ -195,13 +234,18 @@ export function useSession() {
         }
 
         observe('script_generated', measureScriptGeneration(generationStarted));
-        setSession((s) => ({
-          ...s,
-          script: result.script,
-          scriptFallbackUsed: result.fallbackUsed ?? false,
-          safetyTriggered: false,
-          step: afterGenerate,
-        }));
+        setSession((s) => {
+          const next = {
+            ...s,
+            script: result.script,
+            scriptFallbackUsed: result.fallbackUsed ?? false,
+            safetyTriggered: false,
+            step: afterGenerate,
+          };
+          sessionRef.current = next;
+          persistGuestProgressFromSession(next);
+          return next;
+        });
         return true;
       } catch {
         if (generationRef.current !== request || request.signal.aborted) return false;
@@ -262,6 +306,7 @@ export function useSession() {
         step: 'safety' as const,
       };
       sessionRef.current = safetySession;
+      persistGuestProgressFromSession(safetySession);
       setSession(safetySession);
       return false;
     }
@@ -303,6 +348,7 @@ export function useSession() {
         step: 'playback' as const,
       };
       sessionRef.current = playbackSession;
+      persistGuestProgressFromSession(playbackSession);
       setSession(playbackSession);
       return true;
     } catch {
@@ -338,6 +384,7 @@ export function useSession() {
     anonymousCounter.setConsent(false);
     cancelActiveSpeech();
     clearPreferences();
+    clearGuestProgress();
     const empty = { ...clearSession(), step: 'deleted' as const };
     sessionRef.current = empty;
     setSession(empty);
@@ -347,9 +394,14 @@ export function useSession() {
     cancelGeneration();
     cancelActiveSpeech();
     productFunnel.finishRun();
+    // Nueva corrida: limpia check-in sensible vía createBlank en clear path,
+    // pero createInitialSession rehidrata progreso invitado seguro (conteo / prefs).
     const empty = createInitialSession();
-    sessionRef.current = empty;
-    setSession(empty);
+    // Forzar welcome tras feedback; conservar conteo en storage.
+    const next = { ...empty, step: 'welcome' as const };
+    sessionRef.current = next;
+    persistGuestProgressFromSession(next);
+    setSession(next);
   }, [cancelGeneration]);
 
   const setRating = useCallback((rating: number) => {

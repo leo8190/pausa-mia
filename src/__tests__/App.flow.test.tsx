@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import App from '../App';
+import { clearGuestProgress } from '../lib/guestProgressStorage';
 
 function acceptSessionConsent() {
   fireEvent.click(
@@ -27,6 +28,7 @@ async function renderApp() {
 
 describe('App flow', () => {
   beforeEach(() => {
+    clearGuestProgress();
     vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', '');
     vi.stubGlobal(
       'fetch',

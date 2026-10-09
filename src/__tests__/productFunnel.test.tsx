@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createAudioObservation,
   createProductFunnel,
@@ -17,12 +17,14 @@ import { ProductFunnelPreview } from '../components/ProductFunnelPreview';
 import { useSession } from '../hooks/useSession';
 import App from '../App';
 import * as scriptProvider from '../lib/scriptProvider';
+import { clearGuestProgress } from '../lib/guestProgressStorage';
 
 function enablePreview() {
   vi.stubEnv('DEV', true);
   vi.stubEnv('VITE_PRODUCT_FUNNEL_PREVIEW', 'true');
 }
 afterEach(() => {
+  clearGuestProgress();
   act(() => productFunnel.setConsent(false));
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -30,6 +32,9 @@ afterEach(() => {
 });
 
 describe('bounded, consented, local-only product funnel', () => {
+  beforeEach(() => {
+    clearGuestProgress();
+  });
   it('records nothing before consent or when disabled', () => {
     const disabled = createProductFunnel(() => false);
     disabled.setConsent(true);

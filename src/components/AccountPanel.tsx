@@ -440,6 +440,11 @@ export function AccountPanel({ locale }: { locale: string }) {
           </div>
         ) : (
           <>
+            <p className="account-guest-note" role="status">
+              Podés meditar sin cuenta. El progreso seguro de invitado queda en
+              este dispositivo (no guardamos diario ni textos personales) para
+              cuando exista una cuenta.
+            </p>
             {!account.backendAvailable && (
               <p className="account-unavailable" role="status">
                 Las cuentas no están disponibles ahora. Podés continuar como invitado.

@@ -99,6 +99,12 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
                 guardar preferencias o retomar después, no como requisito para
                 pausar.
               </p>
+              <p>
+                Como invitado, tu progreso seguro (duración, estilo, pausas
+                completadas) se guarda en este dispositivo — nunca el diario ni
+                textos personales — para retomar después o vincularlo cuando haya
+                cuenta.
+              </p>
               <p className="welcome-plans-support">
                 Más adelante, un apoyo opcional para quien quiera sostener el
                 proyecto. Por ahora no hay planes de pago ni precios: el foco es
