@@ -1,5 +1,30 @@
 /* ---------- Layout base ---------- */
 
+/* ---------- Skip link (a11y) ---------- */
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--color-primary-dark);
+  color: white;
+  padding: 0.65rem 1.1rem;
+  border-radius: 0 0 10px 0;
+  font-weight: 600;
+  min-height: var(--touch-target);
+  display: inline-flex;
+  align-items: center;
+}
+
+.skip-link:focus-visible {
+  left: max(0px, env(safe-area-inset-left));
+  top: max(0px, env(safe-area-inset-top));
+  outline-offset: -2px;
+  outline-color: white;
+}
+
+
 .app {
   min-height: 100vh;
   min-height: 100dvh;
