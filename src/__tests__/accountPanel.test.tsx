@@ -31,7 +31,7 @@ describe('AccountPanel', () => {
         }),
       );
       render(<AccountPanel locale="es-AR" />);
-      fireEvent.click(screen.getByText(/crear cuenta opcional/i));
+      fireEvent.click(screen.getByText(/cuenta \(opcional\)/i));
       fireEvent.click(await screen.findByRole('button', { name: /eliminar cuenta/i }));
       expect(
         await screen.findByText(/se eliminaron de Pausa Mía/i),
@@ -73,7 +73,7 @@ describe('AccountPanel', () => {
       }),
     );
     render(<AccountPanel locale="es-AR" />);
-    fireEvent.click(screen.getByText(/crear cuenta opcional/i));
+    fireEvent.click(screen.getByText(/cuenta \(opcional\)/i));
     fireEvent.click(await screen.findByRole('button', { name: /eliminar cuenta/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       /no pudimos completar la acción/i,
@@ -96,7 +96,10 @@ describe('AccountPanel', () => {
     );
 
     render(<AccountPanel locale="es-AR" />);
-    const details = screen.getByText(/crear cuenta opcional/i).closest('details');
+    const summaryStrong = screen.getByText(/cuenta \(opcional\)/i);
+    expect(summaryStrong.tagName).toBe('STRONG');
+    expect(summaryStrong.textContent).not.toMatch(/^crear cuenta/i);
+    const details = summaryStrong.closest('details');
 
     expect(details).not.toHaveAttribute('open');
     await waitFor(() =>
@@ -104,6 +107,8 @@ describe('AccountPanel', () => {
         screen.getByText(/también podés continuar como invitado/i),
       ).toBeInTheDocument(),
     );
+    const nestedAuth = await screen.findByText(/ya tengo cuenta \/ crear una/i);
+    expect(nestedAuth.closest('details')).not.toHaveAttribute('open');
   });
 
   it('crea una cuenta sin guardar la clave en el cliente', async () => {
@@ -127,7 +132,8 @@ describe('AccountPanel', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(<AccountPanel locale="es-AR" />);
-    fireEvent.click(screen.getByText(/crear cuenta opcional/i));
+    fireEvent.click(screen.getByText(/cuenta \(opcional\)/i));
+    fireEvent.click(await screen.findByText(/ya tengo cuenta \/ crear una/i));
     fireEvent.change(screen.getByLabelText(/apodo/i), {
       target: { value: 'Mi pausa' },
     });

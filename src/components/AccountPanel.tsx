@@ -284,7 +284,7 @@ export function AccountPanel({ locale }: { locale: string }) {
     <details className="account-panel">
       <summary>
         <span>
-          <strong>{account.user ? 'Tu cuenta' : 'Crear cuenta opcional'}</strong>
+          <strong>{account.user ? 'Tu cuenta' : 'Cuenta (opcional)'}</strong>
           <small>
             {account.user
               ? 'Gestioná tu sesión y tus datos'
@@ -451,7 +451,8 @@ export function AccountPanel({ locale }: { locale: string }) {
               </p>
             )}
             {account.backendAvailable && (
-              <>
+              <details className="account-auth-details">
+                <summary>Ya tengo cuenta / crear una</summary>
                 <div
                   className="account-mode-toggle"
                   role="tablist"
@@ -531,7 +532,7 @@ export function AccountPanel({ locale }: { locale: string }) {
                         : 'Iniciar sesión'}
                   </button>
                 </form>
-              </>
+              </details>
             )}
             {message && (
               <p className="account-success" role="status">

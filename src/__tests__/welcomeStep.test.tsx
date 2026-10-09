@@ -31,17 +31,21 @@ describe('WelcomeStep CTA y planes free-core', () => {
     vi.restoreAllMocks();
   });
 
-  it('muestra Empezar gratis · sin tarjeta y el bloque de planes sin precios inventados', () => {
+  it('muestra Empezar gratis sin cuenta como único CTA primario y planes sin precios inventados', () => {
     const setStep = vi.fn();
     const { container } = render(
       <WelcomeStep sessionApi={mockSessionApi({ setStep })} />,
     );
 
     const cta = screen.getByRole('button', {
-      name: /^empezar gratis · sin tarjeta$/i,
+      name: /^empezar gratis sin cuenta$/i,
     });
     expect(cta).toBeVisible();
     expect(cta).toHaveClass('btn-primary');
+
+    const primaryButtons = container.querySelectorAll('button.btn-primary');
+    expect(primaryButtons).toHaveLength(1);
+    expect(primaryButtons[0]).toHaveTextContent(/^Empezar gratis sin cuenta$/);
 
     const secondary = screen.getByRole('button', {
       name: /^pausa rápida · 1 min$/i,
@@ -59,9 +63,10 @@ describe('WelcomeStep CTA y planes free-core', () => {
     const plansBody = container.querySelector('.welcome-plans-body');
     expect(plansBody).toBeTruthy();
     const plansText = plansBody!.textContent ?? '';
-    expect(plansText).toMatch(/meditar como invitado/i);
+    expect(plansText).toMatch(/gratis sin cuenta/i);
+    expect(plansText).toMatch(/como\s+invitado/i);
     expect(plansText).toMatch(/sin tarjeta/i);
-    expect(plansText).toMatch(/sin suscripción obligatoria/i);
+    expect(plansText).toMatch(/suscripción obligatoria/i);
     expect(plansText).toMatch(/cuenta es opcional/i);
     expect(plansText).toMatch(/progreso seguro/i);
     expect(plansText).toMatch(/este dispositivo/i);
