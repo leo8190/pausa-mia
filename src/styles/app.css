@@ -393,6 +393,16 @@
   max-width: 28ch;
 }
 
+.welcome-browser-line {
+  position: relative;
+  z-index: 1;
+  margin: 0.55rem 0 0;
+  max-width: 34ch;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
 .welcome-habit {
   position: relative;
   z-index: 1;
@@ -405,6 +415,21 @@
   background: rgba(47, 92, 79, 0.08);
   border: 1px solid rgba(47, 92, 79, 0.14);
   border-radius: var(--radius-sm);
+}
+
+.welcome-a2hs {
+  margin: 0 0 var(--space-xs);
+}
+
+.welcome-a2hs-btn {
+  width: 100%;
+}
+
+.welcome-a2hs-hint {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--color-text-muted);
 }
 
 .welcome-signals {

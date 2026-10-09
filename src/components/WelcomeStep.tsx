@@ -1,4 +1,5 @@
 import type { SessionApi } from '../hooks/useSession';
+import { useAddToHome } from '../hooks/useAddToHome';
 import {
   COLLECTIONS,
   RAPIDA_1_MIN,
@@ -18,6 +19,7 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
       : guestCount > 1
         ? `Llevás ${guestCount} pausas en este dispositivo.`
         : null;
+  const { canPrompt, isInstalled, promptInstall, hint } = useAddToHome();
 
   const startTowardConsent = (preset?: CollectionPreset) => {
     if (preset) {
@@ -40,6 +42,9 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
           </div>
           <p className="welcome-hero-benefit">
             Un momento para vos. Local, en español, asíncrono — empezás sin cuenta.
+          </p>
+          <p className="welcome-browser-line">
+            Funciona en el navegador · sin app — empezá gratis
           </p>
           {guestHabitLabel && (
             <p className="welcome-habit" role="status">
@@ -69,6 +74,25 @@ export function WelcomeStep({ sessionApi }: { sessionApi: SessionApi }) {
       }
       afterActions={
         <>
+          {!isInstalled && (
+            <div className="welcome-a2hs">
+              {canPrompt ? (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-small welcome-a2hs-btn"
+                  onClick={() => {
+                    void promptInstall();
+                  }}
+                >
+                  Agregar a inicio
+                </button>
+              ) : (
+                hint && (
+                  <p className="welcome-a2hs-hint field-hint">{hint}</p>
+                )
+              )}
+            </div>
+          )}
           <details className="collapsible-details welcome-plans">
             <summary>Cómo funciona (sin muro de pago)</summary>
             <div className="welcome-plans-body">

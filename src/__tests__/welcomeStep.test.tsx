@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { WelcomeStep } from '../components/WelcomeStep';
 import { COLLECTIONS, RAPIDA_1_MIN } from '../lib/collections';
 import {
@@ -8,6 +8,7 @@ import {
 } from '../lib/guestProgressStorage';
 import { createInitialSession } from '../lib/session';
 import type { SessionApi } from '../hooks/useSession';
+import { ADD_TO_HOME_HINT } from '../hooks/useAddToHome';
 
 function mockSessionApi(overrides: Partial<SessionApi> = {}): SessionApi {
   return {
@@ -207,5 +208,91 @@ describe('WelcomeStep hábito invitado', () => {
     expect(habit).toBeVisible();
     expect(habit).toHaveAttribute('role', 'status');
     expect(habit).toHaveTextContent('Llevás 3 pausas en este dispositivo.');
+  });
+});
+
+
+describe('WelcomeStep línea navegador y Agregar a inicio', () => {
+  beforeEach(() => {
+    clearGuestProgress();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      }),
+    );
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        onchange: null,
+      })),
+    );
+  });
+
+  afterEach(() => {
+    clearGuestProgress();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('muestra la línea honesta de navegador / sin app', () => {
+    const { container } = render(<WelcomeStep sessionApi={mockSessionApi()} />);
+    const line = container.querySelector('.welcome-browser-line');
+    expect(line).toBeTruthy();
+    expect(line).toBeVisible();
+    expect(line).toHaveTextContent(
+      /funciona en el navegador · sin app — empezá gratis/i,
+    );
+    expect(screen.queryByText(/app store|google play|play store/i)).toBeNull();
+  });
+
+  it('sin beforeinstallprompt muestra hint honesto (no botón falso de tienda)', () => {
+    render(<WelcomeStep sessionApi={mockSessionApi()} />);
+    expect(screen.getByText(ADD_TO_HOME_HINT)).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: /^agregar a inicio$/i }),
+    ).toBeNull();
+    expect(screen.queryByText(/app store|google play/i)).toBeNull();
+
+    const primaryButtons = document.querySelectorAll('button.btn-primary');
+    expect(primaryButtons).toHaveLength(1);
+    expect(primaryButtons[0]).toHaveTextContent(/^Empezar gratis sin cuenta$/);
+  });
+
+  it('con beforeinstallprompt muestra Agregar a inicio', async () => {
+    render(<WelcomeStep sessionApi={mockSessionApi()} />);
+
+    const prompt = vi.fn().mockResolvedValue(undefined);
+    const bip = new Event('beforeinstallprompt') as Event & {
+      prompt: () => Promise<void>;
+      userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+    };
+    Object.defineProperty(bip, 'prompt', { value: prompt });
+    Object.defineProperty(bip, 'userChoice', {
+      value: Promise.resolve({ outcome: 'dismissed', platform: 'web' }),
+    });
+
+    await act(async () => {
+      window.dispatchEvent(bip);
+    });
+
+    const btn = await screen.findByRole('button', {
+      name: /^agregar a inicio$/i,
+    });
+    expect(btn).toBeVisible();
+    expect(btn).toHaveClass('btn-ghost');
+    expect(screen.queryByText(ADD_TO_HOME_HINT)).toBeNull();
+
+    // Sigue habiendo un solo primario
+    const primaryButtons = document.querySelectorAll('button.btn-primary');
+    expect(primaryButtons).toHaveLength(1);
   });
 });
