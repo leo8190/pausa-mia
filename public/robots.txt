@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://leo8190.github.io/pausa-mia/sitemap.xml

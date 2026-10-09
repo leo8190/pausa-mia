@@ -13,10 +13,13 @@ import { DeletedStep } from './components/DeletedStep';
 import { ProductFunnelPreview } from './components/ProductFunnelPreview';
 import { ProductFunnelConsent } from './components/ProductFunnelConsent';
 import { AnonymousCounterNotice } from './components/AnonymousCounterNotice';
+import { StepProgress } from './components/StepProgress';
+import { useDocumentTitle } from './hooks/useDocumentTitle';
 
 function App() {
   const sessionApi = useSession();
   const { step } = sessionApi.session;
+  useDocumentTitle(step);
 
   return (
     <div className="app">
@@ -34,6 +37,7 @@ function App() {
             <p className="brand-subtitle">Meditación a Medida</p>
           </div>
         </div>
+        <StepProgress step={step} />
       </header>
       <main className="app-main" id="main-content">
         <ProductFunnelPreview />

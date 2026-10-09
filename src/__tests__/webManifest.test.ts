@@ -164,3 +164,48 @@ describe('SEO social metadata and skip-to-content a11y', () => {
     expect(styles).toMatch(/\.skip-link:focus-visible\s*\{/);
   });
 });
+
+describe('JSON-LD WebApplication and discovery files', () => {
+  const SITE_URL = 'https://leo8190.github.io/pausa-mia/';
+
+  it('embeds JSON-LD WebApplication with honest Spanish metadata', () => {
+    const html = Object.values(indexModules).join('');
+    expect(html).toMatch(/type="application\/ld\+json"/);
+
+    const match = html.match(
+      /<script type="application\/ld\+json">\s*([\s\S]*?)\s*<\/script>/,
+    );
+    expect(match).not.toBeNull();
+    const data = JSON.parse(match![1]) as Record<string, unknown>;
+
+    expect(data['@context']).toBe('https://schema.org');
+    expect(data['@type']).toBe('WebApplication');
+    expect(data.name).toBe('Pausa Mía');
+    expect(data.url).toBe(SITE_URL);
+    expect(data.inLanguage).toBe('es-AR');
+    expect(data.applicationCategory).toMatch(/HealthApplication|LifestyleApplication/);
+    expect(data.operatingSystem).toBe('Web Browser');
+    expect(String(data.description)).toMatch(/meditación guiada/i);
+    expect(String(data.description).toLowerCase()).not.toMatch(
+      /headspace|calm|insight timer|terapia clínica|\d+\s*(millones|usuarios)/i,
+    );
+
+    const offers = data.offers as Record<string, unknown>;
+    expect(offers['@type']).toBe('Offer');
+    expect(String(offers.price)).toBe('0');
+  });
+
+  it('ships robots.txt allowing crawl and pointing to the sitemap', () => {
+    const robots = readFileSync(resolve(process.cwd(), 'public/robots.txt'), 'utf8');
+    expect(robots).toMatch(/User-agent:\s*\*/i);
+    expect(robots).toMatch(/Allow:\s*\//i);
+    expect(robots).toContain(`Sitemap: ${SITE_URL}sitemap.xml`);
+  });
+
+  it('ships sitemap.xml for the homepage with lastmod 2026-10-09', () => {
+    const sitemap = readFileSync(resolve(process.cwd(), 'public/sitemap.xml'), 'utf8');
+    expect(sitemap).toContain('http://www.sitemaps.org/schemas/sitemap/0.9');
+    expect(sitemap).toContain(`<loc>${SITE_URL}</loc>`);
+    expect(sitemap).toContain('<lastmod>2026-10-09</lastmod>');
+  });
+});
