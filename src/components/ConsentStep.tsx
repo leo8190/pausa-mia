@@ -1,5 +1,6 @@
 import type { SessionApi } from '../hooks/useSession';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
+import { CounterConsentOption } from './CounterConsentOption';
 
 export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { consent } = sessionApi.session;
@@ -77,6 +78,10 @@ export function ConsentStep({ sessionApi }: { sessionApi: SessionApi }) {
             </span>
           </span>
         </label>
+      </div>
+
+      <div className="field">
+        <CounterConsentOption />
       </div>
     </StepLayout>
   );

@@ -3,6 +3,7 @@ import { getAccountApiBaseUrl } from './accountApiUrl';
 import { createFunnelTransport, type FunnelSink } from './funnelTransport';
 import { isUsageTrackingExcluded } from './usagePrivacy';
 import { validateFunnelMeasurement, type FunnelMeasurement } from './funnelMeasurement';
+import { anonymousCounter } from './anonymousCounter';
 
 export const FUNNEL_EVENTS = [
   'entry',
@@ -26,6 +27,8 @@ export function createProductFunnel(
   enabled: () => boolean,
   now: () => Date = () => new Date(),
   sink?: FunnelSink,
+  /** Totales anónimos, independientes de este permiso opcional. */
+  counter?: { count(event: FunnelEvent): void },
 ) {
   let consent = false;
   let epoch = 0;
@@ -39,7 +42,7 @@ export function createProductFunnel(
     revision += 1;
     listeners.forEach((listener) => listener());
   }
-  function record(
+  function recordConsented(
     event: FunnelEvent,
     measurement?: FunnelMeasurement,
     expectedEpoch = epoch,
@@ -61,6 +64,14 @@ export function createProductFunnel(
       else sink?.record(event);
       notify();
     }
+  }
+  function record(
+    event: FunnelEvent,
+    measurement?: FunnelMeasurement,
+    expectedEpoch = epoch,
+  ) {
+    counter?.count(event);
+    recordConsented(event, measurement, expectedEpoch);
   }
   async function confirmDeletion(request: Promise<boolean>) {
     const version = ++deletionVersion;
@@ -104,7 +115,8 @@ export function createProductFunnel(
     const operationEpoch = epoch;
     const permitted = isConsented();
     return (event: FunnelEvent, measurement?: FunnelMeasurement) => {
-      if (permitted) record(event, measurement, operationEpoch);
+      counter?.count(event);
+      if (permitted) recordConsented(event, measurement, operationEpoch);
     };
   }
   return {
@@ -138,6 +150,7 @@ export const productFunnel = createProductFunnel(
     (isFunnelPreviewEnabled() || isFunnelProductionEnabled()),
   () => new Date(),
   isFunnelProductionEnabled() ? createFunnelTransport() : undefined,
+  anonymousCounter,
 );
 
 /** A run only completes after every segment actually started and ended, in order.

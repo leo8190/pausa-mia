@@ -18,4 +18,12 @@ describe('GitHub Pages workflow', () => {
     );
     expect(workflow).toContain(PUBLISHED_ARGENTINE_TTS_ENDPOINT);
   });
+
+  it('configures the anonymous total counter with an https origin and namespace only', () => {
+    const workflow = Object.values(workflowModules).join('');
+    expect(workflow).toMatch(
+      /^ {10}VITE_ANON_COUNTER_URL: https:\/\/abacus\.jasoncameron\.dev$/m,
+    );
+    expect(workflow).toMatch(/^ {10}VITE_ANON_COUNTER_NAMESPACE: pausa-mia-app$/m);
+  });
 });

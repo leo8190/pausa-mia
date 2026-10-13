@@ -404,6 +404,36 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
   (`/api/...`) en el mismo origen. En el sitio publicado apunta a
   `https://pausa-mia-api.fly.dev`; también recibe las métricas voluntarias.
 
+### Contador anónimo de totales, con permiso (13/10/2026)
+
+Mientras la API de cuentas no esté restaurada, el embudo detallado no recibe
+eventos. Para saber cuántas personas usan la app, el paso "Tu privacidad" ofrece
+una casilla opcional y **desmarcada**: "Sumar mis meditaciones al contador
+anónimo". Sólo si se marca, el sitio publicado suma 1 a totales públicos en
+Abacus (`https://abacus.jasoncameron.dev`, espacio `pausa-mia-app`), sin cookies,
+almacenamiento ni identificadores. Claves `v1-<hito>-<fuente>`:
+
+- `inicio`: la pestaña empezó el cuestionario (una vez por pestaña).
+- `creada`: se generó un guion (cada meditación creada).
+- `escuchada`: arrancó el audio de esa meditación (una vez por meditación).
+- `completa`: el audio terminó todos sus segmentos (callbacks, no escucha humana).
+
+Fuente: `?pm_source=` de la lista cerrada `meta`, `facebook`, `instagram`,
+`threads`, `tiktok`, `youtube`, `x`, `whatsapp`, `okara`, `newsletter`, `shared`;
+cualquier otro valor cuenta como `directo`. No se envían respuestas, diario,
+guion, audio, cuenta, URL ni referrer; Abacus sí recibe datos técnicos de
+conexión (IP), por eso se pide permiso, según `AGENTS.md` y la política de
+privacidad publicada (actualizada el 13/10/2026 con este contador y Abacus como
+proveedor). El permiso vive sólo en memoria: "Dejar de contar" (pie de página) o
+"Borrar esta sesión" lo retiran; lo ya sumado no se puede restar porque no está
+asociado a nadie. DNT/GPC y `?pm_qa=1` lo desactivan aunque esté marcado. Se
+configura sólo con `VITE_ANON_COUNTER_URL` (https) y `VITE_ANON_COUNTER_NAMESPACE`
+en el workflow de Pages; `VITE_DISABLE_ANALYTICS=true` lo apaga. Lectura:
+`GET https://abacus.jasoncameron.dev/get/pausa-mia-app/v1-creada-meta` (404 si
+todavía no hubo eventos). Los totales son un piso (sólo quienes aceptan), públicos
+y aproximados: cualquiera que conozca la clave puede leerlos o inflarlos, y Abacus
+vence una clave sin uso durante 6 meses.
+
 ### Métricas voluntarias del recorrido
 
 Fase local nueva del06/10: informe privado por cohortes/días ART, conversiones y

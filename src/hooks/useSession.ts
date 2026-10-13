@@ -19,6 +19,7 @@ import {
 import { savePreferences, clearPreferences } from '../lib/preferencesStorage';
 import { cancelActiveSpeech } from '../lib/speechController';
 import { productFunnel } from '../lib/productFunnel';
+import { anonymousCounter } from '../lib/anonymousCounter';
 import { measureScriptGeneration } from '../lib/funnelMeasurement';
 import type { MeditationStyle } from '../types';
 
@@ -334,6 +335,7 @@ export function useSession() {
   const deleteSession = useCallback(() => {
     cancelGeneration();
     productFunnel.setConsent(false);
+    anonymousCounter.setConsent(false);
     cancelActiveSpeech();
     clearPreferences();
     const empty = { ...clearSession(), step: 'deleted' as const };
