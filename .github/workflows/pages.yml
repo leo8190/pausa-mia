@@ -52,6 +52,9 @@ jobs:
           VITE_LEONARDO_TTS_ENDPOINT: https://pausa-mia-voz-ar.fly.dev
           # Backend compatible con tiempos de generación verificado en producción.
           VITE_PRODUCT_FUNNEL_TIMING_ENABLED: 'true'
+          # Contador anónimo de totales (sin cookies ni identificadores). No es secreto.
+          VITE_ANON_COUNTER_URL: https://abacus.jasoncameron.dev
+          VITE_ANON_COUNTER_NAMESPACE: pausa-mia-app
 
       - name: Subir artefacto de Pages
         uses: actions/upload-pages-artifact@v3

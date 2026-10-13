@@ -404,6 +404,31 @@ En la pantalla de bienvenida (`AccountPanel`), cuando hay sesión autenticada:
   (`/api/...`) en el mismo origen. En el sitio publicado apunta a
   `https://pausa-mia-api.fly.dev`; también recibe las métricas voluntarias.
 
+### Contador anónimo de totales (12/10/2026)
+
+Mientras la API de cuentas no esté restaurada, el embudo detallado no recibe
+eventos. Para saber cuántas personas usan la app, el sitio publicado suma 1 a
+totales públicos en Abacus (`https://abacus.jasoncameron.dev`, espacio
+`pausa-mia-app`), sin cookies, almacenamiento ni identificadores. Claves
+`v1-<hito>-<fuente>`:
+
+- `inicio`: la pestaña empezó el cuestionario (una vez por pestaña).
+- `creada`: se generó un guion (cada meditación creada).
+- `escuchada`: arrancó el audio de esa meditación (una vez por meditación).
+- `completa`: el audio terminó todos sus segmentos (callbacks, no escucha humana).
+
+Fuente: `?pm_source=` de la lista cerrada `meta`, `facebook`, `instagram`,
+`threads`, `tiktok`, `youtube`, `x`, `whatsapp`, `okara`, `newsletter`, `shared`;
+cualquier otro valor cuenta como `directo`. No se envían respuestas, diario,
+guion, audio, cuenta, URL ni referrer. DNT/GPC, `?pm_qa=1` y la casilla "No contar
+mis meditaciones desde esta pestaña" lo desactivan. Se configura sólo con
+`VITE_ANON_COUNTER_URL` (https) y `VITE_ANON_COUNTER_NAMESPACE` en el workflow de
+Pages; `VITE_DISABLE_ANALYTICS=true` lo apaga. Lectura:
+`GET https://abacus.jasoncameron.dev/get/pausa-mia-app/v1-creada-meta` (404 si
+todavía no hubo eventos). Los totales son públicos y aproximados: cualquiera que
+conozca la clave puede leerlos o inflarlos, y Abacus vence una clave sin uso
+durante 6 meses.
+
 ### Métricas voluntarias del recorrido
 
 Fase local nueva del06/10: informe privado por cohortes/días ART, conversiones y

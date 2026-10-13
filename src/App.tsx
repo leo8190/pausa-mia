@@ -12,6 +12,7 @@ import { FeedbackStep } from './components/FeedbackStep';
 import { DeletedStep } from './components/DeletedStep';
 import { ProductFunnelPreview } from './components/ProductFunnelPreview';
 import { ProductFunnelConsent } from './components/ProductFunnelConsent';
+import { AnonymousCounterNotice } from './components/AnonymousCounterNotice';
 
 function App() {
   const sessionApi = useSession();
@@ -49,6 +50,7 @@ function App() {
         {step === 'deleted' && <DeletedStep sessionApi={sessionApi} />}
       </main>
       <ProductFunnelConsent deleted={step === 'deleted'} />
+      <AnonymousCounterNotice hidden={step === 'deleted'} />
     </div>
   );
 }
