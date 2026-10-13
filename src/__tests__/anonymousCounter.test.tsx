@@ -1,3 +1,4 @@
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildCounterKey,
@@ -7,6 +8,8 @@ import {
   normalizeCounterNamespace,
 } from '../lib/anonymousCounter';
 import { createAudioObservation, createProductFunnel } from '../lib/productFunnel';
+import { CounterConsentOption } from '../components/CounterConsentOption';
+import { AnonymousCounterNotice } from '../components/AnonymousCounterNotice';
 
 const ENV = {
   PROD: true,
@@ -19,6 +22,7 @@ function setup(
     env?: Record<string, unknown>;
     search?: string;
     excluded?: boolean;
+    consent?: boolean;
   } = {},
 ) {
   const fetchImpl = vi.fn<typeof fetch>(() => Promise.resolve(new Response('{}')));
@@ -28,6 +32,7 @@ function setup(
     search: () => options.search ?? '',
     excluded: () => options.excluded ?? false,
   });
+  if (options.consent !== false) counter.setConsent(true);
   const urls = () => fetchImpl.mock.calls.map((call) => String(call[0]));
   return { counter, fetchImpl, urls };
 }
@@ -83,7 +88,25 @@ describe('anonymous total counter', () => {
     expect(buildCounterKey('completa', 'youtube')).toBe('v1-completa-youtube');
   });
 
-  it('respects DNT/GPC, QA links and the per-tab opt-out', () => {
+  it('counts nothing without permission, which starts unchecked and can be withdrawn', () => {
+    const fresh = setup({ consent: false });
+    expect(fresh.counter.isConsented()).toBe(false);
+    fresh.counter.count('questionnaire_started');
+    fresh.counter.count('script_generated');
+    expect(fresh.fetchImpl).not.toHaveBeenCalled();
+
+    const listener = vi.fn();
+    fresh.counter.subscribe(listener);
+    fresh.counter.setConsent(true);
+    fresh.counter.count('script_generated');
+    expect(fresh.fetchImpl).toHaveBeenCalledTimes(1);
+    fresh.counter.setConsent(false);
+    fresh.counter.count('script_generated');
+    expect(fresh.fetchImpl).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it('respects DNT/GPC and QA links even with permission', () => {
     const dnt = setup({ excluded: true });
     dnt.counter.count('script_generated');
     expect(dnt.fetchImpl).not.toHaveBeenCalled();
@@ -91,17 +114,6 @@ describe('anonymous total counter', () => {
     const qa = setup({ search: '?pm_qa=1&pm_source=meta' });
     qa.counter.count('script_generated');
     expect(qa.fetchImpl).not.toHaveBeenCalled();
-
-    const optOut = setup();
-    const listener = vi.fn();
-    optOut.counter.subscribe(listener);
-    optOut.counter.setOptOut(true);
-    optOut.counter.count('script_generated');
-    expect(optOut.fetchImpl).not.toHaveBeenCalled();
-    expect(listener).toHaveBeenCalledTimes(1);
-    optOut.counter.setOptOut(false);
-    optOut.counter.count('script_generated');
-    expect(optOut.fetchImpl).toHaveBeenCalledTimes(1);
   });
 
   it('stays off unless configured with a safe https origin and namespace in production', () => {
@@ -117,6 +129,7 @@ describe('anonymous total counter', () => {
       const { counter, fetchImpl } = setup({ env });
       counter.count('script_generated');
       expect(counter.isEnabled()).toBe(false);
+      expect(counter.isConsented()).toBe(false);
       expect(fetchImpl).not.toHaveBeenCalled();
     }
     expect(normalizeCounterBaseUrl('https://abacus.example.org/some/path')).toBe(
@@ -134,6 +147,7 @@ describe('anonymous total counter', () => {
       search: () => '',
       excluded: () => false,
     });
+    throwing.setConsent(true);
     expect(() => throwing.count('script_generated')).not.toThrow();
     const rejecting = createAnonymousCounter({
       env: ENV,
@@ -142,10 +156,11 @@ describe('anonymous total counter', () => {
       search: () => '',
       excluded: () => false,
     });
+    rejecting.setConsent(true);
     expect(() => rejecting.count('script_generated')).not.toThrow();
   });
 
-  it('counts without the optional funnel permission and without double counting', () => {
+  it('is independent from the funnel permission and never double counts', () => {
     const count = vi.fn();
     const funnel = createProductFunnel(() => true, undefined, undefined, { count });
     funnel.record('questionnaire_started');
@@ -171,5 +186,35 @@ describe('anonymous total counter', () => {
     funnel.capture()('script_generated');
     expect(count).toHaveBeenCalledTimes(1);
     expect(funnel.snapshot().map((entry) => entry.event)).toContain('script_generated');
+  });
+
+  it('shows an unchecked, explained option and a way to withdraw it', () => {
+    const { counter, fetchImpl } = setup({ consent: false });
+    render(
+      <>
+        <CounterConsentOption counter={counter} />
+        <AnonymousCounterNotice counter={counter} />
+      </>,
+    );
+    const box = screen.getByRole('checkbox', { name: /contador anónimo/i });
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/servicio externo \(Abacus\)/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dejar de contar' })).toBeNull();
+
+    fireEvent.click(box);
+    expect(counter.isConsented()).toBe(true);
+    expect(box).toBeChecked();
+    act(() => counter.count('script_generated'));
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dejar de contar' }));
+    expect(counter.isConsented()).toBe(false);
+    expect(box).not.toBeChecked();
+  });
+
+  it('hides the option when the counter is not configured', () => {
+    const { counter } = setup({ env: { PROD: false }, consent: false });
+    const { container } = render(<CounterConsentOption counter={counter} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

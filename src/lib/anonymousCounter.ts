@@ -1,12 +1,13 @@
 /**
- * Contador anónimo de totales.
+ * Contador anónimo de totales, sólo con permiso.
  *
- * Suma 1 a un total por hito de la práctica (inicio, creada, escuchada, completa)
- * y por fuente de enlace de una lista cerrada. No usa cookies ni almacenamiento,
- * no crea identificadores y nunca envía respuestas, diario, guion, audio, cuenta,
- * URL ni referrer: la única información es el nombre del total que se incrementa.
- * Respeta DNT/GPC, excluye `?pm_qa=1` y permite no contar desde esta pestaña.
- * Es independiente del permiso opcional del embudo detallado.
+ * Con una casilla opcional y desmarcada, suma 1 a un total por hito de la
+ * práctica (inicio, creada, escuchada, completa) y por fuente de enlace de una
+ * lista cerrada. No usa cookies ni almacenamiento, no crea identificadores y
+ * nunca envía respuestas, diario, guion, audio, cuenta, URL ni referrer: la única
+ * información es el nombre del total que se incrementa. Respeta DNT/GPC, excluye
+ * `?pm_qa=1` y el permiso se retira en cualquier momento (deja de sumar; lo ya
+ * sumado no se puede restar porque no está asociado a nadie).
  */
 import type { FunnelEvent } from './productFunnel';
 import { isUsageTrackingExcluded } from './usagePrivacy';
@@ -83,7 +84,7 @@ export function createAnonymousCounter({
     env.VITE_DISABLE_ANALYTICS !== 'true' &&
     (env.PROD === true || env.VITE_ANON_COUNTER_IN_DEV === 'true');
 
-  let optedOut = false;
+  let consented = false;
   let started = false;
   let practice = 0;
   const countedInPractice = new Map<CounterMilestone, number>();
@@ -91,7 +92,7 @@ export function createAnonymousCounter({
   const listeners = new Set<() => void>();
 
   const isQa = () => new URLSearchParams(search()).get('pm_qa') === '1';
-  const isActive = () => configured && !optedOut && !excluded() && !isQa();
+  const isActive = () => configured && consented && !excluded() && !isQa();
 
   function shouldCount(milestone: CounterMilestone): boolean {
     if (milestone === 'inicio') {
@@ -129,17 +130,18 @@ export function createAnonymousCounter({
     }
   }
 
-  function setOptOut(value: boolean) {
-    if (optedOut === value) return;
-    optedOut = value;
+  function setConsent(value: boolean) {
+    const next = configured && value;
+    if (consented === next) return;
+    consented = next;
     revision += 1;
     listeners.forEach((listener) => listener());
   }
 
   return {
     count,
-    setOptOut,
-    isOptedOut: () => optedOut,
+    setConsent,
+    isConsented: () => consented,
     isEnabled: () => configured,
     revision: () => revision,
     subscribe(listener: () => void) {
@@ -150,5 +152,7 @@ export function createAnonymousCounter({
     },
   };
 }
+
+export type AnonymousCounter = ReturnType<typeof createAnonymousCounter>;
 
 export const anonymousCounter = createAnonymousCounter();
