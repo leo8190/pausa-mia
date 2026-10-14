@@ -41,6 +41,10 @@ export type ArgentineVoiceMode = 'local' | 'remote';
 
 /** Frase fija para precalentar remoto sin exponer texto del guion. */
 export const REMOTE_WARMUP_TEXT = 'Hola. Esta es una pausa argentina.';
+/** Bound the first local preparation, including download/runtime/phonemization.
+ * An uncancellable inference may finish later; its aborted result stays stale.
+ */
+export const LOCAL_VOICE_PREPARATION_TIMEOUT_MS = 60_000;
 
 export type ArgentineVoiceStatus =
   | 'idle'
@@ -294,6 +298,9 @@ export function useArgentineVoicePlayer(
       teardownAudio();
       const controller = new AbortController();
       abortRef.current = controller;
+      const preparationId = playbackIdRef.current;
+      let timedOut = false;
+      let deadline: ReturnType<typeof setTimeout> | undefined;
       const isStale = () =>
         controller.signal.aborted ||
         modeRef.current !== requestMode ||
@@ -332,7 +339,7 @@ export function useArgentineVoicePlayer(
         }
 
         const openingText = firstSegmentText?.trim() ? firstSegmentText : null;
-        const blob = await synthesizeLocalVoice(
+        const synthesis = synthesizeLocalVoice(
           openingText ??
             (voiceVariant === 'es-AR'
               ? 'Hola. Esta es la voz argentina.'
@@ -343,6 +350,20 @@ export function useArgentineVoicePlayer(
           },
           controller.signal,
         );
+        const blob = await Promise.race([
+          synthesis,
+          new Promise<never>((_, reject) => {
+            deadline = setTimeout(() => {
+              timedOut = true;
+              controller.abort();
+              reject(
+                new Error(
+                  'No pudimos preparar esta voz a tiempo. Podés escuchar con otra voz en español o leer el guion.',
+                ),
+              );
+            }, LOCAL_VOICE_PREPARATION_TIMEOUT_MS);
+          }),
+        ]);
         if (isStale()) return false;
         if (openingText) {
           preparedOpeningRef.current = { text: openingText, blob };
@@ -357,18 +378,29 @@ export function useArgentineVoicePlayer(
         }));
         return true;
       } catch (err) {
-        if (isStale() || isAbortLike(err)) return false;
+        // A timeout belongs to this preparation, while user cancellation or a
+        // replaced request must never overwrite the new screen/playback state.
+        if (
+          preparationId !== playbackIdRef.current ||
+          modeRef.current !== requestMode ||
+          voiceVariantRef.current !== requestVariant ||
+          (!timedOut && (isStale() || isAbortLike(err)))
+        )
+          return false;
         observePreparation('audio_error');
         setState((prev) => ({
           ...prev,
           status: 'error',
-          error: toErrorMessage(err),
+          error: timedOut
+            ? 'No pudimos preparar esta voz a tiempo. Podés escuchar con otra voz en español o leer el guion.'
+            : toErrorMessage(err),
           mode: requestMode,
           nativeAudioUrl: null,
           nativeControlsRequired: false,
         }));
         return false;
       } finally {
+        if (deadline !== undefined) clearTimeout(deadline);
         if (abortRef.current === controller) {
           abortRef.current = null;
         }

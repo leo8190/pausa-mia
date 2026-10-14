@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import {
   REMOTE_WARMUP_TEXT,
+  LOCAL_VOICE_PREPARATION_TIMEOUT_MS,
   useArgentineVoicePlayer,
   type ArgentineVoiceMode,
 } from '../hooks/useArgentineVoicePlayer';
@@ -12,6 +13,69 @@ import { cancelActiveSpeech } from '../lib/speechController';
 const first = { text: 'Tomate este momento para descansar.', pauseAfterMs: 0 };
 
 describe('inicio argentino sin síntesis descartada', () => {
+  it('ends a stalled neutral preparation, aborts it, and ignores audio produced after the deadline', async () => {
+    let finish!: (blob: Blob) => void;
+    let signal!: AbortSignal;
+    vi.spyOn(voiceEngine, 'synthesizeNeutralVoice').mockImplementation(
+      (_text, _progress, currentSignal) => {
+        signal = currentSignal!;
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      },
+    );
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() =>
+        useArgentineVoicePlayer('local', 'es-neutro'),
+      );
+      let pending!: Promise<boolean>;
+      act(() => {
+        pending = result.current.prepare(first.text);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(LOCAL_VOICE_PREPARATION_TIMEOUT_MS);
+      });
+      expect(await pending).toBe(false);
+      expect(signal.aborted).toBe(true);
+      expect(result.current.state.status).toBe('error');
+      expect(result.current.state.error).toContain('a tiempo');
+      await act(async () => {
+        finish(new Blob(['late audio']));
+        await Promise.resolve();
+      });
+      expect(result.current.state.status).toBe('error');
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+      expect(window.HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not turn a cancelled preparation into an error when its old deadline expires', async () => {
+    vi.spyOn(voiceEngine, 'synthesizeNeutralVoice').mockReturnValue(
+      new Promise(() => {}),
+    );
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() =>
+        useArgentineVoicePlayer('local', 'es-neutro'),
+      );
+      let pending!: Promise<boolean>;
+      act(() => {
+        pending = result.current.prepare(first.text);
+      });
+      act(() => result.current.stop());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(LOCAL_VOICE_PREPARATION_TIMEOUT_MS);
+      });
+      expect(await pending).toBe(false);
+      expect(result.current.state.status).toBe('stopped');
+      expect(result.current.state.error).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   beforeEach(() => {
     window.HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
     window.HTMLMediaElement.prototype.pause = vi.fn();

@@ -310,7 +310,7 @@ export async function phonemizeChunk(
 /** Interfaz mínima de ONNX Runtime que usamos, para poder mockearla en pruebas. */
 export interface OrtLike {
   env?: {
-    wasm?: { numThreads?: number; wasmPaths?: string };
+    wasm?: { numThreads?: number; wasmPaths?: string; initTimeout?: number };
     allowLocalModels?: boolean;
   };
   InferenceSession: {
@@ -337,8 +337,10 @@ export async function loadOnnxRuntime(
   const ort = (ortModule.default ?? ortModule) as OrtLike;
   if (ort.env) {
     if (ort.env.wasm) {
-      ort.env.wasm.numThreads =
-        typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 1;
+      // GitHub Pages has no cross-origin isolation; asking for worker threads
+      // is unsupported there. Keep one CPU thread and bound WASM startup.
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.initTimeout = 30_000;
       ort.env.wasm.wasmPaths = wasmPathsBase;
     }
     if ('allowLocalModels' in ort.env) {

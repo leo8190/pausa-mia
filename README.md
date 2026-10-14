@@ -881,3 +881,28 @@ SESSION_PEPPER como PMv1_ + base64url, nunca se coloca en frontend/repo/argument
 Hay una copia externa AES-256-GCM cuya recuperación y alteración se comprobaron
 en memoria; las instrucciones canónicas privadas conservan referencias yQA.
 La voz deLeonardo y el flagfrontend de tiempos aún no están activados.
+
+## Preparación de audio local acotada — 13/10/2026
+
+La preparación inicial de la voz local puede esperar recursos, el runtime o una
+inferencia. Ahora tiene un máximo de 60 segundos: cancela la solicitud y muestra
+una alternativa explícita o la lectura del guion. Un resultado tardío no vuelve
+al reproductor después de cancelar ni reemplaza otra preparación. La alternativa
+requiere un clic de la persona; no cambia silenciosamente de voz.
+
+ONNX Runtime usa un solo hilo, compatible con GitHub Pages sin aislamiento de
+origen cruzado, y limita su arranque WASM a 30 segundos. Fuentes oficiales:
+[ONNX Runtime — rendimiento](https://onnxruntime.ai/docs/tutorials/web/performance-diagnosis.html)
+y [configuración WASM](https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html).
+No se modificaron los consentimientos, datos de medición, presupuestos ni HeyGen.
+
+Verificación focal: `npx vitest run src/__tests__/argentineStartup.test.ts
+src/__tests__/neutralVoicePlayer.test.ts src/__tests__/neutralVoiceEngine.test.ts
+src/__tests__/productFunnel.test.tsx src/__tests__/useArgentineRemotePlayer.test.ts`.
+Los nuevos casos cubren el plazo, cancelación y audio que llega tarde. La medición
+interna existente recibió las seis etapas desde una reproducción completa real
+con QA en la web base d24ee69; esa prueba se excluye del informe de usos reales.
+El caso anterior de Chrome no tiene una causa única acreditada: las protecciones
+corrigen la espera indefinida y la advertencia de hilos, sin atribuirle una causa
+no demostrada. Evidencia y estado de publicación se conservan en el registro
+canónico `docs/GROWTH_DASHBOARD.md` del proyecto.
