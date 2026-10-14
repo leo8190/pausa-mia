@@ -5,6 +5,14 @@ contexto opcionales en una meditación guiada reproducible como audio.
 
 Proyecto separado del canal de YouTube **Mapa de la Meditación**.
 
+## Ritmo del español neutro — 14/10/2026
+
+Tras escuchar la prueba pública, Leonardo señaló que «Español neutro» sonaba un
+poco lento. Se reduce su factor de duración de 1,5 a 1,4: la articulación resulta
+aproximadamente un 7 % más rápida. Conserva el modelo, el tono, las pausas entre
+oraciones de 0,9 s y la reproducción a 1x. El ajuste sólo corresponde a la voz
+neutra local; las voces argentina y Leonardo conservan sus parámetros.
+
 ## Versión web — 06/10/2026
 
 Esta entrega reúne la voz neutra neuronal latinoamericana, el pequeño ajuste de

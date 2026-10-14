@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../lib/piperEngine', () => ({
-  NEUTRAL_CADENCE_SCALE: 1.5,
+  NEUTRAL_CADENCE_SCALE: 1.4,
   SERENE_CADENCE_SCALE: 1.6,
   fetchWithProgress: mocks.fetch,
   loadOnnxRuntime: mocks.runtime,
@@ -98,7 +98,7 @@ describe('neutral neural voice', () => {
     expect(mocks.synthesize).toHaveBeenCalledWith(
       'Puedes descansar a tu ritmo.',
       expect.objectContaining({
-        cadenceScale: 1.5,
+        cadenceScale: 1.4,
         modelConfig: expect.objectContaining({ espeak: { voice: 'es-419' } }),
       }),
     );
@@ -126,7 +126,7 @@ describe('neutral neural voice', () => {
     expect(options[0].ortSession).not.toBe(options[2].ortSession);
     expect(options[1].ortSession).not.toBe(options[3].ortSession);
     expect(options[0].ortSession).not.toBe(options[1].ortSession);
-    expect(options.map((entry) => entry.cadenceScale)).toEqual([1.6, 1.5, 1.6, 1.5]);
+    expect(options.map((entry) => entry.cadenceScale)).toEqual([1.6, 1.4, 1.6, 1.4]);
     for (const config of options.slice(0, 3))
       expect(config.ortSession.release).toHaveBeenCalledTimes(1);
     expect(options[3].ortSession.release).not.toHaveBeenCalled();

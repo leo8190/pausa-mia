@@ -23,7 +23,7 @@ import { normalizeTextForTts } from './ttsPronunciation';
  */
 export const SERENE_CADENCE_SCALE = 1.6;
 /** Neutro: ajuste pequeño tras escucha de Leonardo; argentino conserva 1.6. */
-export const NEUTRAL_CADENCE_SCALE = 1.5;
+export const NEUTRAL_CADENCE_SCALE = 1.4;
 // Leave room after a complete thought without stretching consonants further.
 // Inserted only between sentences: no extra wait before the opening word.
 export const SENTENCE_SILENCE_SECONDS = 0.9;

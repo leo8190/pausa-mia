@@ -19,9 +19,9 @@ import {
 describe('piperEngine', () => {
   describe('serene cadence', () => {
     it('speeds up neutral speech slightly without changing the Argentine default or sentence pauses', () => {
-      expect(NEUTRAL_CADENCE_SCALE).toBe(1.5);
-      expect(resolveSereneLengthScale(1, NEUTRAL_CADENCE_SCALE)).toBe(1.5);
-      expect(SERENE_CADENCE_SCALE / NEUTRAL_CADENCE_SCALE).toBeCloseTo(1.0667, 3);
+      expect(NEUTRAL_CADENCE_SCALE).toBe(1.4);
+      expect(resolveSereneLengthScale(1, NEUTRAL_CADENCE_SCALE)).toBe(1.4);
+      expect(SERENE_CADENCE_SCALE / NEUTRAL_CADENCE_SCALE).toBeCloseTo(1.1429, 3);
       expect(resolveSereneLengthScale(1)).toBe(1.6);
       expect(SENTENCE_SILENCE_SECONDS).toBe(0.9);
     });
@@ -306,8 +306,8 @@ describe('piperEngine', () => {
         cadenceScale: NEUTRAL_CADENCE_SCALE,
       });
       expect(run.mock.calls.map(([feeds]) => feeds.scales.data)).toEqual([
-        [CLEAR_NOISE_SCALE, 1.5, CLEAR_NOISE_WIDTH],
-        [CLEAR_NOISE_SCALE, 1.5, CLEAR_NOISE_WIDTH],
+        [CLEAR_NOISE_SCALE, 1.4, CLEAR_NOISE_WIDTH],
+        [CLEAR_NOISE_SCALE, 1.4, CLEAR_NOISE_WIDTH],
       ]);
       expect(run.mock.calls.map(([feeds]) => feeds.input.data)).toEqual([
         [1, 92, 2],
