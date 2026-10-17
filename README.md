@@ -225,7 +225,7 @@ realmente personal y estaría dispuesta a pagar por repetir la experiencia.
 
 ## Requisitos
 
-- Node.js 18+
+- Node.js 22+ (ver `.nvmrc`; las pruebas del servidor usan `node:sqlite`)
 - npm 9+
 
 ## Comandos

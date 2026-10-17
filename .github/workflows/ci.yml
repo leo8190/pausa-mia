@@ -1,0 +1,32 @@
+name: CI
+
+# Verifica tipos, lint y pruebas (frontend y servidor) en cada PR y en main.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Tipos, lint y pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Tipos
+        run: npx tsc -b
+      - name: Lint
+        run: npm run lint
+      - name: Pruebas (frontend y servidor)
+        run: npm test

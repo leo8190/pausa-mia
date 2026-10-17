@@ -33,11 +33,17 @@ jobs:
       - name: Instalar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Instalar dependencias
         run: npm ci
+
+      - name: Verificar (tipos, lint y pruebas)
+        run: |
+          npx tsc -b
+          npm run lint
+          npm test
 
       - name: Compilar
         run: npm run build
