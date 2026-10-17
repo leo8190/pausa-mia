@@ -40,10 +40,15 @@ export function SafetyStep({ sessionApi }: { sessionApi: SessionApi }) {
           ))}
         </ul>
         <p>
-          Línea nacional de Argentina: <strong>{ARGENTINA_CRISIS_LINE}</strong>{' '}
+          Línea nacional de Argentina:{' '}
+          <strong>
+            <a href={`tel:${ARGENTINA_CRISIS_LINE.replace(/\D/g, '')}`}>
+              {ARGENTINA_CRISIS_LINE}
+            </a>
+          </strong>{' '}
           (gratuita, confidencial, 24/7).{' '}
           <a href={ARGENTINA_CRISIS_LINE_URL} target="_blank" rel="noopener noreferrer">
-            Fuente oficial
+            Fuente oficial<span className="sr-only"> (se abre en otra pestaña)</span>
           </a>
         </p>
         <p>

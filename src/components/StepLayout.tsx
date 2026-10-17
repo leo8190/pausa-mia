@@ -54,6 +54,9 @@ export function DeleteSessionButton({ sessionApi }: { sessionApi: SessionApi }) 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const wasConfirming = useRef(false);
+  const confirmId = useId();
+  const titleId = `${confirmId}-title`;
+  const descId = `${confirmId}-desc`;
 
   useEffect(() => {
     if (confirming) {
@@ -69,11 +72,17 @@ export function DeleteSessionButton({ sessionApi }: { sessionApi: SessionApi }) 
       <div
         className="delete-confirm"
         role="alertdialog"
-        aria-labelledby="delete-confirm-title"
-        aria-describedby="delete-confirm-desc"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            setConfirming(false);
+          }
+        }}
       >
-        <p id="delete-confirm-title">¿Borrar todos los datos de esta sesión?</p>
-        <p id="delete-confirm-desc" className="delete-confirm-desc">
+        <p id={titleId}>¿Borrar todos los datos de esta sesión?</p>
+        <p id={descId} className="delete-confirm-desc">
           Se borrarán tus respuestas, el diario, el guion y las preferencias de este
           dispositivo. El audio se detendrá. Si compartiste estadísticas de este
           recorrido, pediremos borrarlas. Tu cuenta no se elimina.
