@@ -1,20 +1,30 @@
 import { useState } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FeedbackStep } from '../components/FeedbackStep';
 import type { SessionApi } from '../hooks/useSession';
-import type { SessionState } from '../types';
+import { createInitialSession } from '../lib/session';
 import { resetVisitorPingForTests } from '../lib/visitorPing';
 import { productFunnel } from '../lib/productFunnel';
+import {
+  clearGuestProgress,
+  saveGuestProgress,
+} from '../lib/guestProgressStorage';
+import { clearSoftAccountNudge } from '../lib/softAccountNudgeStorage';
+
+function jsonResponse(body: unknown, ok = true) {
+  return Promise.resolve({ ok, json: () => Promise.resolve(body) });
+}
 
 function FeedbackHarness() {
   const [wouldRepeat, setWouldRepeat] = useState<boolean | null>(null);
   const sessionApi = {
     session: {
+      ...createInitialSession(),
       rating: null,
       selectedPrice: null,
       wouldRepeat,
-    } as SessionState,
+    },
     setWouldRepeat,
     resetToWelcome: vi.fn(),
     deleteSession: vi.fn(),
@@ -24,12 +34,24 @@ function FeedbackHarness() {
 }
 
 describe('FeedbackStep repeat choice', () => {
+  beforeEach(() => {
+    clearGuestProgress();
+    clearSoftAccountNudge();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse({ authenticated: false, mode: 'guest' })),
+    );
+  });
+
   afterEach(() => {
     productFunnel.setConsent(false);
     vi.unstubAllEnvs();
     resetVisitorPingForTests();
+    clearGuestProgress();
+    clearSoftAccountNudge();
     localStorage.clear();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('keeps the price survey optional and clearly without a charge', () => {
@@ -128,5 +150,118 @@ describe('FeedbackStep repeat choice', () => {
       'entry',
       'closing_reached',
     ]);
+  });
+});
+
+describe('FeedbackStep soft account nudge', () => {
+  beforeEach(() => {
+    clearGuestProgress();
+    clearSoftAccountNudge();
+  });
+
+  afterEach(() => {
+    clearGuestProgress();
+    clearSoftAccountNudge();
+    localStorage.clear();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('no muestra el nudge sin progreso con sentido', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse({ authenticated: false, mode: 'guest' })),
+    );
+    render(<FeedbackHarness />);
+    await waitFor(() =>
+      expect(screen.queryByText(/guardar esta pausa en una cuenta/i)).toBeNull(),
+    );
+  });
+
+  it('muestra el nudge una vez tras meditación completada y Más tarde lo oculta', async () => {
+    saveGuestProgress({
+      duration: 5,
+      voiceVariant: 'es-neutro',
+      intention: '',
+      style: '',
+      moment: '',
+      experience: '',
+      step: 'feedback',
+      meditationCompleted: true,
+      meditationCount: 1,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse({ authenticated: false, mode: 'guest' })),
+    );
+
+    const { unmount } = render(<FeedbackHarness />);
+    expect(
+      await screen.findByText(/guardar esta pausa en una cuenta/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^crear cuenta$/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^más tarde$/i }));
+    expect(
+      screen.queryByText(/guardar esta pausa en una cuenta/i),
+    ).toBeNull();
+
+    unmount();
+    render(<FeedbackHarness />);
+    await waitFor(() =>
+      expect(screen.queryByText(/guardar esta pausa en una cuenta/i)).toBeNull(),
+    );
+  });
+
+  it('al elegir Crear cuenta muestra AccountPanel abierto debajo', async () => {
+    saveGuestProgress({
+      duration: 3,
+      voiceVariant: 'es-AR',
+      intention: '',
+      style: '',
+      moment: '',
+      experience: '',
+      step: 'feedback',
+      meditationCompleted: true,
+      meditationCount: 1,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse({ authenticated: false, mode: 'guest' })),
+    );
+
+    render(<FeedbackHarness />);
+    expect(
+      await screen.findByRole('button', { name: /^crear cuenta$/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^crear cuenta$/i }));
+    expect(await screen.findByText(/cuenta \(opcional\)/i)).toBeInTheDocument();
+    const panels = document.querySelectorAll('.soft-account-nudge-panel .account-panel');
+    expect(panels.length).toBeGreaterThan(0);
+    expect(panels[0]).toHaveAttribute('open');
+  });
+
+  it('oculta el nudge si el backend de cuentas no está disponible', async () => {
+    saveGuestProgress({
+      duration: 5,
+      voiceVariant: 'es-neutro',
+      intention: '',
+      style: '',
+      moment: '',
+      experience: '',
+      step: 'feedback',
+      meditationCompleted: true,
+      meditationCount: 2,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('network'))),
+    );
+
+    render(<FeedbackHarness />);
+    await waitFor(() =>
+      expect(screen.queryByText(/guardar esta pausa en una cuenta/i)).toBeNull(),
+    );
   });
 });

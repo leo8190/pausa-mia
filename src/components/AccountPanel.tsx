@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useAccount } from '../hooks/useAccount';
 import { buildAccountApiUrl } from '../lib/accountApiUrl';
+import { hasGuestProgress } from '../lib/guestProgressStorage';
+import { hasStoredPreferences } from '../lib/preferencesStorage';
 
 type SupportedProvider = 'google_calendar' | 'google_drive';
 type ProviderState = 'connected' | 'disconnected' | 'revoked' | 'error';
@@ -76,7 +78,20 @@ async function requestConnector(path: string, init: RequestInit = {}) {
   return payload;
 }
 
-export function AccountPanel({ locale }: { locale: string }) {
+const REGISTER_PREFS_CONFIRM =
+  'Al crear la cuenta vamos a conservar solo preferencias seguras (duración, voz y estilo). No se copia el diario ni textos personales. ¿Continuar?';
+
+export function AccountPanel({
+  locale,
+  defaultOpen = false,
+  expandAuth = false,
+  onAccountReady,
+}: {
+  locale: string;
+  defaultOpen?: boolean;
+  expandAuth?: boolean;
+  onAccountReady?: () => void;
+}) {
   const account = useAccount();
   const [mode, setMode] = useState<'register' | 'login'>('register');
   const [displayName, setDisplayName] = useState('');
@@ -107,8 +122,13 @@ export function AccountPanel({ locale }: { locale: string }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy(true);
     setMessage(null);
+    if (mode === 'register' && (hasGuestProgress() || hasStoredPreferences())) {
+      if (!window.confirm(REGISTER_PREFS_CONFIRM)) {
+        return;
+      }
+    }
+    setBusy(true);
     const ok =
       mode === 'register'
         ? await account.register(displayName.trim(), loginSecret, locale)
@@ -121,6 +141,7 @@ export function AccountPanel({ locale }: { locale: string }) {
           ? 'Cuenta creada. Guardá tu identificador para volver a entrar.'
           : 'Sesión iniciada.',
       );
+      onAccountReady?.();
     }
   }
 
@@ -281,10 +302,10 @@ export function AccountPanel({ locale }: { locale: string }) {
   }
 
   return (
-    <details className="account-panel">
+    <details className="account-panel" {...(defaultOpen ? { open: true } : {})}>
       <summary>
         <span>
-          <strong>{account.user ? 'Tu cuenta' : 'Crear cuenta opcional'}</strong>
+          <strong>{account.user ? 'Tu cuenta' : 'Cuenta (opcional)'}</strong>
           <small>
             {account.user
               ? 'Gestioná tu sesión y tus datos'
@@ -440,13 +461,22 @@ export function AccountPanel({ locale }: { locale: string }) {
           </div>
         ) : (
           <>
+            <p className="account-guest-note" role="status">
+              Podés meditar sin cuenta. El progreso seguro de invitado queda en
+              este dispositivo (no guardamos diario ni textos personales) para
+              cuando exista una cuenta.
+            </p>
             {!account.backendAvailable && (
               <p className="account-unavailable" role="status">
                 Las cuentas no están disponibles ahora. Podés continuar como invitado.
               </p>
             )}
             {account.backendAvailable && (
-              <>
+              <details
+                className="account-auth-details"
+                {...(expandAuth ? { open: true } : {})}
+              >
+                <summary>Ya tengo cuenta / crear una</summary>
                 <div
                   className="account-mode-toggle"
                   role="tablist"
@@ -473,6 +503,12 @@ export function AccountPanel({ locale }: { locale: string }) {
                     Ya tengo una
                   </button>
                 </div>
+                {mode === 'login' && (
+                  <p className="account-login-warning" role="status">
+                    Al entrar a una cuenta existente, el progreso de invitado de
+                    este dispositivo puede no transferirse.
+                  </p>
+                )}
                 <form
                   className="account-form"
                   onSubmit={(event) => void handleSubmit(event)}
@@ -526,7 +562,7 @@ export function AccountPanel({ locale }: { locale: string }) {
                         : 'Iniciar sesión'}
                   </button>
                 </form>
-              </>
+              </details>
             )}
             {message && (
               <p className="account-success" role="status">

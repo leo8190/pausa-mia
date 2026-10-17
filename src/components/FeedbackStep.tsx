@@ -4,6 +4,16 @@ import type { SessionApi } from '../hooks/useSession';
 import { productFunnel } from '../lib/productFunnel';
 import { DeleteSessionButton, StepLayout } from './StepLayout';
 import { BetaComments } from './BetaComments';
+import { loadGuestProgress } from '../lib/guestProgressStorage';
+import { isSoftAccountNudgeDismissed } from '../lib/softAccountNudgeStorage';
+import { SoftAccountNudge } from './SoftAccountNudge';
+
+function shouldOfferSoftAccountNudge(): boolean {
+  if (isSoftAccountNudgeDismissed()) return false;
+  const progress = loadGuestProgress();
+  if (!progress) return false;
+  return progress.meditationCompleted || progress.meditationCount >= 1;
+}
 
 export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
   const { rating, selectedPrice, wouldRepeat } = sessionApi.session;
@@ -76,6 +86,10 @@ export function FeedbackStep({ sessionApi }: { sessionApi: SessionApi }) {
           </button>
         </div>
       </div>
+
+      {shouldOfferSoftAccountNudge() && (
+        <SoftAccountNudge locale={sessionApi.session.checkIn.voiceVariant} />
+      )}
 
       <BetaComments />
 

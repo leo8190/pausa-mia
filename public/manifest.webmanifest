@@ -1,7 +1,8 @@
 {
   "name": "Pausa Mía",
   "short_name": "Pausa Mía",
-  "description": "Pausa guiada personalizada en el navegador, sin cuentas ni conexiones. Bienestar general, no terapia.",
+  "description": "Pausa guiada personalizada en el navegador, gratis sin cuenta. Bienestar general, no terapia.",
+  "categories": ["health", "lifestyle"],
   "lang": "es",
   "dir": "ltr",
   "id": "/pausa-mia/",

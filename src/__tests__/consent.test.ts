@@ -17,8 +17,14 @@ import {
   clearPreferences,
   hasStoredPreferences,
 } from '../lib/preferencesStorage';
+import { clearGuestProgress } from '../lib/guestProgressStorage';
 
 describe('consent', () => {
+  beforeEach(() => {
+    clearGuestProgress();
+    clearPreferences();
+  });
+
   it('rejects empty consent by default', () => {
     const consent = createEmptyConsent();
     expect(consent.sessionProcessing).toBe(false);
@@ -68,6 +74,7 @@ describe('consent', () => {
 describe('preferences storage', () => {
   beforeEach(() => {
     clearPreferences();
+    clearGuestProgress();
   });
 
   it('saves only variant, duration and style', () => {

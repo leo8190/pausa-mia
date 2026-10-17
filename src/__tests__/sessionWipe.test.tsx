@@ -19,6 +19,11 @@ import {
   savePreferences,
 } from '../lib/preferencesStorage';
 import {
+  GUEST_PROGRESS_KEY,
+  clearGuestProgress,
+  saveGuestProgress,
+} from '../lib/guestProgressStorage';
+import {
   clearSession,
   createBlankCheckIn,
   createInitialSession,
@@ -73,6 +78,7 @@ describe('speechController multi-cancel', () => {
 describe('clearSession wipe reliability', () => {
   beforeEach(() => {
     clearPreferences();
+    clearGuestProgress();
   });
 
   it('no rehidrata preferencias locales al vaciar la sesión', () => {
@@ -95,6 +101,7 @@ describe('clearSession wipe reliability', () => {
 describe('useSession.deleteSession', () => {
   beforeEach(() => {
     clearPreferences();
+    clearGuestProgress();
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -107,6 +114,7 @@ describe('useSession.deleteSession', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     clearPreferences();
+    clearGuestProgress();
   });
 
   it('borra la clave de preferencias y deja la sesión vacía en paso deleted', async () => {
@@ -118,7 +126,19 @@ describe('useSession.deleteSession', () => {
       voiceVariant: 'es-AR',
       style: 'autocompasion',
     });
+    saveGuestProgress({
+      duration: 10,
+      voiceVariant: 'es-AR',
+      intention: 'descansar',
+      style: 'autocompasion',
+      moment: 'ahora',
+      experience: 'basica',
+      step: 'checkin',
+      meditationCompleted: true,
+      meditationCount: 2,
+    });
     expect(localStorage.getItem(PREFERENCES_KEY)).not.toBeNull();
+    expect(localStorage.getItem(GUEST_PROGRESS_KEY)).not.toBeNull();
 
     const { result } = renderHook(() => useSession());
 
@@ -155,6 +175,7 @@ describe('useSession.deleteSession', () => {
     expect(cancelSpy).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem(PREFERENCES_KEY)).toBeNull();
     expect(hasStoredPreferences()).toBe(false);
+    expect(localStorage.getItem(GUEST_PROGRESS_KEY)).toBeNull();
     expect(result.current.session.step).toBe('deleted');
     expect(result.current.session.script).toBeNull();
     expect(result.current.session.checkIn.name).toBe('');
@@ -199,6 +220,7 @@ describe('DeletedStep visual confirmation', () => {
 describe('App wipe flow leaves no check-in/script/diary on screen', () => {
   beforeEach(() => {
     clearPreferences();
+    clearGuestProgress();
     vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', '');
     vi.stubGlobal(
       'fetch',
@@ -221,7 +243,7 @@ describe('App wipe flow leaves no check-in/script/diary on screen', () => {
       expect(globalThis.fetch).toHaveBeenCalled();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
     fireEvent.click(
       screen.getByRole('checkbox', {
         name: /permito usar mis respuestas de esta sesión únicamente/i,

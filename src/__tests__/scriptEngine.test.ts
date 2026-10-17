@@ -124,8 +124,8 @@ describe('scriptEngine', () => {
     expect(script.targetDuration).toBe(5);
   });
 
-  it('calibrates duration within tolerance for 3/5/10 minutes', () => {
-    for (const duration of [3, 5, 10] as const) {
+  it('calibrates duration within tolerance for 1/3/5/10 minutes', () => {
+    for (const duration of [1, 3, 5, 10] as const) {
       const checkIn = baseCheckIn();
       checkIn.duration = duration;
       const script = generateScript(checkIn, new Set(), genOpts);
@@ -205,7 +205,7 @@ describe('duración sin relleno repetido', () => {
   });
 
   it('cumple duración, unicidad y cierre final en 3/5/10 por variante y estilo', () => {
-    const durations: Duration[] = [3, 5, 10];
+    const durations: Duration[] = [1, 3, 5, 10];
     const variants: VoiceVariant[] = ['es-AR', 'es-neutro'];
     const styles: MeditationStyle[] = [
       'respiracion-natural',
@@ -536,6 +536,7 @@ describe('calidad editorial del guion', () => {
       'descansar',
       'aceptar-emocion',
       'volver-al-cuerpo',
+      'con-el-futuro',
     ];
 
     for (const style of styles) {

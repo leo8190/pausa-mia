@@ -226,7 +226,7 @@ describe('script privacy and quality gates', () => {
   });
 
   it('supports durations 3/5/10 and both voice variants within tolerance', () => {
-    for (const duration of [3, 5, 10] as const) {
+    for (const duration of [1, 3, 5, 10] as const) {
       for (const voiceVariant of ['es-AR', 'es-neutro'] as const) {
         const script = generateScript(
           buildEvalCase1({ duration, voiceVariant }),

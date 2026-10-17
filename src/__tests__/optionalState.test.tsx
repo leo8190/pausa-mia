@@ -27,6 +27,7 @@ import {
   type Intention,
   type MeditationStyle,
 } from '../types';
+import { clearGuestProgress } from '../lib/guestProgressStorage';
 
 function minimalCheckIn(): CheckInData {
   return {
@@ -41,7 +42,7 @@ function minimalCheckIn(): CheckInData {
 async function openCheckIn() {
   render(<App />);
   await waitFor(() => expect(fetch).toHaveBeenCalled());
-  fireEvent.click(screen.getByRole('button', { name: /comenzar/i }));
+  fireEvent.click(screen.getByRole('button', { name: /empezar gratis/i }));
   fireEvent.click(
     screen.getByRole('checkbox', { name: /permito usar mis respuestas/i }),
   );
@@ -54,6 +55,7 @@ async function openCheckIn() {
 
 describe('estado personal opcional', () => {
   beforeEach(() => {
+    clearGuestProgress();
     localStorage.clear();
     vi.stubEnv('VITE_ARGENTINE_TTS_ENDPOINT', '');
     vi.stubGlobal(
@@ -206,7 +208,7 @@ describe('estado personal opcional', () => {
     for (const style of Object.keys(STYLE_LABELS) as MeditationStyle[]) {
       for (const intention of Object.keys(INTENTION_LABELS) as Intention[]) {
         for (const voiceVariant of ['es-AR', 'es-neutro'] as const) {
-          for (const duration of [3, 5, 10] as const) {
+          for (const duration of [1, 3, 5, 10] as const) {
             const checkIn = {
               ...minimalCheckIn(),
               style,

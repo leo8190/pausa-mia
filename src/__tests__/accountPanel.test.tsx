@@ -1,6 +1,14 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AccountPanel } from '../components/AccountPanel';
+import {
+  clearGuestProgress,
+  saveGuestProgress,
+} from '../lib/guestProgressStorage';
+import {
+  clearPreferences,
+  savePreferences,
+} from '../lib/preferencesStorage';
 
 function jsonResponse(body: unknown, ok = true) {
   return Promise.resolve({ ok, json: () => Promise.resolve(body) });
@@ -31,7 +39,7 @@ describe('AccountPanel', () => {
         }),
       );
       render(<AccountPanel locale="es-AR" />);
-      fireEvent.click(screen.getByText(/crear cuenta opcional/i));
+      fireEvent.click(screen.getByText(/cuenta \(opcional\)/i));
       fireEvent.click(await screen.findByRole('button', { name: /eliminar cuenta/i }));
       expect(
         await screen.findByText(/se eliminaron de Pausa Mía/i),
@@ -73,7 +81,7 @@ describe('AccountPanel', () => {
       }),
     );
     render(<AccountPanel locale="es-AR" />);
-    fireEvent.click(screen.getByText(/crear cuenta opcional/i));
+    fireEvent.click(screen.getByText(/cuenta \(opcional\)/i));
     fireEvent.click(await screen.findByRole('button', { name: /eliminar cuenta/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       /no pudimos completar la acción/i,
@@ -85,6 +93,8 @@ describe('AccountPanel', () => {
   });
 
   afterEach(() => {
+    clearGuestProgress();
+    clearPreferences();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -96,7 +106,10 @@ describe('AccountPanel', () => {
     );
 
     render(<AccountPanel locale="es-AR" />);
-    const details = screen.getByText(/crear cuenta opcional/i).closest('details');
+    const summaryStrong = screen.getByText(/cuenta \(opcional\)/i);
+    expect(summaryStrong.tagName).toBe('STRONG');
+    expect(summaryStrong.textContent).not.toMatch(/^crear cuenta/i);
+    const details = summaryStrong.closest('details');
 
     expect(details).not.toHaveAttribute('open');
     await waitFor(() =>
@@ -104,6 +117,8 @@ describe('AccountPanel', () => {
         screen.getByText(/también podés continuar como invitado/i),
       ).toBeInTheDocument(),
     );
+    const nestedAuth = await screen.findByText(/ya tengo cuenta \/ crear una/i);
+    expect(nestedAuth.closest('details')).not.toHaveAttribute('open');
   });
 
   it('crea una cuenta sin guardar la clave en el cliente', async () => {
@@ -127,7 +142,8 @@ describe('AccountPanel', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(<AccountPanel locale="es-AR" />);
-    fireEvent.click(screen.getByText(/crear cuenta opcional/i));
+    fireEvent.click(screen.getByText(/cuenta \(opcional\)/i));
+    fireEvent.click(await screen.findByText(/ya tengo cuenta \/ crear una/i));
     fireEvent.change(screen.getByLabelText(/apodo/i), {
       target: { value: 'Mi pausa' },
     });
@@ -368,4 +384,116 @@ describe('AccountPanel', () => {
       screen.getByRole('button', { name: /eliminar cuenta/i }),
     ).toBeInTheDocument();
   });
+
+  it('advierte en modo login que el progreso de invitado puede no transferirse', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse({ authenticated: false, mode: 'guest' })),
+    );
+
+    render(<AccountPanel locale="es-AR" />);
+    fireEvent.click(screen.getByText(/cuenta \(opcional\)/i));
+    fireEvent.click(await screen.findByText(/ya tengo cuenta \/ crear una/i));
+    fireEvent.click(screen.getByRole('button', { name: /ya tengo una/i }));
+
+    expect(
+      await screen.findByText(
+        /al entrar a una cuenta existente, el progreso de invitado de este dispositivo puede no transferirse/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /al entrar a una cuenta existente, el progreso de invitado de este dispositivo puede no transferirse/i,
+      ),
+    ).toHaveAttribute('role', 'status');
+  });
+
+  it('pide confirmación al registrar si hay preferencias de invitado y cancela sin llamar register', async () => {
+    saveGuestProgress({
+      duration: 5,
+      voiceVariant: 'es-neutro',
+      intention: '',
+      style: 'respiracion-natural',
+      moment: '',
+      experience: '',
+      step: 'feedback',
+      meditationCompleted: true,
+      meditationCount: 1,
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/account/status')) {
+        return jsonResponse({ authenticated: false, mode: 'guest' });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<AccountPanel locale="es-AR" />);
+    fireEvent.click(screen.getByText(/cuenta \(opcional\)/i));
+    fireEvent.click(await screen.findByText(/ya tengo cuenta \/ crear una/i));
+    fireEvent.change(screen.getByLabelText(/apodo/i), {
+      target: { value: 'Pausa' },
+    });
+    fireEvent.change(screen.getByLabelText(/clave de acceso/i), {
+      target: { value: 'secreta-123' },
+    });
+    const form = screen.getByLabelText(/clave de acceso/i).closest('form');
+    fireEvent.click(
+      within(form as HTMLFormElement).getByRole('button', { name: /^crear cuenta$/i }),
+    );
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalled());
+    expect(confirmSpy.mock.calls[0][0]).toMatch(/preferencias seguras/i);
+    expect(confirmSpy.mock.calls[0][0]).toMatch(/duraci[oó]n.*voz.*estilo/i);
+    expect(confirmSpy.mock.calls[0][0]).toMatch(/No se copia el diario/i);
+    expect(
+      fetchMock.mock.calls.some((call) => String(call[0]).includes('/api/account/register')),
+    ).toBe(false);
+  });
+
+  it('registra tras confirmar preferencias seguras cuando hay progreso de invitado', async () => {
+    savePreferences({
+      duration: 5,
+      voiceVariant: 'es-AR',
+      style: 'respiracion-natural',
+    });
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/api/account/status')) {
+        return jsonResponse({ authenticated: false, mode: 'guest' });
+      }
+      expect(url).toContain('/api/account/register');
+      expect(init?.method).toBe('POST');
+      return jsonResponse({
+        user: {
+          id: 'usr-prefs',
+          displayName: 'Pausa',
+          locale: 'es-AR',
+          status: 'active',
+        },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<AccountPanel locale="es-AR" />);
+    fireEvent.click(screen.getByText(/cuenta \(opcional\)/i));
+    fireEvent.click(await screen.findByText(/ya tengo cuenta \/ crear una/i));
+    fireEvent.change(screen.getByLabelText(/apodo/i), {
+      target: { value: 'Pausa' },
+    });
+    fireEvent.change(screen.getByLabelText(/clave de acceso/i), {
+      target: { value: 'secreta-123' },
+    });
+    const form = screen.getByLabelText(/clave de acceso/i).closest('form');
+    fireEvent.click(
+      within(form as HTMLFormElement).getByRole('button', { name: /^crear cuenta$/i }),
+    );
+
+    await waitFor(() => expect(screen.getByText(/usr-prefs/i)).toBeInTheDocument());
+    expect(confirmSpy).toHaveBeenCalled();
+  });
+
 });

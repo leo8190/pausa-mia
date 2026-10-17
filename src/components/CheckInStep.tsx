@@ -185,6 +185,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
               ['descansar', 'Descansar'],
               ['aceptar-emocion', 'Aceptar una emoción'],
               ['volver-al-cuerpo', 'Volver al cuerpo'],
+              ['con-el-futuro', 'Cuando el futuro te da vueltas'],
             ] as [Intention, string][]
           ).map(([value, label]) => (
             <label className="radio-option" htmlFor={`intention-${value}`} key={value}>
@@ -284,7 +285,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
       <fieldset className="field">
         <legend>Duración</legend>
         <div className="radio-group">
-          {([3, 5, 10] as Duration[]).map((value) => (
+          {([1, 3, 5, 10] as Duration[]).map((value) => (
             <label className="radio-option" htmlFor={`duration-${value}`} key={value}>
               <input
                 type="radio"
@@ -294,7 +295,7 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
                 checked={checkIn.duration === value}
                 onChange={() => sessionApi.updateCheckIn({ duration: value })}
               />
-              <span>{value} minutos</span>
+              <span>{value === 1 ? '1 minuto' : `${value} minutos`}</span>
             </label>
           ))}
         </div>

@@ -2,6 +2,7 @@ import { getLeonardoTtsEndpoint } from './leonardoVoice';
 import type { CheckInData, ConsentState, SessionState } from '../types';
 import { createManualDiarySources } from './contextSources';
 import { loadPreferences } from './preferencesStorage';
+import { loadGuestProgress, sanitizeGuestStep } from './guestProgressStorage';
 
 /** Check-in en blanco, sin releer preferencias guardadas. */
 export function createBlankCheckIn(): CheckInData {
@@ -54,8 +55,43 @@ export function createEmptyConsent(): ConsentState {
   };
 }
 
-export function createInitialSession(): SessionState {
+/**
+ * Aplica progreso invitado seguro (localStorage) sobre una sesión base.
+ * No restaura diario, situación libre, guion ni textos personales.
+ */
+export function applyGuestProgress(session: SessionState): SessionState {
+  const guest = loadGuestProgress();
+  if (!guest) return session;
+
+  const step = sanitizeGuestStep(guest.step);
+  // Si retoma más allá del permiso, conserva el consentimiento de sesión
+  // ya dado en este dispositivo (sin reabrir el muro de cuenta).
+  const pastConsent =
+    step === 'checkin' ||
+    step === 'context' ||
+    step === 'summary' ||
+    step === 'feedback';
+
   return {
+    ...session,
+    step,
+    consent: pastConsent
+      ? { ...session.consent, sessionProcessing: true }
+      : session.consent,
+    checkIn: {
+      ...session.checkIn,
+      duration: guest.duration,
+      voiceVariant: guest.voiceVariant,
+      intention: guest.intention || session.checkIn.intention,
+      style: guest.style || session.checkIn.style,
+      moment: guest.moment || session.checkIn.moment,
+      experience: guest.experience || session.checkIn.experience,
+    },
+  };
+}
+
+export function createInitialSession(): SessionState {
+  const base: SessionState = {
     step: 'welcome',
     consent: createEmptyConsent(),
     checkIn: createEmptyCheckIn(),
@@ -73,6 +109,7 @@ export function createInitialSession(): SessionState {
     selectedPrice: null,
     wouldRepeat: null,
   };
+  return applyGuestProgress(base);
 }
 
 export function isConsentValid(consent: ConsentState): boolean {
