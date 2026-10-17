@@ -27,6 +27,18 @@ Tampoco constituye publicación en tiendas ni validación legal/comercial comple
 
 ## Objetivo de esta fase
 
+### Foco al confirmar el borrado — 16/10/2026
+
+La confirmación de «Borrar esta sesión» enfoca «Cancelar» para facilitar su uso
+con teclado y devuelve el foco al botón de borrado al cancelar. No mueve el foco
+al montar el botón por primera vez. Un test Vitest verifica dos aperturas y
+cancelaciones consecutivas, sin borrar datos.
+
+Verificado: `npx vitest run src` (465 pruebas, 51 archivos), `npx eslint src`,
+`npx tsc -b`, `npm run build` y Prettier sobre los dos archivos modificados de
+`src/`. La suite emite avisos de React `act` en pruebas de bienvenida; no falla.
+Verificación en DOM simulado, sin prueba manual con lector de pantalla.
+
 ### Alternativa neuronal para español neutro — prueba local 04/10/2026
 
 - La opción neutra ya no depende por defecto de la voz básica del teléfono.

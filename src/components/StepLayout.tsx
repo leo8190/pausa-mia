@@ -51,6 +51,18 @@ export function StepLayout({
 
 export function DeleteSessionButton({ sessionApi }: { sessionApi: SessionApi }) {
   const [confirming, setConfirming] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const wasConfirming = useRef(false);
+
+  useEffect(() => {
+    if (confirming) {
+      cancelRef.current?.focus();
+    } else if (wasConfirming.current) {
+      triggerRef.current?.focus();
+    }
+    wasConfirming.current = confirming;
+  }, [confirming]);
 
   if (confirming) {
     return (
@@ -80,6 +92,7 @@ export function DeleteSessionButton({ sessionApi }: { sessionApi: SessionApi }) 
           <button
             type="button"
             className="btn btn-secondary"
+            ref={cancelRef}
             onClick={() => setConfirming(false)}
           >
             Cancelar
@@ -93,6 +106,7 @@ export function DeleteSessionButton({ sessionApi }: { sessionApi: SessionApi }) 
     <button
       type="button"
       className="btn btn-danger btn-ghost"
+      ref={triggerRef}
       onClick={() => setConfirming(true)}
     >
       Borrar esta sesión
