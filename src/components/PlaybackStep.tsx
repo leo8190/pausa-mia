@@ -576,7 +576,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
       {!canSpeak && (
         <div className="fallback-notice" role="status">
-          {!voicesReady
+          {!speechSupported
             ? 'No podemos reproducir audio acá. Podés leer el guion.'
             : 'La voz todavía no está lista. Podés leer el guion mientras tanto.'}
           <div className="player-controls">

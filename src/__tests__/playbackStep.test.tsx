@@ -523,6 +523,25 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     expect(sessionApi.setStep).toHaveBeenCalledWith('feedback');
   });
 
+  it('says the device voice is still loading instead of unsupported while voices load', () => {
+    const getVoices = vi
+      .spyOn(window.speechSynthesis, 'getVoices')
+      .mockReturnValue([
+        { name: 'Voz de prueba', lang: 'es-ES' } as SpeechSynthesisVoice,
+      ]);
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
+    render(<PlaybackStep sessionApi={makeSessionApi('es-neutro')} />);
+    fireEvent.click(screen.getByRole('button', { name: /escuchar con otra voz/i }));
+    getVoices.mockReturnValue([]);
+    act(() => {
+      window.speechSynthesis.onvoiceschanged?.(new Event('voiceschanged'));
+    });
+    expect(screen.getByText(/la voz todavía no está lista/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/no podemos reproducir audio acá/i),
+    ).not.toBeInTheDocument();
+  });
+
   it('keeps mobile audio controls and a simple prompt when autoplay is blocked', async () => {
     vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
     vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockRejectedValue(
