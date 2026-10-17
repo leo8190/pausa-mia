@@ -137,6 +137,25 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     expect(synthesis.mock.calls[0][0]).toBe('Cerrá los ojos y respirá.');
   });
 
+  it('marks only the phrase being played as current for screen readers', async () => {
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
+    render(
+      <PlaybackStep
+        sessionApi={makeSessionApi('es-AR', { autoStartPlayback: true })}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^pausar$/i })).toBeInTheDocument(),
+    );
+    const current = document.querySelectorAll('.script-segment[aria-current="true"]');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent('Cerrá los ojos y respirá.');
+    fireEvent.click(screen.getByRole('button', { name: /^pausar$/i }));
+    await waitFor(() =>
+      expect(document.querySelector('.script-segment[aria-current]')).toBeNull(),
+    );
+  });
+
   it('does not play manually prepared audio until Reproducir is pressed', async () => {
     const playSpy = vi
       .spyOn(window.HTMLMediaElement.prototype, 'play')

@@ -392,6 +392,11 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               {script.segments.map((seg, i) => (
                 <p
                   className={`script-segment${neuralState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
+                  aria-current={
+                    neuralState.currentSegmentIndex === i && isPlaying
+                      ? 'true'
+                      : undefined
+                  }
                   key={i}
                 >
                   {seg.text}
@@ -610,6 +615,11 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             {script.segments.map((seg, i) => (
               <p
                 className={`script-segment${playerState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
+                aria-current={
+                  playerState.currentSegmentIndex === i && isPlaying
+                    ? 'true'
+                    : undefined
+                }
                 key={i}
               >
                 {seg.text}
