@@ -392,6 +392,11 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
               {script.segments.map((seg, i) => (
                 <p
                   className={`script-segment${neuralState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
+                  aria-current={
+                    neuralState.currentSegmentIndex === i && isPlaying
+                      ? 'true'
+                      : undefined
+                  }
                   key={i}
                 >
                   {seg.text}
@@ -576,7 +581,7 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
 
       {!canSpeak && (
         <div className="fallback-notice" role="status">
-          {!voicesReady
+          {!speechSupported
             ? 'No podemos reproducir audio acá. Podés leer el guion.'
             : 'La voz todavía no está lista. Podés leer el guion mientras tanto.'}
           <div className="player-controls">
@@ -610,6 +615,11 @@ export function PlaybackStep({ sessionApi }: { sessionApi: SessionApi }) {
             {script.segments.map((seg, i) => (
               <p
                 className={`script-segment${playerState.currentSegmentIndex === i && isPlaying ? ' active' : ''}`}
+                aria-current={
+                  playerState.currentSegmentIndex === i && isPlaying
+                    ? 'true'
+                    : undefined
+                }
                 key={i}
               >
                 {seg.text}

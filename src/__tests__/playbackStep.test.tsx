@@ -137,6 +137,25 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     expect(synthesis.mock.calls[0][0]).toBe('Cerrá los ojos y respirá.');
   });
 
+  it('marks only the phrase being played as current for screen readers', async () => {
+    vi.spyOn(voiceEngine, 'synthesizeArgentineVoice').mockResolvedValue(audioBlob());
+    render(
+      <PlaybackStep
+        sessionApi={makeSessionApi('es-AR', { autoStartPlayback: true })}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^pausar$/i })).toBeInTheDocument(),
+    );
+    const current = document.querySelectorAll('.script-segment[aria-current="true"]');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent('Cerrá los ojos y respirá.');
+    fireEvent.click(screen.getByRole('button', { name: /^pausar$/i }));
+    await waitFor(() =>
+      expect(document.querySelector('.script-segment[aria-current]')).toBeNull(),
+    );
+  });
+
   it('does not play manually prepared audio until Reproducir is pressed', async () => {
     const playSpy = vi
       .spyOn(window.HTMLMediaElement.prototype, 'play')
@@ -521,6 +540,25 @@ describe('PlaybackStep — voz sencilla y consentimiento', () => {
     await screen.findByRole('button', { name: /terminar mi pausa/i });
     fireEvent.click(screen.getByRole('button', { name: /terminar mi pausa/i }));
     expect(sessionApi.setStep).toHaveBeenCalledWith('feedback');
+  });
+
+  it('says the device voice is still loading instead of unsupported while voices load', () => {
+    const getVoices = vi
+      .spyOn(window.speechSynthesis, 'getVoices')
+      .mockReturnValue([
+        { name: 'Voz de prueba', lang: 'es-ES' } as SpeechSynthesisVoice,
+      ]);
+    vi.spyOn(voiceEngine, 'checkNeuralEngineBrowserSupport').mockReturnValue(false);
+    render(<PlaybackStep sessionApi={makeSessionApi('es-neutro')} />);
+    fireEvent.click(screen.getByRole('button', { name: /escuchar con otra voz/i }));
+    getVoices.mockReturnValue([]);
+    act(() => {
+      window.speechSynthesis.onvoiceschanged?.(new Event('voiceschanged'));
+    });
+    expect(screen.getByText(/la voz todavía no está lista/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/no podemos reproducir audio acá/i),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps mobile audio controls and a simple prompt when autoplay is blocked', async () => {
