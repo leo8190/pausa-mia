@@ -21,6 +21,11 @@ function resolveBasePath(): string {
 export default defineConfig({
   base: resolveBasePath(),
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      input: { app: 'index.html', deletion: 'eliminar-cuenta/index.html' },
+    },
+  },
   server: {
     proxy: {
       '/api': {
