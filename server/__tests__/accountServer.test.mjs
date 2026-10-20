@@ -71,6 +71,29 @@ function options(method = 'GET', cookie = '') {
 }
 
 describe('account server endpoints', () => {
+  it('rejects deletion after the browser changed to another account, before revocation or erasure', async () => {
+    const revoke = vi.fn();
+    await withTestServerOptions({ googleOAuthService: { isProviderConfigured: () => true, revokeLinkedAccount: revoke } }, async ({ port, store }) => {
+      const register = async name => {
+        const res = await fetch(`http://127.0.0.1:${port}/api/account/register`, { ...options('POST'), body: JSON.stringify({ displayName: name, locale: 'es-AR', loginSecret: 'synthetic-login-test' }) });
+        const body = await res.json();
+        expect(body.accountDeletionGuard).toBe('expected-user-id');
+        return { user: body.user, cookie: res.headers.get('set-cookie') };
+      };
+      const first = await register('First');
+      const second = await register('Second');
+      const mismatch = await fetch(`http://127.0.0.1:${port}/api/account`, { ...options('DELETE', second.cookie), body: JSON.stringify({ expectedUserId: first.user.id }) });
+      expect(mismatch.status).toBe(409);
+      expect(await mismatch.json()).toEqual({ error: 'ACCOUNT_CHANGED' });
+      expect(store.findActiveUserById(first.user.id)).not.toBeNull();
+      expect(store.findActiveUserById(second.user.id)).not.toBeNull();
+      expect(revoke).not.toHaveBeenCalled();
+      const matching = await fetch(`http://127.0.0.1:${port}/api/account`, { ...options('DELETE', second.cookie), body: JSON.stringify({ expectedUserId: second.user.id }) });
+      expect(matching.status).toBe(200);
+      expect(store.findActiveUserById(second.user.id)).toBeNull();
+      expect(store.findActiveUserById(first.user.id)).not.toBeNull();
+    });
+  });
   it.each([false, true])('deletes local account after attempting Google revocation (failure=%s)', async fails => {
     const revoke = vi.fn();
     const googleOAuthService = { isProviderConfigured: () => true, revokeLinkedAccount: revoke };

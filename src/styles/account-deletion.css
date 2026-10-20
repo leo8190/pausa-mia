@@ -1,0 +1,81 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #263d37;
+  background: #f5f7ef;
+  line-height: 1.6;
+}
+* {
+  box-sizing: border-box;
+}
+.deletion-page {
+  max-width: 42rem;
+  margin: 2rem auto;
+  padding: 1.5rem;
+}
+.deletion-brand {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+section,
+form {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid #b4c6bb;
+  border-radius: 1rem;
+  background: white;
+}
+label {
+  display: block;
+  margin: 1rem 0;
+}
+input:not([type='checkbox']) {
+  display: block;
+  width: 100%;
+  padding: 0.8rem;
+  font: inherit;
+  border: 1px solid #6a877b;
+  border-radius: 0.4rem;
+}
+.deletion-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+input[type='checkbox'] {
+  margin-top: 0.5rem;
+}
+button {
+  min-height: 44px;
+  padding: 0.7rem 1rem;
+  margin: 0.5rem 0.5rem 0.5rem 0;
+  border: 1px solid #315f50;
+  border-radius: 0.5rem;
+  background: #315f50;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+a {
+  color: #245940;
+}
+:focus-visible {
+  outline: 3px solid #b5791f;
+  outline-offset: 3px;
+}
+[role='alert'] {
+  color: #8b2929;
+}
+@media (max-width: 480px) {
+  .deletion-page {
+    margin: 0;
+    padding: 1rem;
+  }
+  section,
+  form {
+    padding: 1rem;
+  }
+}

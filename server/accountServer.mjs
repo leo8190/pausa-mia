@@ -341,11 +341,12 @@ export function createAppHandler(options = {}) {
     if (req.method === 'GET' && pathname === '/api/account/status') {
       const auth = await requireAuthContext(req, store, sessionPepper);
       if (!auth.ok) {
-        sendJson(res, 200, { authenticated: false, mode: 'guest' });
+        sendJson(res, 200, { authenticated: false, mode: 'guest', accountDeletionGuard: 'expected-user-id' });
         return;
       }
       sendJson(res, 200, {
         authenticated: true,
+        accountDeletionGuard: 'expected-user-id',
         mode: 'account',
         user: toPublicUser(auth.user),
         session: { id: auth.session.id, expiresAt: auth.session.expiresAt },
@@ -396,6 +397,7 @@ export function createAppHandler(options = {}) {
           201,
           {
             user: toPublicUser(user),
+            accountDeletionGuard: 'expected-user-id',
             session: { id: session.id, expiresAt: session.expiresAt },
           },
           buildSessionCookie(token, secureCookie),
@@ -443,6 +445,7 @@ export function createAppHandler(options = {}) {
           200,
           {
             user: toPublicUser(user),
+            accountDeletionGuard: 'expected-user-id',
             session: { id: session.id, expiresAt: session.expiresAt },
           },
           buildSessionCookie(token, secureCookie),
@@ -488,6 +491,18 @@ export function createAppHandler(options = {}) {
       const auth = await requireAuthContext(req, store, sessionPepper);
       if (!auth.ok) {
         sendError(res, 401, 'UNAUTHORIZED');
+        return;
+      }
+
+      try {
+        const body = await readJsonBody(req);
+        if (Object.prototype.hasOwnProperty.call(body, 'expectedUserId') &&
+            (typeof body.expectedUserId !== 'string' || body.expectedUserId !== auth.user.id)) {
+          sendError(res, 409, 'ACCOUNT_CHANGED');
+          return;
+        }
+      } catch {
+        sendError(res, 400, 'BODY_INVALID');
         return;
       }
 
