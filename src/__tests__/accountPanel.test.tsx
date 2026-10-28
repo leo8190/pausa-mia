@@ -9,6 +9,33 @@ function jsonResponse(body: unknown, ok = true) {
 }
 
 describe('AccountPanel', () => {
+  it.each(['panel', 'formulario'])(
+    'vuelve a abrir el registro después de cerrar el %s',
+    async (closedPart) => {
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        expect(String(input)).toMatch(/\/api\/account\/status$/);
+        return jsonResponse({ authenticated: false, mode: 'guest' });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<AccountPanel locale="es-AR" />);
+      const open = await screen.findByRole('button', { name: 'Crear mi cuenta' });
+      fireEvent.click(open);
+      const secret = screen.getByLabelText('Clave de acceso');
+      const panel = secret.closest('.account-panel') as HTMLDetailsElement;
+      const auth = secret.closest('details') as HTMLDetailsElement;
+      const closed = closedPart === 'panel' ? panel : auth;
+      fireEvent.click(closed.querySelector('summary')!);
+      expect(closed).not.toHaveAttribute('open');
+      fireEvent.click(open);
+      expect(panel).toHaveAttribute('open');
+      expect(auth).toHaveAttribute('open');
+      expect(
+        fetchMock.mock.calls.every((call) =>
+          String(call[0]).endsWith('/api/account/status'),
+        ),
+      ).toBe(true);
+    },
+  );
   it('abre el registro directamente y explica la clave sin crear una cuenta', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       expect(String(input)).toMatch(/\/api\/account\/status$/);

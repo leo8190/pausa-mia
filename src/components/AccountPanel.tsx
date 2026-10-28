@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useAccount } from '../hooks/useAccount';
 import { buildAccountApiUrl } from '../lib/accountApiUrl';
 import { hasGuestProgress } from '../lib/guestProgressStorage';
@@ -94,6 +94,8 @@ export function AccountPanel({
 }) {
   const account = useAccount();
   const [authRequested, setAuthRequested] = useState(false);
+  const panelRef = useRef<HTMLDetailsElement>(null);
+  const authRef = useRef<HTMLDetailsElement>(null);
   const [secretError, setSecretError] = useState<string | null>(null);
   const secretHintId = useId();
   const [mode, setMode] = useState<'register' | 'login'>('register');
@@ -313,12 +315,16 @@ export function AccountPanel({
           onClick={() => {
             setMode('register');
             setAuthRequested(true);
+            // Native details can be closed without changing authRequested.
+            if (panelRef.current) panelRef.current.open = true;
+            if (authRef.current) authRef.current.open = true;
           }}
         >
           Crear mi cuenta
         </button>
       )}
       <details
+        ref={panelRef}
         className="account-panel"
         {...(defaultOpen || authRequested ? { open: true } : {})}
       >
@@ -494,6 +500,7 @@ export function AccountPanel({
               )}
               {account.backendAvailable && (
                 <details
+                  ref={authRef}
                   className="account-auth-details"
                   {...(expandAuth || authRequested ? { open: true } : {})}
                 >
