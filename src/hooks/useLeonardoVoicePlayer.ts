@@ -274,15 +274,21 @@ export function useLeonardoVoicePlayer() {
             cache.current = [];
             const prepared: Blob[] = [];
             let bytes = 0;
+            let remainingTextChars = items.reduce(
+              (sum, part) => sum + part.text.trim().length,
+              0,
+            );
             for (const part of items) {
               const result = await synthesizeLeonardoVoice(part.text, {
                 consent,
                 signal: abort.current!.signal,
+                remainingTextChars,
               });
               if (request.current !== id) return;
               bytes += result.audio.size;
               if (bytes > 24 * 1024 * 1024) throw new Error();
               prepared.push(result.audio);
+              remainingTextChars -= part.text.trim().length;
               setState((p) => ({ ...p, completed: prepared.length }));
             }
             cache.current = prepared;

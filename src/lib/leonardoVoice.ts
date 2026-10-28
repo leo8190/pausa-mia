@@ -83,7 +83,7 @@ export type LeonardoAudio = {
  */
 export async function synthesizeLeonardoVoice(
   text: string,
-  options: { consent: boolean; signal?: AbortSignal },
+  options: { consent: boolean; signal?: AbortSignal; remainingTextChars?: number },
 ): Promise<LeonardoAudio> {
   if (!options.consent)
     throw new LeonardoVoiceError(
@@ -92,6 +92,16 @@ export async function synthesizeLeonardoVoice(
     );
   const normalized = text.trim();
   if (!normalized || normalized.length > 800)
+    throw new LeonardoVoiceError(
+      'invalid_text',
+      'El texto no se puede preparar para esta voz.',
+    );
+  const remainingTextChars = options.remainingTextChars ?? normalized.length;
+  if (
+    !Number.isInteger(remainingTextChars) ||
+    remainingTextChars < normalized.length ||
+    remainingTextChars > 12_000
+  )
     throw new LeonardoVoiceError(
       'invalid_text',
       'El texto no se puede preparar para esta voz.',
@@ -128,27 +138,66 @@ export async function synthesizeLeonardoVoice(
         'No pudimos confirmar la voz de Leonardo.',
       );
     }
-    // Paid synthesis needs a short-lived token tied to a signed-in account.
-    // Only the account API receives the session cookie; the voice service never does.
-    const access = await fetch(buildAccountApiUrl('/api/account/voice-token'), {
+    // Accounts retain their existing access. Guests receive a short-lived,
+    // connection-bound token with a smaller, persistent daily allowance.
+    // Only the account API receives cookies. No script accompanies token requests.
+    let access = await fetch(buildAccountApiUrl('/api/account/voice-token'), {
       signal: controller.signal,
       method: 'POST',
       credentials: 'include',
       redirect: 'error',
     });
     checkAbort(controller.signal);
+    let accessBody = access.ok ? await access.json().catch(() => null) : null;
+    const guest =
+      capability?.guestAccess?.enabled === true &&
+      (access.status === 401 || accessBody?.guest === true);
+    if (guest) {
+      access = await fetch(`${endpoint}/v1/leonardo/guest-token`, {
+        ...init,
+        method: 'POST',
+        headers: { 'X-Pausa-Voice-Consent': 'session' },
+      });
+      checkAbort(controller.signal);
+      accessBody = access.ok ? await access.json().catch(() => null) : null;
+    }
     if (access.status === 401)
       throw new LeonardoVoiceError(
         'auth_required',
         'Para escuchar la voz de Leonardo, ingresá a tu cuenta. También podés elegir otra voz en «Editar mi pausa».',
       );
-    const accessBody = access.ok ? await access.json().catch(() => null) : null;
+    if (access.status === 429)
+      throw new LeonardoVoiceError(
+        'limit_reached',
+        'La voz de Leonardo llegó a su límite por ahora. Probá más tarde o elegí otra voz.',
+      );
     const token = typeof accessBody?.token === 'string' ? accessBody.token : '';
     if (!/^v1\.\d+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token))
       throw new LeonardoVoiceError(
         'provider_unverified',
         'La voz de Leonardo todavía no está habilitada.',
       );
+    if (guest) {
+      const remaining = accessBody?.remainingChars;
+      const limit = accessBody?.dailyCharLimit;
+      if (
+        !Number.isInteger(remaining) ||
+        remaining < 0 ||
+        !Number.isInteger(limit) ||
+        limit <= 0 ||
+        limit > 1200 ||
+        remaining > limit
+      )
+        throw new LeonardoVoiceError(
+          'provider_unverified',
+          'No pudimos confirmar el límite de invitados.',
+        );
+      if (remainingTextChars > remaining)
+        throw new LeonardoVoiceError(
+          'limit_reached',
+          'El guion supera el saldo disponible para invitados de hoy. Probá una pausa de 3 minutos, elegí otra voz o volvé mañana.',
+        );
+    }
     checkAbort(controller.signal);
     const response = await fetch(`${endpoint}/v1/leonardo/tts`, {
       ...init,

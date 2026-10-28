@@ -145,4 +145,16 @@ describe('approved Leonardo voice playback', () => {
     await waitFor(() => expect(hook.result.current.state.status).toBe('error'));
     expect(mocks.synthesize).not.toHaveBeenCalled();
   });
+  it('checks the whole remaining script before preparing each paid segment', async () => {
+    const hook = await ready();
+    const parts = [
+      { text: 'Primera parte.', pauseAfterMs: 1000 },
+      { text: 'Segunda parte.', pauseAfterMs: 1000 },
+    ];
+    act(() => hook.result.current.play(parts, true));
+    await waitFor(() => expect(mocks.playAudio).toHaveBeenCalledTimes(1));
+    expect(
+      mocks.synthesize.mock.calls.map((call) => call[1].remainingTextChars),
+    ).toEqual([parts[0].text.length + parts[1].text.length, parts[1].text.length]);
+  });
 });

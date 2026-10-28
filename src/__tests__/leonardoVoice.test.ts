@@ -286,6 +286,103 @@ describe('Leonardo voice consent and provider contract', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it('allows guests only with a verified allowance and never sends cookies or the script to the token issuer', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(capabilities({ guestAccess: { enabled: true } }))
+      .mockResolvedValueOnce(accessToken(401))
+      .mockResolvedValueOnce(
+        Response.json({
+          token: ACCESS_TOKEN,
+          remainingChars: 1200,
+          dailyCharLimit: 1200,
+        }),
+      )
+      .mockResolvedValueOnce(audioResponse());
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      synthesizeLeonardoVoice('Respirá con calma.', {
+        consent: true,
+        remainingTextChars: 1020,
+      }),
+    ).resolves.toMatchObject({ provider: 'heygen' });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const [url, options] = fetchMock.mock.calls[2]!;
+    expect(url).toBe(`${endpoint}/v1/leonardo/guest-token`);
+    expect(options).toMatchObject({
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'X-Pausa-Voice-Consent': 'session' },
+    });
+    expect(options.body).toBeUndefined();
+    expect(options.headers.Authorization).toBeUndefined();
+    expect(fetchMock.mock.calls[3]?.[1]?.credentials).toBe('omit');
+  });
+
+  it('checks the whole remaining script against the guest allowance before any paid synthesis', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(capabilities({ guestAccess: { enabled: true } }))
+      .mockResolvedValueOnce(accessToken(401))
+      .mockResolvedValueOnce(
+        Response.json({
+          token: ACCESS_TOKEN,
+          remainingChars: 1000,
+          dailyCharLimit: 1200,
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      synthesizeLeonardoVoice('Un detalle personal.', {
+        consent: true,
+        remainingTextChars: 1020,
+      }),
+    ).rejects.toMatchObject({ code: 'limit_reached' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain('Un detalle personal');
+  });
+
+  it('also checks the allowance when the compatible account route issues a guest token', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(capabilities({ guestAccess: { enabled: true } }))
+      .mockResolvedValueOnce(Response.json({ token: ACCESS_TOKEN, guest: true }))
+      .mockResolvedValueOnce(
+        Response.json({
+          token: ACCESS_TOKEN,
+          remainingChars: 1000,
+          dailyCharLimit: 1200,
+        }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(
+      synthesizeLeonardoVoice('Un detalle personal.', {
+        consent: true,
+        remainingTextChars: 1020,
+      }),
+    ).rejects.toMatchObject({ code: 'limit_reached' });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
+    { remainingChars: -1, dailyCharLimit: 1200 },
+    { remainingChars: 1300, dailyCharLimit: 1200 },
+  ])(
+    'rejects an invalid guest allowance without sending the script',
+    async (allowance) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(capabilities({ guestAccess: { enabled: true } }))
+        .mockResolvedValueOnce(accessToken(401))
+        .mockResolvedValueOnce(Response.json({ token: ACCESS_TOKEN, ...allowance }));
+      vi.stubGlobal('fetch', fetchMock);
+      await expect(
+        synthesizeLeonardoVoice('Un detalle personal.', { consent: true }),
+      ).rejects.toMatchObject({ code: 'provider_unverified' });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    },
+  );
+
   it('does not synthesize when the account API cannot issue a voice token', async () => {
     const fetchMock = vi
       .fn()
