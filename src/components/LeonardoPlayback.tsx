@@ -46,6 +46,11 @@ export function LeonardoPlayback({ sessionApi }: { sessionApi: SessionApi }) {
         </>
       }
     >
+      <p className="field-hint">
+        Podés escuchar sin cuenta. Invitados: hasta 1.200 caracteres por día;
+        recomendamos una pausa de 3 minutos. El límite se comparte entre quienes usan la
+        misma conexión. También hay un límite diario para toda la app.
+      </p>
       <label className="consent-option">
         <input
           type="checkbox"

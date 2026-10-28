@@ -43,9 +43,17 @@ describe('Leonardo voice in the actual session UI', () => {
     expect(button).toBeDisabled();
     expect(screen.getByRole('checkbox')).not.toBeChecked();
     expect(player.play).not.toHaveBeenCalled();
+    expect(screen.getByText(/hasta 1.200 caracteres por día/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(button);
     expect(player.play).toHaveBeenCalledWith(sessionApi.session.script!.segments, true);
+  });
+  it('explains guest access where the voice is selected', () => {
+    vi.stubEnv('VITE_LEONARDO_TTS_ENDPOINT', 'https://voice.example.test');
+    render(<CheckInStep sessionApi={api()} />);
+    expect(screen.getByRole('radio', { name: 'Voz de Leonardo' })).toBeEnabled();
+    expect(screen.getByText(/Leonardo sin cuenta/)).toBeInTheDocument();
+    expect(screen.queryByText(/necesitás crear una cuenta/)).not.toBeInTheDocument();
   });
   it('shows the real voice preview but keeps live synthesis unavailable without its server', () => {
     vi.stubEnv('VITE_LEONARDO_TTS_ENDPOINT', '');
