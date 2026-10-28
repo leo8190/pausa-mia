@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useAccount } from '../hooks/useAccount';
 import { buildAccountApiUrl } from '../lib/accountApiUrl';
 import { hasGuestProgress } from '../lib/guestProgressStorage';
@@ -93,6 +93,11 @@ export function AccountPanel({
   onAccountReady?: () => void;
 }) {
   const account = useAccount();
+  const [authRequested, setAuthRequested] = useState(false);
+  const panelRef = useRef<HTMLDetailsElement>(null);
+  const authRef = useRef<HTMLDetailsElement>(null);
+  const [secretError, setSecretError] = useState<string | null>(null);
+  const secretHintId = useId();
   const [mode, setMode] = useState<'register' | 'login'>('register');
   const [displayName, setDisplayName] = useState('');
   const [userId, setUserId] = useState('');
@@ -302,276 +307,323 @@ export function AccountPanel({
   }
 
   return (
-    <details className="account-panel" {...(defaultOpen ? { open: true } : {})}>
-      <summary>
-        <span>
-          <strong>{account.user ? 'Tu cuenta' : 'Cuenta (opcional)'}</strong>
-          <small>
-            {account.user
-              ? 'Gestioná tu sesión y tus datos'
-              : 'También podés continuar como invitado'}
-          </small>
-        </span>
-        <span className="account-panel-chevron" aria-hidden="true">
-          ⌄
-        </span>
-      </summary>
+    <>
+      {!account.user && account.backendAvailable && (
+        <button
+          type="button"
+          className="btn btn-secondary btn-small"
+          onClick={() => {
+            setMode('register');
+            setAuthRequested(true);
+            // Native details can be closed without changing authRequested.
+            if (panelRef.current) panelRef.current.open = true;
+            if (authRef.current) authRef.current.open = true;
+          }}
+        >
+          Crear mi cuenta
+        </button>
+      )}
+      <details
+        ref={panelRef}
+        className="account-panel"
+        {...(defaultOpen || authRequested ? { open: true } : {})}
+      >
+        <summary>
+          <span>
+            <strong>{account.user ? 'Tu cuenta' : 'Cuenta (opcional)'}</strong>
+            <small>
+              {account.user
+                ? 'Gestioná tu sesión y tus datos'
+                : 'También podés continuar como invitado'}
+            </small>
+          </span>
+          <span className="account-panel-chevron" aria-hidden="true">
+            ⌄
+          </span>
+        </summary>
 
-      <div className="account-panel-content">
-        {account.deletionWarning && (
-          <p className="account-error" role="alert">
-            No pudimos confirmar que Google retiró los permisos. Tu cuenta de Pausa Mía
-            sí se eliminó. Revisá las conexiones de Google y quitá Pausa Mía si aparece.{' '}
-            <a
-              href="https://myaccount.google.com/connections"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Revisar permisos en Google
-            </a>
-          </p>
-        )}
-        {account.error && (
-          <p className="account-error" role="alert">
-            {account.error}
-          </p>
-        )}
-        {account.user ? (
-          <div className="account-user-state">
-            <p className="account-user-line">
-              {account.user.displayName
-                ? `Hola, ${account.user.displayName}.`
-                : 'Tu cuenta está activa.'}
-            </p>
-            <p className="account-hint">
-              Tu identificador es <strong>{account.user.id}</strong>. Lo vas a necesitar
-              para volver a iniciar sesión.
-            </p>
-            {(visibleProviders.length > 0 || connectorError || connectorMessage) && (
-              <section
-                className="account-connectors"
-                aria-label="Conectar Google Calendar y Google Drive"
+        <div className="account-panel-content">
+          {account.deletionWarning && (
+            <p className="account-error" role="alert">
+              No pudimos confirmar que Google retiró los permisos. Tu cuenta de Pausa
+              Mía sí se eliminó. Revisá las conexiones de Google y quitá Pausa Mía si
+              aparece.{' '}
+              <a
+                href="https://myaccount.google.com/connections"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                <h4>Conectar Google (opcional)</h4>
-                {visibleProviders.map((entry) => {
-                  const copy = PROVIDER_COPY[entry.provider];
-                  const statusLabel = toFriendlyProviderState(entry);
-                  const isBusy = connectorBusy === entry.provider;
-                  return (
-                    <article className="account-connector-card" key={entry.provider}>
-                      <div className="account-connector-head">
-                        <strong>{copy.title}</strong>
-                        <span
-                          className={`account-connector-state${entry.configured ? '' : ' is-warning'}`}
-                        >
-                          {statusLabel}
-                        </span>
-                      </div>
-                      <p className="account-hint">{copy.purpose}</p>
-                      {entry.state !== 'connected' && (
-                        <>
-                          <p className="account-hint">
-                            Permiso solicitado: solo lectura de{' '}
-                            {entry.provider === 'google_calendar'
-                              ? 'tu calendario'
-                              : 'tus archivos de Google Drive'}
-                            .
-                          </p>
-                          <label
-                            className="checkbox-option"
-                            htmlFor={`consent-${entry.provider}`}
+                Revisar permisos en Google
+              </a>
+            </p>
+          )}
+          {account.error && account.user && (
+            <p className="account-error" role="alert">
+              {account.error}
+            </p>
+          )}
+          {account.user ? (
+            <div className="account-user-state">
+              <p className="account-user-line">
+                {account.user.displayName
+                  ? `Hola, ${account.user.displayName}.`
+                  : 'Tu cuenta está activa.'}
+              </p>
+              <p className="account-hint">
+                Tu identificador es <strong>{account.user.id}</strong>. Guardalo: para
+                volver a entrar necesitás este identificador y la clave que elegiste. No
+                compartas tu clave con nadie, tampoco con soporte.
+              </p>
+              {(visibleProviders.length > 0 || connectorError || connectorMessage) && (
+                <section
+                  className="account-connectors"
+                  aria-label="Conectar Google Calendar y Google Drive"
+                >
+                  <h4>Conectar Google (opcional)</h4>
+                  {visibleProviders.map((entry) => {
+                    const copy = PROVIDER_COPY[entry.provider];
+                    const statusLabel = toFriendlyProviderState(entry);
+                    const isBusy = connectorBusy === entry.provider;
+                    return (
+                      <article className="account-connector-card" key={entry.provider}>
+                        <div className="account-connector-head">
+                          <strong>{copy.title}</strong>
+                          <span
+                            className={`account-connector-state${entry.configured ? '' : ' is-warning'}`}
                           >
-                            <input
-                              id={`consent-${entry.provider}`}
-                              type="checkbox"
-                              checked={consentChecks[entry.provider]}
-                              onChange={(event) =>
-                                setConsentChecks((prev) => ({
-                                  ...prev,
-                                  [entry.provider]: event.target.checked,
-                                }))
-                              }
-                              disabled={!entry.configured || isBusy}
-                            />
-                            <span>
-                              Autorizo conectar {copy.title} para este propósito.
-                            </span>
-                          </label>
-                        </>
-                      )}
-                      <div className="account-actions">
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <p className="account-hint">{copy.purpose}</p>
                         {entry.state !== 'connected' && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-small"
-                            disabled={
-                              !entry.configured ||
-                              isBusy ||
-                              !consentChecks[entry.provider]
-                            }
-                            onClick={() => void handleConnect(entry.provider)}
-                          >
-                            {isBusy ? 'Conectando…' : `Conectar ${copy.title}`}
-                          </button>
+                          <>
+                            <p className="account-hint">
+                              Permiso solicitado: solo lectura de{' '}
+                              {entry.provider === 'google_calendar'
+                                ? 'tu calendario'
+                                : 'tus archivos de Google Drive'}
+                              .
+                            </p>
+                            <label
+                              className="checkbox-option"
+                              htmlFor={`consent-${entry.provider}`}
+                            >
+                              <input
+                                id={`consent-${entry.provider}`}
+                                type="checkbox"
+                                checked={consentChecks[entry.provider]}
+                                onChange={(event) =>
+                                  setConsentChecks((prev) => ({
+                                    ...prev,
+                                    [entry.provider]: event.target.checked,
+                                  }))
+                                }
+                                disabled={!entry.configured || isBusy}
+                              />
+                              <span>
+                                Autorizo conectar {copy.title} para este propósito.
+                              </span>
+                            </label>
+                          </>
                         )}
-                        {entry.state === 'connected' && (
-                          <button
-                            type="button"
-                            className="btn btn-danger btn-small"
-                            disabled={isBusy}
-                            onClick={() => void handleRevoke(entry.provider)}
-                          >
-                            {isBusy ? 'Desconectando…' : `Desconectar ${copy.title}`}
-                          </button>
-                        )}
-                      </div>
-                    </article>
-                  );
-                })}
-                {connectorError && (
-                  <p className="account-error" role="alert">
-                    {connectorError}
-                  </p>
-                )}
-                {connectorMessage && (
-                  <p className="account-success" role="status">
-                    {connectorMessage}
-                  </p>
-                )}
-              </section>
-            )}
-            <div className="account-actions">
-              <button
-                type="button"
-                className="btn btn-secondary btn-small"
-                onClick={() => void account.logout()}
-                disabled={busy}
-              >
-                Cerrar sesión
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger btn-small"
-                onClick={() => void handleDelete()}
-                disabled={busy}
-              >
-                Eliminar cuenta
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="account-guest-note" role="status">
-              Podés meditar sin cuenta. El progreso seguro de invitado queda en
-              este dispositivo (no guardamos diario ni textos personales) para
-              cuando exista una cuenta.
-            </p>
-            {!account.backendAvailable && (
-              <p className="account-unavailable" role="status">
-                Las cuentas no están disponibles ahora. Podés continuar como invitado.
-              </p>
-            )}
-            {account.backendAvailable && (
-              <details
-                className="account-auth-details"
-                {...(expandAuth ? { open: true } : {})}
-              >
-                <summary>Ya tengo cuenta / crear una</summary>
-                <div
-                  className="account-mode-toggle"
-                  role="tablist"
-                  aria-label="Acceso a la cuenta"
-                >
-                  <button
-                    type="button"
-                    className={mode === 'register' ? 'is-active' : ''}
-                    onClick={() => {
-                      setMode('register');
-                      setMessage(null);
-                    }}
-                  >
-                    Crear cuenta
-                  </button>
-                  <button
-                    type="button"
-                    className={mode === 'login' ? 'is-active' : ''}
-                    onClick={() => {
-                      setMode('login');
-                      setMessage(null);
-                    }}
-                  >
-                    Ya tengo una
-                  </button>
-                </div>
-                {mode === 'login' && (
-                  <p className="account-login-warning" role="status">
-                    Al entrar a una cuenta existente, el progreso de invitado de
-                    este dispositivo puede no transferirse.
-                  </p>
-                )}
-                <form
-                  className="account-form"
-                  onSubmit={(event) => void handleSubmit(event)}
-                >
-                  {mode === 'register' ? (
-                    <label>
-                      Apodo <span>(opcional)</span>
-                      <input
-                        value={displayName}
-                        onChange={(event) => setDisplayName(event.target.value)}
-                        maxLength={80}
-                        autoComplete="nickname"
-                        disabled={!account.backendAvailable || busy}
-                      />
-                    </label>
-                  ) : (
-                    <label>
-                      Identificador de cuenta
-                      <input
-                        value={userId}
-                        onChange={(event) => setUserId(event.target.value)}
-                        required
-                        autoComplete="username"
-                        disabled={!account.backendAvailable || busy}
-                      />
-                    </label>
+                        <div className="account-actions">
+                          {entry.state !== 'connected' && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-small"
+                              disabled={
+                                !entry.configured ||
+                                isBusy ||
+                                !consentChecks[entry.provider]
+                              }
+                              onClick={() => void handleConnect(entry.provider)}
+                            >
+                              {isBusy ? 'Conectando…' : `Conectar ${copy.title}`}
+                            </button>
+                          )}
+                          {entry.state === 'connected' && (
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-small"
+                              disabled={isBusy}
+                              onClick={() => void handleRevoke(entry.provider)}
+                            >
+                              {isBusy ? 'Desconectando…' : `Desconectar ${copy.title}`}
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                  {connectorError && (
+                    <p className="account-error" role="alert">
+                      {connectorError}
+                    </p>
                   )}
-                  <label>
-                    Clave de acceso
-                    <input
-                      type="password"
-                      value={loginSecret}
-                      onChange={(event) => setLoginSecret(event.target.value)}
-                      minLength={8}
-                      required
-                      autoComplete={
-                        mode === 'register' ? 'new-password' : 'current-password'
-                      }
-                      disabled={!account.backendAvailable || busy}
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    className="btn btn-secondary btn-small"
-                    disabled={!account.backendAvailable || busy}
-                  >
-                    {busy
-                      ? 'Procesando…'
-                      : mode === 'register'
-                        ? 'Crear cuenta'
-                        : 'Iniciar sesión'}
-                  </button>
-                </form>
-              </details>
-            )}
-            {message && (
-              <p className="account-success" role="status">
-                {message}
+                  {connectorMessage && (
+                    <p className="account-success" role="status">
+                      {connectorMessage}
+                    </p>
+                  )}
+                </section>
+              )}
+              <div className="account-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-small"
+                  onClick={() => void account.logout()}
+                  disabled={busy}
+                >
+                  Cerrar sesión
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-small"
+                  onClick={() => void handleDelete()}
+                  disabled={busy}
+                >
+                  Eliminar cuenta
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="account-guest-note" role="status">
+                Podés meditar sin cuenta. El progreso seguro de invitado queda en este
+                dispositivo (no guardamos diario ni textos personales) para cuando
+                exista una cuenta.
               </p>
-            )}
-          </>
-        )}
-      </div>
-    </details>
+              {!account.backendAvailable && (
+                <p className="account-unavailable" role="status">
+                  Las cuentas no están disponibles ahora. Podés continuar como invitado.
+                </p>
+              )}
+              {account.backendAvailable && (
+                <details
+                  ref={authRef}
+                  className="account-auth-details"
+                  {...(expandAuth || authRequested ? { open: true } : {})}
+                >
+                  <summary>Ya tengo cuenta / crear una</summary>
+                  <div
+                    className="account-mode-toggle"
+                    role="tablist"
+                    aria-label="Acceso a la cuenta"
+                  >
+                    <button
+                      type="button"
+                      className={mode === 'register' ? 'is-active' : ''}
+                      onClick={() => {
+                        setMode('register');
+                        setMessage(null);
+                      }}
+                    >
+                      Crear cuenta
+                    </button>
+                    <button
+                      type="button"
+                      className={mode === 'login' ? 'is-active' : ''}
+                      onClick={() => {
+                        setMode('login');
+                        setMessage(null);
+                      }}
+                    >
+                      Ya tengo una
+                    </button>
+                  </div>
+                  {mode === 'login' && (
+                    <p className="account-login-warning" role="status">
+                      Al entrar a una cuenta existente, el progreso de invitado de este
+                      dispositivo puede no transferirse.
+                    </p>
+                  )}
+                  <form
+                    className="account-form"
+                    onSubmit={(event) => void handleSubmit(event)}
+                  >
+                    {mode === 'register' ? (
+                      <label>
+                        Apodo <span>(opcional)</span>
+                        <input
+                          value={displayName}
+                          onChange={(event) => setDisplayName(event.target.value)}
+                          maxLength={80}
+                          autoComplete="nickname"
+                          disabled={!account.backendAvailable || busy}
+                        />
+                      </label>
+                    ) : (
+                      <label>
+                        Identificador de cuenta
+                        <input
+                          value={userId}
+                          onChange={(event) => setUserId(event.target.value)}
+                          required
+                          autoComplete="username"
+                          disabled={!account.backendAvailable || busy}
+                        />
+                      </label>
+                    )}
+                    <label>
+                      Clave de acceso
+                      <input
+                        type="password"
+                        value={loginSecret}
+                        onChange={(event) => {
+                          setLoginSecret(event.target.value);
+                          setSecretError(null);
+                        }}
+                        onInvalid={() =>
+                          setSecretError('Ingresá una clave de al menos 8 caracteres.')
+                        }
+                        aria-describedby={secretHintId}
+                        aria-invalid={secretError ? true : undefined}
+                        minLength={8}
+                        required
+                        autoComplete={
+                          mode === 'register' ? 'new-password' : 'current-password'
+                        }
+                        disabled={!account.backendAvailable || busy}
+                      />
+                    </label>
+                    <p className="account-hint" id={secretHintId}>
+                      {mode === 'register'
+                        ? 'Elegí una clave de al menos 8 caracteres. Guardala junto al identificador que recibirás al crear la cuenta.'
+                        : 'Ingresá la clave de al menos 8 caracteres que elegiste al crear la cuenta.'}
+                    </p>
+                    {secretError && (
+                      <p className="account-error" role="alert">
+                        {secretError}
+                      </p>
+                    )}
+                    {account.error && (
+                      <p className="account-error" role="alert">
+                        {account.error}
+                      </p>
+                    )}
+                    <button
+                      type="submit"
+                      className="btn btn-secondary btn-small"
+                      disabled={!account.backendAvailable || busy}
+                    >
+                      {busy
+                        ? 'Procesando…'
+                        : mode === 'register'
+                          ? 'Crear cuenta'
+                          : 'Iniciar sesión'}
+                    </button>
+                  </form>
+                </details>
+              )}
+              {message && (
+                <p className="account-success" role="status">
+                  {message}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </details>
+    </>
   );
 }

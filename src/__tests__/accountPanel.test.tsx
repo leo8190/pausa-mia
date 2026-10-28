@@ -1,20 +1,66 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AccountPanel } from '../components/AccountPanel';
-import {
-  clearGuestProgress,
-  saveGuestProgress,
-} from '../lib/guestProgressStorage';
-import {
-  clearPreferences,
-  savePreferences,
-} from '../lib/preferencesStorage';
+import { clearGuestProgress, saveGuestProgress } from '../lib/guestProgressStorage';
+import { clearPreferences, savePreferences } from '../lib/preferencesStorage';
 
 function jsonResponse(body: unknown, ok = true) {
   return Promise.resolve({ ok, json: () => Promise.resolve(body) });
 }
 
 describe('AccountPanel', () => {
+  it.each(['panel', 'formulario'])(
+    'vuelve a abrir el registro después de cerrar el %s',
+    async (closedPart) => {
+      const fetchMock = vi.fn((input: RequestInfo | URL) => {
+        expect(String(input)).toMatch(/\/api\/account\/status$/);
+        return jsonResponse({ authenticated: false, mode: 'guest' });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      render(<AccountPanel locale="es-AR" />);
+      const open = await screen.findByRole('button', { name: 'Crear mi cuenta' });
+      fireEvent.click(open);
+      const secret = screen.getByLabelText('Clave de acceso');
+      const panel = secret.closest('.account-panel') as HTMLDetailsElement;
+      const auth = secret.closest('details') as HTMLDetailsElement;
+      const closed = closedPart === 'panel' ? panel : auth;
+      fireEvent.click(closed.querySelector('summary')!);
+      expect(closed).not.toHaveAttribute('open');
+      fireEvent.click(open);
+      expect(panel).toHaveAttribute('open');
+      expect(auth).toHaveAttribute('open');
+      expect(
+        fetchMock.mock.calls.every((call) =>
+          String(call[0]).endsWith('/api/account/status'),
+        ),
+      ).toBe(true);
+    },
+  );
+  it('abre el registro directamente y explica la clave sin crear una cuenta', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      expect(String(input)).toMatch(/\/api\/account\/status$/);
+      return jsonResponse({ authenticated: false, mode: 'guest' });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<AccountPanel locale="es-AR" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Crear mi cuenta' }));
+    const secret = screen.getByLabelText('Clave de acceso');
+    expect(secret.closest('details')).toHaveAttribute('open');
+    expect(secret.closest('.account-panel')).toHaveAttribute('open');
+    expect(secret).toHaveAttribute('minlength', '8');
+    expect(secret).toHaveAccessibleDescription(/al menos 8 caracteres.*identificador/i);
+    fireEvent.invalid(secret);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /al menos 8 caracteres/i,
+    );
+    fireEvent.change(secret, { target: { value: 'solo-prueba' } });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.every((call) =>
+        String(call[0]).endsWith('/api/account/status'),
+      ),
+    ).toBe(true);
+  });
   it.each(['revoked', 'not_linked', 'unconfirmed', undefined] as const)(
     'reports deletion honestly when Google is %s',
     async (googleRevocation) => {
@@ -449,7 +495,9 @@ describe('AccountPanel', () => {
     expect(confirmSpy.mock.calls[0][0]).toMatch(/duraci[oó]n.*voz.*estilo/i);
     expect(confirmSpy.mock.calls[0][0]).toMatch(/No se copia el diario/i);
     expect(
-      fetchMock.mock.calls.some((call) => String(call[0]).includes('/api/account/register')),
+      fetchMock.mock.calls.some((call) =>
+        String(call[0]).includes('/api/account/register'),
+      ),
     ).toBe(false);
   });
 
@@ -495,5 +543,4 @@ describe('AccountPanel', () => {
     await waitFor(() => expect(screen.getByText(/usr-prefs/i)).toBeInTheDocument());
     expect(confirmSpy).toHaveBeenCalled();
   });
-
 });

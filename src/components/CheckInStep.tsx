@@ -326,7 +326,9 @@ export function CheckInStep({ sessionApi }: { sessionApi: SessionApi }) {
           ))}
         </div>
         <p className="field-hint">
-          Te guiaremos despacio, con pausas para acompañarte.
+          Te guiaremos despacio, con pausas para acompañarte. Para meditar con la voz de
+          Leonardo necesitás crear una cuenta o iniciar sesión. Las otras voces permiten
+          continuar como invitado.
           {!getLeonardoTtsEndpoint() &&
             ' La voz de Leonardo todavía necesita conectar su servicio.'}
         </p>
