@@ -7,6 +7,50 @@ const RUN = '11111111-1111-4111-8111-111111111111';
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('production funnel transport', () => {
+  it.each(['google_ads', 'facebook', 'meta'])(
+    'attributes %s only after consent and drops advertising identifiers',
+    async (source) => {
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+      const sink = createFunnelTransport(
+        ENV,
+        fetchMock as unknown as typeof fetch,
+        () => RUN,
+        () =>
+          `?pm_source=${source}&gclid=PRIVATE-CLICK&fbclid=PRIVATE-CLICK&campaignId=PRIVATE-CAMPAIGN&email=PRIVATE-EMAIL`,
+      );
+      const funnel = createProductFunnel(
+        () => true,
+        () => new Date(),
+        sink,
+      );
+      funnel.record('questionnaire_started');
+      await tick();
+      expect(fetchMock).not.toHaveBeenCalled();
+      funnel.setConsent(true);
+      await tick();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, request] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://pausa-mia-api.fly.dev/api/funnel/event');
+      expect(JSON.parse(request.body)).toEqual({ runId: RUN, event: 'entry', source });
+      expect(JSON.stringify(fetchMock.mock.calls)).not.toContain('PRIVATE-');
+      expect(request.credentials).toBe('omit');
+      expect(request.referrerPolicy).toBe('no-referrer');
+    },
+  );
+
+  it.each([
+    'google_ads_12345',
+    'Google_Ads',
+    '123456789012345',
+    'person@example.test',
+    'https://facebook.example/?email=private',
+    'my private situation',
+  ])('does not use advertising source text or identifiers: %s', (source) => {
+    expect(getFunnelSource(`?pm_source=${encodeURIComponent(source)}`)).toBe(
+      'unattributed',
+    );
+  });
+
   it('sends nothing before separate consent and uses only closed fields afterwards', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     const sink = createFunnelTransport(

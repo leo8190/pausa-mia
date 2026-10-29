@@ -19,6 +19,9 @@ export const FUNNEL_SOURCES = Object.freeze([
   'okara',
   'newsletter',
   'shared',
+  'google_ads',
+  'facebook',
+  'meta',
 ]);
 export const FUNNEL_RUN_HOURS = 24;
 export const FUNNEL_RETENTION_DAYS = 30;

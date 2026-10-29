@@ -11,7 +11,16 @@ export type FunnelSink = {
   retryRevoke(): Promise<boolean>;
 };
 
-const SOURCES = new Set(['instagram', 'tiktok', 'okara', 'newsletter', 'shared']);
+const SOURCES = new Set([
+  'instagram',
+  'tiktok',
+  'okara',
+  'newsletter',
+  'shared',
+  'google_ads',
+  'facebook',
+  'meta',
+]);
 
 export function getFunnelSource(search: string): string {
   const value = new URLSearchParams(search).get('pm_source');
