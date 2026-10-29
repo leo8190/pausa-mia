@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSession } from './hooks/useSession';
 import { WelcomeStep } from './components/WelcomeStep';
 import { ConsentStep } from './components/ConsentStep';
@@ -15,23 +15,8 @@ import { ProductFunnelConsent } from './components/ProductFunnelConsent';
 import { AnonymousCounterNotice } from './components/AnonymousCounterNotice';
 import { StepProgress } from './components/StepProgress';
 import { useDocumentTitle } from './hooks/useDocumentTitle';
-import { LazyPlaybackStep, prefetchPlaybackStep } from './lib/playbackChunk';
-
-function PlaybackChunkFallback() {
-  return (
-    <div className="step-container" role="status" aria-live="polite">
-      <section
-        className="step-card step-card--playback"
-        aria-labelledby="playback-chunk-fallback-title"
-      >
-        <h2 id="playback-chunk-fallback-title" tabIndex={-1}>
-          Preparando reproducción
-        </h2>
-        <p className="step-lead">Cargando el reproductor…</p>
-      </section>
-    </div>
-  );
-}
+import { prefetchPlaybackStep } from './lib/playbackChunk';
+import { PlaybackLoader } from './components/PlaybackLoader';
 
 function App() {
   const sessionApi = useSession();
@@ -79,11 +64,7 @@ function App() {
         {step === 'ai-consent' && <AiConsentStep sessionApi={sessionApi} />}
         {step === 'safety' && <SafetyStep sessionApi={sessionApi} />}
         {step === 'review' && <ReviewStep sessionApi={sessionApi} />}
-        {step === 'playback' && (
-          <Suspense fallback={<PlaybackChunkFallback />}>
-            <LazyPlaybackStep sessionApi={sessionApi} />
-          </Suspense>
-        )}
+        {step === 'playback' && <PlaybackLoader sessionApi={sessionApi} />}
         {step === 'feedback' && <FeedbackStep sessionApi={sessionApi} />}
         {step === 'deleted' && <DeletedStep sessionApi={sessionApi} />}
       </main>

@@ -17,7 +17,9 @@ export function loadPlaybackStep(): Promise<PlaybackModule> {
  * no espere el download del chunk de voz.
  */
 export function prefetchPlaybackStep(): void {
-  void loadPlaybackStep();
+  // A failed speculative download must not become an unhandled rejection.
+  // PlaybackLoader offers an explicit retry when the player is actually needed.
+  void loadPlaybackStep().catch(() => {});
 }
 
 export const LazyPlaybackStep = lazy(() =>
