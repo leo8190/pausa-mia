@@ -23,7 +23,11 @@ import {
   SUPPORTED_CONNECTOR_PROVIDERS,
 } from './connectors.mjs';
 import { createGoogleOAuthService } from './googleOAuth.mjs';
-import { isVoiceAccessConfigured, issueVoiceAccessToken } from './voiceAccess.mjs';
+import {
+  isVoiceAccessConfigured,
+  issueVoiceAccessToken,
+  issueGuestVoiceAccessToken,
+} from './voiceAccess.mjs';
 import { revokeGoogleAccountsBeforeDeletion } from './accountDeletion.mjs';
 import {
   hashVisitorId,
@@ -147,6 +151,10 @@ export function createAppHandler(options = {}) {
     randomBytes(16).toString('hex');
   const voiceAccessSecret =
     options.voiceAccessSecret ?? process.env.LEONARDO_ACCESS_SECRET;
+  const voiceGuestsEnabled =
+    options.voiceGuestsEnabled ?? process.env.LEONARDO_GUESTS_ENABLED === 'true';
+  const voiceTrustFlyProxy =
+    options.voiceTrustFlyProxy ?? process.env.FLY_APP_NAME === 'pausa-mia-api';
 
   if (!store) {
     throw new Error('STORE_REQUIRED');
@@ -341,7 +349,11 @@ export function createAppHandler(options = {}) {
     if (req.method === 'GET' && pathname === '/api/account/status') {
       const auth = await requireAuthContext(req, store, sessionPepper);
       if (!auth.ok) {
-        sendJson(res, 200, { authenticated: false, mode: 'guest', accountDeletionGuard: 'expected-user-id' });
+        sendJson(res, 200, {
+          authenticated: false,
+          mode: 'guest',
+          accountDeletionGuard: 'expected-user-id',
+        });
         return;
       }
       sendJson(res, 200, {
@@ -462,7 +474,7 @@ export function createAppHandler(options = {}) {
 
     if (req.method === 'POST' && pathname === '/api/account/voice-token') {
       const auth = await requireAuthContext(req, store, sessionPepper);
-      if (!auth.ok) {
+      if (!auth.ok && !voiceGuestsEnabled) {
         sendError(res, 401, 'AUTH_REQUIRED');
         return;
       }
@@ -471,6 +483,25 @@ export function createAppHandler(options = {}) {
         return;
       }
       res.setHeader('Cache-Control', 'no-store');
+      if (!auth.ok) {
+        if (
+          !req.headers.origin ||
+          !getCorsAllowOrigin(req.headers.origin, allowedOrigins, true)
+        ) {
+          sendError(res, 403, 'ORIGIN_NOT_ALLOWED');
+          return;
+        }
+        const clientIp = voiceTrustFlyProxy
+          ? req.headers['fly-client-ip']
+          : req.socket.remoteAddress;
+        const access = issueGuestVoiceAccessToken(clientIp, voiceAccessSecret);
+        if (!access) {
+          sendError(res, 403, 'GUEST_CONNECTION_REQUIRED');
+          return;
+        }
+        sendJson(res, 200, access);
+        return;
+      }
       sendJson(res, 200, issueVoiceAccessToken(auth.user.id, voiceAccessSecret));
       return;
     }
@@ -496,8 +527,11 @@ export function createAppHandler(options = {}) {
 
       try {
         const body = await readJsonBody(req);
-        if (Object.prototype.hasOwnProperty.call(body, 'expectedUserId') &&
-            (typeof body.expectedUserId !== 'string' || body.expectedUserId !== auth.user.id)) {
+        if (
+          Object.prototype.hasOwnProperty.call(body, 'expectedUserId') &&
+          (typeof body.expectedUserId !== 'string' ||
+            body.expectedUserId !== auth.user.id)
+        ) {
           sendError(res, 409, 'ACCOUNT_CHANGED');
           return;
         }

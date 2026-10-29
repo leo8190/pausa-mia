@@ -11,7 +11,8 @@ primary_region = "gru"
   ACCOUNT_STORE_ENGINE = "sqlite"
   ACCOUNT_REQUIRE_EXISTING_DB = "true"
   ACCOUNT_STORE_JSON_PATH = "/data/app-store.json"
-  ACCOUNT_ALLOWED_ORIGINS = "https://leo8190.github.io,https://pausa-mia.pages.dev"
+  ACCOUNT_ALLOWED_ORIGINS = "https://leo8190.github.io,https://pausa-mia.pages.dev,https://localhost"
+  LEONARDO_GUESTS_ENABLED = "true"
 
 [http_service]
   internal_port = 3001

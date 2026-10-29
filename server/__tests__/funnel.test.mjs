@@ -15,6 +15,34 @@ const OTHER_ID = '22222222-2222-4222-8222-222222222222';
 const PEPPER = 'test-pepper-funnel-report-with-length-123';
 const require = createRequire(import.meta.url);
 
+describe('advertising attribution boundary', () => {
+  it.each(['google_ads', 'facebook', 'meta'])(
+    'accepts the fixed %s category and rejects extra advertising fields',
+    (source) => {
+      const entry = { runId: ID, event: 'entry', source };
+      expect(validateFunnelEvent(entry)).toEqual({
+        ...entry,
+        qa: false,
+        elapsedMs: null,
+      });
+      for (const field of ['gclid', 'fbclid', 'campaignId', 'email', 'script']) {
+        expect(validateFunnelEvent({ ...entry, [field]: 'PRIVATE-VALUE' })).toBeNull();
+      }
+    },
+  );
+
+  it.each([
+    'google_ads_12345',
+    'Google_Ads',
+    '123456789012345',
+    'person@example.test',
+    'https://facebook.example/?email=private',
+    'my private situation',
+  ])('rejects unlisted source text or identifiers: %s', (source) => {
+    expect(validateFunnelEvent({ runId: ID, event: 'entry', source })).toBeNull();
+  });
+});
+
 async function withStore(engine, callback) {
   const dir = mkdtempSync(join(tmpdir(), 'pausa-funnel-'));
   const storePath = join(dir, engine === 'json' ? 'data.json' : 'data.db');
