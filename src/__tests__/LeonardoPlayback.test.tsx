@@ -19,6 +19,7 @@ vi.mock('../hooks/useLeonardoVoicePlayer', () => ({
 }));
 afterEach(() => {
   cleanup();
+  player.state.status = 'idle';
   vi.unstubAllEnvs();
   vi.clearAllMocks();
 });
@@ -36,6 +37,25 @@ function api() {
   } as unknown as SessionApi;
 }
 describe('Leonardo voice in the actual session UI', () => {
+  it.each(['preparing', 'playing', 'paused'])(
+    'allows consent withdrawal while %s',
+    (status) => {
+      const sessionApi = api();
+      const view = render(<LeonardoPlayback sessionApi={sessionApi} />);
+      const consent = screen.getByRole('checkbox');
+      fireEvent.click(consent);
+      player.state.status = status;
+      view.rerender(<LeonardoPlayback sessionApi={sessionApi} />);
+      expect(consent).toBeEnabled();
+      fireEvent.click(consent);
+      expect(consent).not.toBeChecked();
+      expect(player.stop).toHaveBeenCalledTimes(1);
+      expect(player.play).not.toHaveBeenCalled();
+      expect(
+        screen.getByText(/Lo que ya se envió no se puede retirar/),
+      ).toBeInTheDocument();
+    },
+  );
   it('requires a new, unchecked text-transmission consent before playing', () => {
     const sessionApi = api();
     render(<LeonardoPlayback sessionApi={sessionApi} />);

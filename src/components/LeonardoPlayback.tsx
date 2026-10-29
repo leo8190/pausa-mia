@@ -55,7 +55,6 @@ export function LeonardoPlayback({ sessionApi }: { sessionApi: SessionApi }) {
         <input
           type="checkbox"
           checked={consent}
-          disabled={preparing || playing || paused}
           onChange={(e) => {
             setConsent(e.target.checked);
             if (!e.target.checked) stop();
@@ -63,7 +62,8 @@ export function LeonardoPlayback({ sessionApi }: { sessionApi: SessionApi }) {
         />{' '}
         Permito enviar el guion de esta sesión a HeyGen para crear el audio con la voz
         de Leonardo. Puede incluir los detalles personales que elegí. Este permiso no se
-        guarda.
+        guarda. Podés retirarlo cuando quieras: se detienen el audio y las nuevas
+        solicitudes. Lo que ya se envió no se puede retirar desde acá.
       </label>
       {state.error && (
         <p role="alert" className="fallback-notice">
