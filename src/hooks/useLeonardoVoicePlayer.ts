@@ -39,6 +39,7 @@ export function useLeonardoVoicePlayer() {
   const url = useRef<string | null>(null);
   const cache = useRef<Blob[]>([]);
   const scripts = useRef<ScriptSegment[]>([]);
+  const scriptSnapshot = useRef<ScriptSegment[]>([]);
   const index = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pauseStarted = useRef(0);
@@ -241,17 +242,25 @@ export function useLeonardoVoicePlayer() {
   const play = useCallback(
     (items: ScriptSegment[], consent: boolean) => {
       if (!consent || !nativeReady) return;
-      const cached = scripts.current === items && cache.current.length === items.length;
+      const sameScript =
+        scripts.current === items &&
+        scriptSnapshot.current.length === items.length &&
+        scriptSnapshot.current.every(
+          (part, i) =>
+            part.text === items[i].text && part.pauseAfterMs === items[i].pauseAfterMs,
+        );
       stop();
+      if (!sameScript) cache.current = [];
       const id = `leonardo-${Date.now()}-${++serial}`;
       request.current = id;
       index.current = 0;
       scripts.current = items;
+      scriptSnapshot.current = items.map((part) => ({ ...part }));
       abort.current = new AbortController();
       setState({
         status: 'preparing',
         currentSegmentIndex: 0,
-        completed: 0,
+        completed: cache.current.length,
         error: null,
       });
       void (async () => {
@@ -270,15 +279,13 @@ export function useLeonardoVoicePlayer() {
             items.reduce((n, p) => n + p.text.length, 0) > 12000
           )
             throw new Error();
-          if (!cached) {
-            cache.current = [];
-            const prepared: Blob[] = [];
-            let bytes = 0;
-            let remainingTextChars = items.reduce(
-              (sum, part) => sum + part.text.trim().length,
-              0,
-            );
-            for (const part of items) {
+          if (cache.current.length < items.length) {
+            let bytes = cache.current.reduce((total, blob) => total + blob.size, 0);
+            let remainingTextChars = items
+              .slice(cache.current.length)
+              .reduce((sum, part) => sum + part.text.trim().length, 0);
+            for (let i = cache.current.length; i < items.length; i++) {
+              const part = items[i];
               const result = await synthesizeLeonardoVoice(part.text, {
                 consent,
                 signal: abort.current!.signal,
@@ -287,11 +294,12 @@ export function useLeonardoVoicePlayer() {
               if (request.current !== id) return;
               bytes += result.audio.size;
               if (bytes > 24 * 1024 * 1024) throw new Error();
-              prepared.push(result.audio);
+              // Keep only validated responses. An explicit retry can request the
+              // missing parts without generating the successful ones again.
+              cache.current.push(result.audio);
               remainingTextChars -= part.text.trim().length;
-              setState((p) => ({ ...p, completed: prepared.length }));
+              setState((p) => ({ ...p, completed: cache.current.length }));
             }
-            cache.current = prepared;
           }
           if (request.current !== id) return;
           setState((p) => ({ ...p, status: 'ready' }));
@@ -299,7 +307,6 @@ export function useLeonardoVoicePlayer() {
         } catch (err) {
           if (request.current !== id) return;
           request.current = null;
-          cache.current = [];
           observation.current?.failed();
           release();
           const actionable =
