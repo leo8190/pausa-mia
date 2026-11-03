@@ -62,6 +62,122 @@ async function ready() {
   return hook;
 }
 describe('approved Leonardo voice playback', () => {
+  it('retains verified parts after a failure and retries only the missing text on request', async () => {
+    const parts = [
+      { text: 'Primera parte.', pauseAfterMs: 1000 },
+      { text: 'Segunda parte.', pauseAfterMs: 1000 },
+    ];
+    mocks.synthesize
+      .mockResolvedValueOnce(output())
+      .mockRejectedValueOnce(new Error('offline'));
+    const hook = await ready();
+    act(() => hook.result.current.play(parts, true));
+    await waitFor(() => expect(hook.result.current.state.status).toBe('error'));
+    expect(mocks.synthesize).toHaveBeenCalledTimes(2);
+    expect(mocks.playAudio).not.toHaveBeenCalled();
+
+    act(() => hook.result.current.play(parts, true));
+    await waitFor(() => expect(mocks.playAudio).toHaveBeenCalledTimes(1));
+    expect(mocks.synthesize.mock.calls.map((call) => call[0])).toEqual([
+      parts[0].text,
+      parts[1].text,
+      parts[1].text,
+    ]);
+    expect(mocks.synthesize.mock.calls[2][1].remainingTextChars).toBe(
+      parts[1].text.length,
+    );
+    expect(mocks.playAudio.mock.calls[0][0].segments).toHaveLength(2);
+  });
+  it('requires consent again before requesting missing parts', async () => {
+    const parts = [
+      { text: 'Primera parte.', pauseAfterMs: 1000 },
+      { text: 'Segunda parte.', pauseAfterMs: 1000 },
+    ];
+    mocks.synthesize
+      .mockResolvedValueOnce(output())
+      .mockRejectedValueOnce(new Error('offline'));
+    const hook = await ready();
+    act(() => hook.result.current.play(parts, true));
+    await waitFor(() => expect(hook.result.current.state.status).toBe('error'));
+    act(() => hook.result.current.play(parts, false));
+    expect(mocks.synthesize).toHaveBeenCalledTimes(2);
+    expect(mocks.playAudio).not.toHaveBeenCalled();
+  });
+  it.each([false, true])(
+    'discards cached parts for a changed script (same array=%s)',
+    async (mutate) => {
+      const parts = [
+        { text: 'Primera parte.', pauseAfterMs: 1000 },
+        { text: 'Segunda parte.', pauseAfterMs: 1000 },
+      ];
+      mocks.synthesize
+        .mockResolvedValueOnce(output())
+        .mockRejectedValueOnce(new Error('offline'));
+      const hook = await ready();
+      act(() => hook.result.current.play(parts, true));
+      await waitFor(() => expect(hook.result.current.state.status).toBe('error'));
+      const changed = mutate ? parts : parts.map((part) => ({ ...part }));
+      changed[0].text = 'Un guion distinto.';
+      act(() => hook.result.current.play(changed, true));
+      await waitFor(() => expect(mocks.playAudio).toHaveBeenCalledTimes(1));
+      expect(mocks.synthesize.mock.calls.map((call) => call[0])).toEqual([
+        'Primera parte.',
+        'Segunda parte.',
+        'Un guion distinto.',
+        'Segunda parte.',
+      ]);
+    },
+  );
+  it('retains successful parts on cancellation but ignores the late pending response', async () => {
+    const parts = [
+      { text: 'Primera parte.', pauseAfterMs: 1000 },
+      { text: 'Segunda parte.', pauseAfterMs: 1000 },
+    ];
+    let finish!: (value: ReturnType<typeof output>) => void;
+    mocks.synthesize.mockResolvedValueOnce(output()).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const hook = await ready();
+    act(() => hook.result.current.play(parts, true));
+    await waitFor(() => expect(mocks.synthesize).toHaveBeenCalledTimes(2));
+    const signal = mocks.synthesize.mock.calls[1][1].signal;
+    act(() => hook.result.current.stop());
+    expect(signal.aborted).toBe(true);
+    await act(async () => finish(output()));
+    expect(mocks.playAudio).not.toHaveBeenCalled();
+    act(() => hook.result.current.play(parts, true));
+    await waitFor(() => expect(mocks.playAudio).toHaveBeenCalledTimes(1));
+    expect(mocks.synthesize.mock.calls.map((call) => call[0])).toEqual([
+      parts[0].text,
+      parts[1].text,
+      parts[1].text,
+    ]);
+    expect(mocks.playAudio.mock.calls[0][0].segments).toHaveLength(2);
+  });
+  it('forgets partial audio when the session player is unmounted', async () => {
+    const parts = [
+      { text: 'Primera parte.', pauseAfterMs: 1000 },
+      { text: 'Segunda parte.', pauseAfterMs: 1000 },
+    ];
+    mocks.synthesize
+      .mockResolvedValueOnce(output())
+      .mockRejectedValueOnce(new Error('offline'));
+    const hook = await ready();
+    act(() => hook.result.current.play(parts, true));
+    await waitFor(() => expect(hook.result.current.state.status).toBe('error'));
+    hook.unmount();
+    const another = await ready();
+    act(() => another.result.current.play(parts, true));
+    await waitFor(() => expect(mocks.playAudio).toHaveBeenCalledTimes(1));
+    expect(mocks.synthesize.mock.calls.map((call) => call[0])).toEqual([
+      parts[0].text,
+      parts[1].text,
+      parts[0].text,
+      parts[1].text,
+    ]);
+  });
   it('does not send a script or audio without per-session consent', async () => {
     const hook = await ready();
     act(() => hook.result.current.play(items, false));
