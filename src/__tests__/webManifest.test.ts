@@ -105,7 +105,7 @@ describe('PWA install shell (manifest, no service worker)', () => {
     expect(html).toMatch(/name="apple-mobile-web-app-status-bar-style"/);
     expect(html).toMatch(/rel="manifest"[^>]*href="\/manifest\.webmanifest"/);
     expect(html).toMatch(/rel="icon"[^>]*href="\/icon\.svg"/);
-    expect(html).toMatch(/rel="apple-touch-icon"[^>]*href="\/icon\.svg"/);
+    expect(html).toMatch(/rel="apple-touch-icon"[^>]*href="\/apple-touch-icon\.png"/);
   });
 
   it('does not introduce a service worker that could cache diario, perfil, guion or audio', () => {
@@ -120,9 +120,14 @@ describe('PWA install shell (manifest, no service worker)', () => {
   });
 });
 
+const socialImageModules = import.meta.glob(
+  ['../../public/og-image.png', '../../public/apple-touch-icon.png'],
+  { query: '?url', import: 'default', eager: true },
+);
+
 describe('SEO social metadata and skip-to-content a11y', () => {
   const SITE_URL = 'https://leo8190.github.io/pausa-mia/';
-  const IMAGE_URL = 'https://leo8190.github.io/pausa-mia/icon.svg';
+  const IMAGE_URL = 'https://leo8190.github.io/pausa-mia/og-image.png';
   const EXPECTED_TITLE = 'Pausa Mía · Meditación a Medida';
   const EXPECTED_DESC_SNIPPET = 'meditación guiada en español';
 
@@ -142,10 +147,18 @@ describe('SEO social metadata and skip-to-content a11y', () => {
     expect(html).toContain(`property="og:image"`);
     expect(html).toContain(IMAGE_URL);
 
-    expect(html).toContain('name="twitter:card" content="summary"');
+    expect(html).toContain('name="twitter:card" content="summary_large_image"');
+    expect(html).toContain('property="og:image:width" content="1200"');
+    expect(html).toContain('property="og:image:height" content="630"');
+    expect(html).not.toMatch(/(og|twitter):image"\s+content="[^"]*\.svg"/);
     expect(html).toContain(`name="twitter:title" content="${EXPECTED_TITLE}"`);
     expect(html).toContain('name="twitter:description"');
     expect(html).toContain('name="twitter:image"');
+
+    // Banner de Safari en iPhone hacia la app publicada en App Store
+    expect(html).toContain('name="apple-itunes-app" content="app-id=6822142606"');
+    expect(html).toContain('rel="apple-touch-icon" href="/apple-touch-icon.png"');
+    expect(Object.keys(socialImageModules)).toHaveLength(2);
 
     // No invented competitor claims or fake stats in social copy
     expect(html.toLowerCase()).not.toMatch(
