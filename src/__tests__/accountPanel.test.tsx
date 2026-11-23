@@ -1,4 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AccountPanel } from '../components/AccountPanel';
 import { clearGuestProgress, saveGuestProgress } from '../lib/guestProgressStorage';
@@ -9,6 +16,49 @@ function jsonResponse(body: unknown, ok = true) {
 }
 
 describe('AccountPanel', () => {
+  it('keeps the new identifier visible when a slow initial guest response arrives after signup', async () => {
+    let finishStatus!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+    const pending = new Promise((resolve) => {
+      finishStatus = resolve;
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/account/status')) return pending;
+      if (url.endsWith('/api/connectors/providers'))
+        return jsonResponse({ providers: [] });
+      expect(url).toContain('/api/account/register');
+      return jsonResponse({
+        user: {
+          id: 'usr-new-test',
+          displayName: null,
+          locale: 'es-AR',
+          status: 'active',
+        },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<AccountPanel locale="es-AR" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Crear mi cuenta' }));
+    fireEvent.change(screen.getByLabelText('Clave de acceso'), {
+      target: { value: 'solo-prueba-123' },
+    });
+    const form = screen.getByLabelText('Clave de acceso').closest('form')!;
+    fireEvent.click(within(form).getByRole('button', { name: 'Crear cuenta' }));
+    await screen.findByText('usr-new-test');
+    await act(async () =>
+      finishStatus({
+        ok: true,
+        json: async () => ({ authenticated: false, mode: 'guest' }),
+      }),
+    );
+    expect(screen.getByText('usr-new-test')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Clave de acceso')).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).endsWith('/api/account/register'),
+      ),
+    ).toHaveLength(1);
+  });
   it.each(['panel', 'formulario'])(
     'vuelve a abrir el registro después de cerrar el %s',
     async (closedPart) => {

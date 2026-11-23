@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildAccountApiUrl } from '../lib/accountApiUrl';
 
 export type AccountUser = {
@@ -68,30 +68,39 @@ export function useAccount(apiBaseUrl?: string, requireDeletionIdentityGuard = f
     user: null,
     error: null,
   });
-
-  const refresh = useCallback(async () => {
-    try {
-      const body = await requestAccount(
-        '/api/account/status',
-        { method: 'GET' },
-        apiBaseUrl,
-      );
-      setState({
-        phase: body.user ? 'account' : 'guest',
-        user: body.user ?? null,
-        error: null,
-        deletionIdentityGuardAvailable:
-          body.accountDeletionGuard === 'expected-user-id',
-      });
-    } catch {
-      // El prototipo sigue funcionando como invitado si todavía no hay backend público.
-      setState({ phase: 'unavailable', user: null, error: null });
-    }
-  }, [apiBaseUrl]);
+  const identityRevision = useRef(0);
 
   useEffect(() => {
+    let active = true;
+    const revision = identityRevision.current;
+    // A status read cannot undo an account action completed after it began.
+    const isCurrent = () => active && revision === identityRevision.current;
+    async function refresh() {
+      try {
+        const body = await requestAccount(
+          '/api/account/status',
+          { method: 'GET' },
+          apiBaseUrl,
+        );
+        if (!isCurrent()) return;
+        setState({
+          phase: body.user ? 'account' : 'guest',
+          user: body.user ?? null,
+          error: null,
+          deletionIdentityGuardAvailable:
+            body.accountDeletionGuard === 'expected-user-id',
+        });
+      } catch {
+        if (isCurrent()) {
+          setState({ phase: 'unavailable', user: null, error: null });
+        }
+      }
+    }
     void refresh();
-  }, [refresh]);
+    return () => {
+      active = false;
+    };
+  }, [apiBaseUrl]);
 
   const register = useCallback(
     async (displayName: string, loginSecret: string, locale: string) => {
@@ -104,6 +113,7 @@ export function useAccount(apiBaseUrl?: string, requireDeletionIdentityGuard = f
           },
           apiBaseUrl,
         );
+        identityRevision.current += 1;
         setState({
           phase: 'account',
           user: body.user ?? null,
@@ -131,6 +141,7 @@ export function useAccount(apiBaseUrl?: string, requireDeletionIdentityGuard = f
           },
           apiBaseUrl,
         );
+        identityRevision.current += 1;
         setState({
           phase: 'account',
           user: body.user ?? null,
@@ -150,6 +161,7 @@ export function useAccount(apiBaseUrl?: string, requireDeletionIdentityGuard = f
   const logout = useCallback(async () => {
     try {
       await requestAccount('/api/account/logout', { method: 'POST' }, apiBaseUrl);
+      identityRevision.current += 1;
       setState({ phase: 'guest', user: null, error: null });
       return true;
     } catch (error) {
@@ -174,6 +186,7 @@ export function useAccount(apiBaseUrl?: string, requireDeletionIdentityGuard = f
         { method: 'DELETE', body: JSON.stringify({ expectedUserId: state.user.id }) },
         apiBaseUrl,
       );
+      identityRevision.current += 1;
       setState({
         phase: 'guest',
         user: null,
