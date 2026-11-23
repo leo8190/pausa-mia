@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { FeedbackStep } from '../components/FeedbackStep';
 import type { SessionApi } from '../hooks/useSession';
 import { createInitialSession } from '../lib/session';
 import { resetVisitorPingForTests } from '../lib/visitorPing';
 import { productFunnel } from '../lib/productFunnel';
-import {
-  clearGuestProgress,
-  saveGuestProgress,
-} from '../lib/guestProgressStorage';
+import { clearGuestProgress, saveGuestProgress } from '../lib/guestProgressStorage';
 import { clearSoftAccountNudge } from '../lib/softAccountNudgeStorage';
 
 function jsonResponse(body: unknown, ok = true) {
@@ -154,6 +151,62 @@ describe('FeedbackStep repeat choice', () => {
 });
 
 describe('FeedbackStep soft account nudge', () => {
+  it('keeps the new account identifier visible until the guest chooses Listo', async () => {
+    saveGuestProgress({
+      duration: 3,
+      voiceVariant: 'es-neutro',
+      intention: '',
+      style: '',
+      moment: '',
+      experience: '',
+      step: 'feedback',
+      meditationCompleted: true,
+      meditationCount: 1,
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/api/account/status'))
+          return jsonResponse({ authenticated: false });
+        if (url.endsWith('/api/connectors/providers'))
+          return jsonResponse({ providers: [] });
+        expect(url).toContain('/api/account/register');
+        return jsonResponse({
+          user: {
+            id: 'usr-cierre-test',
+            displayName: null,
+            locale: 'es-AR',
+            status: 'active',
+          },
+        });
+      }),
+    );
+    const view = render(<FeedbackHarness />);
+    fireEvent.click(await screen.findByRole('button', { name: /^crear cuenta$/i }));
+    const secret = await screen.findByLabelText('Clave de acceso');
+    fireEvent.change(secret, { target: { value: 'solo-prueba-123' } });
+    fireEvent.click(
+      within(secret.closest('form')!).getByRole('button', { name: 'Crear cuenta' }),
+    );
+    expect(await screen.findByText('usr-cierre-test')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/guardar esta pausa en una cuenta/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nueva sesión' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Sí' }));
+    expect(screen.getByText('usr-cierre-test')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Listo' }));
+    expect(screen.queryByText('usr-cierre-test')).not.toBeInTheDocument();
+    view.unmount();
+    render(<FeedbackHarness />);
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/guardar esta pausa en una cuenta/i),
+      ).not.toBeInTheDocument(),
+    );
+  });
   beforeEach(() => {
     clearGuestProgress();
     clearSoftAccountNudge();
@@ -199,13 +252,9 @@ describe('FeedbackStep soft account nudge', () => {
     expect(
       await screen.findByText(/guardar esta pausa en una cuenta/i),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /^crear cuenta$/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^crear cuenta$/i })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^más tarde$/i }));
-    expect(
-      screen.queryByText(/guardar esta pausa en una cuenta/i),
-    ).toBeNull();
+    expect(screen.queryByText(/guardar esta pausa en una cuenta/i)).toBeNull();
 
     unmount();
     render(<FeedbackHarness />);
@@ -237,7 +286,9 @@ describe('FeedbackStep soft account nudge', () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /^crear cuenta$/i }));
     expect(await screen.findByText(/cuenta \(opcional\)/i)).toBeInTheDocument();
-    const panels = document.querySelectorAll('.soft-account-nudge-panel .account-panel');
+    const panels = document.querySelectorAll(
+      '.soft-account-nudge-panel .account-panel',
+    );
     expect(panels.length).toBeGreaterThan(0);
     expect(panels[0]).toHaveAttribute('open');
   });
